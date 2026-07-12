@@ -1,0 +1,21 @@
+{
+  "name": "note_biji",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node node_modules/vite/dist/node/cli.js",
+    "build": "node node_modules/vite/dist/node/cli.js build",
+    "preview": "node node_modules/vite/dist/node/cli.js preview"
+  },
+  "dependencies": {
+    "vue": "^3.4.21",
+    "vue-router": "^4.4.0",
+    "pinia": "^2.1.7",
+    "markdown-it": "^14.1.0",
+    "md-editor-v3": "^6.5.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.7",
+    "vite": "^8.1.3"
+  }
+}
