@@ -323,6 +323,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import MarkdownIt from 'markdown-it'
+import { loadNotesFromCloud } from '../services/supabase'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -408,23 +409,20 @@ const renderMarkdown = (content) => {
   }
 }
 
-const loadNotes = () => {
-  const stored = localStorage.getItem('notes')
-  if (stored) {
-    try {
-      const parsed = JSON.parse(stored)
-      notes.value = parsed.map(n => ({
+const loadNotes = async () => {
+  // 先从云端加载
+  try {
+    const cloudData = await loadNotesFromCloud()
+    if (cloudData && cloudData.length > 0) {
+      notes.value = cloudData.map(n => ({
         ...n,
         keyPoints: n.keyPoints || [],
         tags: n.tags || [],
         difficulty: n.difficulty || '中级',
         viewCount: n.viewCount || 0,
         usefulCount: n.usefulCount || 0,
-        // 迁移 examMapping
         examMapping: n.examMapping || { relatedProcesses: [], typicalQuestions: [], commonPitfalls: [] },
-        // 迁移 comparisonTable
         comparisonTable: n.comparisonTable || { enabled: false, title: '', cols: [], rows: [] },
-        // 迁移 memoryAids（兼容旧版对象结构）
         memoryAids: (() => {
           if (Array.isArray(n.memoryAids)) return n.memoryAids
           if (n.memoryAids && typeof n.memoryAids === 'object') {
@@ -438,9 +436,24 @@ const loadNotes = () => {
         })(),
         examScore: n.examScore != null ? Number(n.examScore) : 0
       }))
+      localStorage.setItem('notes', JSON.stringify(notes.value))
+      console.log('✅ 从云端加载了', cloudData.length, '条笔记')
+      return
+    }
+  } catch (e) {
+    console.warn('云端加载失败，使用本地数据:', e)
+  }
+  
+  // 云端失败，使用本地
+  const stored = localStorage.getItem('notes')
+  if (stored) {
+    try {
+      notes.value = JSON.parse(stored)
     } catch (e) {
       notes.value = []
     }
+  } else {
+    notes.value = []
   }
 }
 
@@ -465,8 +478,11 @@ const logout = () => {
   router.push('/login')
 }
 
-onMounted(() => {
-  loadNotes()
+onMounted(async () => {
+  if (authStore.user?.role !== 'viewer') {
+    router.push('/admin')
+  }
+  await loadNotes()
 })
 </script>
 

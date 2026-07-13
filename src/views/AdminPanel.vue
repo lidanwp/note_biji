@@ -457,6 +457,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { MdEditor } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
+import { loadNotesFromCloud, saveNoteToCloud, saveNotesToCloud, deleteNoteFromCloud } from '../services/supabase'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -710,16 +711,33 @@ const getDraftTime = () => {
 }
 
 // ===== 方法 =====
-const loadNotes = () => {
+const loadNotes = async () => {
+  // 先从云端加载
+  try {
+    const cloudData = await loadNotesFromCloud()
+    if (cloudData && cloudData.length > 0) {
+      notes.value = cloudData.map(migrateNote)
+      // 同步到本地作为备份
+      localStorage.setItem('notes', JSON.stringify(notes.value))
+      console.log('✅ 从云端加载了', cloudData.length, '条笔记')
+      return
+    }
+  } catch (e) {
+    console.warn('⚠️ 云端加载失败，尝试本地数据:', e.message)
+  }
+  
+  // 云端失败，使用本地数据
   const stored = localStorage.getItem('notes')
   if (stored) {
     try {
       const data = JSON.parse(stored)
       notes.value = data.map(migrateNote)
-      saveNotes()
+      console.log('📁 从本地加载了', notes.value.length, '条笔记')
     } catch (e) {
       notes.value = []
     }
+  } else {
+    notes.value = []
   }
 }
 
@@ -754,8 +772,17 @@ const migrateNote = (note) => {
   return note
 }
 
-const saveNotes = () => {
+const saveNotes = async () => {
+  // 1. 先保存到本地
   localStorage.setItem('notes', JSON.stringify(notes.value))
+  
+  // 2. 批量同步到云端
+  try {
+    await saveNotesToCloud(notes.value)
+    console.log('☁️ 成功同步到云端')
+  } catch (e) {
+    console.warn('⚠️ 云端同步失败，数据已保存在本地:', e.message)
+  }
 }
 
 const openAddModal = () => {
@@ -1078,10 +1105,11 @@ const saveNote = () => {
   alert('保存成功！')
 }
 
-const deleteNote = (id) => {
+const deleteNote = async (id) => {
   if (confirm('确定要删除这条笔记吗？')) {
+    // 从本地删除
     notes.value = notes.value.filter(n => n.id !== id)
-    saveNotes()
+    await saveNotes() // 自动同步到云端
   }
 }
 
@@ -1133,11 +1161,11 @@ const logout = () => {
 }
 
 // ===== 生命周期 =====
-onMounted(() => {
+onMounted(async () => {
   if (authStore.user?.role !== 'admin') {
     router.push('/viewer')
   }
-  loadNotes()
+  await loadNotes()
 })
 </script>
 

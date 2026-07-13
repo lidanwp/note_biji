@@ -8,11 +8,12 @@
     "preview": "node node_modules/vite/dist/node/cli.js preview"
   },
   "dependencies": {
-    "vue": "^3.4.21",
-    "vue-router": "^4.4.0",
-    "pinia": "^2.1.7",
+    "@supabase/supabase-js": "^2.110.3",
     "markdown-it": "^14.1.0",
-    "md-editor-v3": "^6.5.3"
+    "md-editor-v3": "^6.5.3",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.21",
+    "vue-router": "^4.4.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.7",

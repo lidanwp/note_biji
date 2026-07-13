@@ -87,23 +87,27 @@ const showPassword = ref(false)
 const loading = ref(false)
 const error = ref('')
 
-const handleLogin = async () => {
+const handleLogin = () => {
   loading.value = true
   error.value = ''
 
-  const result = authStore.login(username.value, password.value)
+  try {
+    const result = authStore.login(username.value, password.value)
 
-  if (result.success) {
-    if (result.role === 'admin') {
-      router.push('/admin')
+    if (result.success) {
+      if (result.role === 'admin') {
+        router.push('/admin')
+      } else {
+        router.push('/viewer')
+      }
     } else {
-      router.push('/viewer')
+      error.value = result.message
     }
-  } else {
-    error.value = result.message
+  } catch (e) {
+    error.value = '登录过程中发生错误，请重试'
+  } finally {
+    loading.value = false
   }
-
-  loading.value = false
 }
 </script>
 
