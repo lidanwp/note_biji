@@ -617,7 +617,6 @@ const masteryDistribution = computed(() => {
 // ===== Markdown 渲染（用于预览） =====
 const renderMarkdown = (content) => {
   if (!content) return ''
-  // md-editor-v3 自带 Markdown 解析，直接返回内容即可
   // 如果是 HTML 格式（旧数据），直接显示
   if (content.includes('<p>') || content.includes('<div>')) {
     return content
@@ -1105,11 +1104,20 @@ const saveNote = () => {
   alert('保存成功！')
 }
 
+// ===== 删除笔记（修复：同时删除云端和本地） =====
 const deleteNote = async (id) => {
   if (confirm('确定要删除这条笔记吗？')) {
-    // 从本地删除
+    // 1. 从本地删除
     notes.value = notes.value.filter(n => n.id !== id)
-    await saveNotes() // 自动同步到云端
+    localStorage.setItem('notes', JSON.stringify(notes.value))
+    
+    // 2. 从云端删除
+    try {
+      await deleteNoteFromCloud(id)
+      console.log('☁️ 云端删除成功')
+    } catch (e) {
+      console.warn('⚠️ 云端删除失败，但本地已删除:', e.message)
+    }
   }
 }
 
