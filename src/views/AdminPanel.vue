@@ -1,201 +1,221 @@
 <template>
   <div class="admin-panel">
     <header>
-      <h1>📚 笔记管理</h1>
-      <div>
-        <span>👋 {{ authStore.user?.username }} (管理员)</span>
-        <button @click="logout" class="logout-btn">退出</button>
+      <div class="header-left">
+        <span class="app-logo">📚</span>
+        <span class="app-name">笔记管理</span>
+      </div>
+      <div class="header-right">
+        <div class="user-menu" ref="userMenuRef">
+          <button @click="toggleUserMenu" class="user-btn">
+            <span class="user-avatar">�</span>
+            <span class="user-name">{{ authStore.user?.username }}</span>
+            <span class="user-role">(管理员)</span>
+            <span class="menu-arrow">{{ showUserMenu ? '▲' : '▼' }}</span>
+          </button>
+          <div v-if="showUserMenu" class="dropdown-menu">
+            <button @click="importData" class="dropdown-item">
+              <span class="item-icon">⬇</span>
+              <span>导入数据</span>
+            </button>
+            <button @click="exportData" class="dropdown-item">
+              <span class="item-icon">⬆</span>
+              <span>导出数据</span>
+            </button>
+            <div class="dropdown-divider"></div>
+            <button @click="logout" class="dropdown-item danger">
+              <span class="item-icon">🚪</span>
+              <span>退出登录</span>
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 
     <!-- 统计栏 -->
     <div class="stats-bar">
-      <div class="stat-item">
-        <span class="stat-number">{{ notes.length }}</span>
-        <span class="stat-label">总笔记</span>
+      <div class="stat-badge">
+        <span class="badge-icon">📝</span>
+        <span class="badge-num">{{ notes.length }}</span>
+        <span class="badge-label">笔记</span>
       </div>
-      <div class="stat-item">
-        <span class="stat-number">{{ categories.length }}</span>
-        <span class="stat-label">分类</span>
+      <div class="stat-badge">
+        <span class="badge-icon">📂</span>
+        <span class="badge-num">{{ categories.length }}</span>
+        <span class="badge-label">分类</span>
       </div>
-      <div class="stat-item">
-        <span class="stat-number">{{ totalViews }}</span>
-        <span class="stat-label">总浏览</span>
-      </div>
-      <button @click="exportData" class="btn-export">📤 导出数据</button>
-      <button @click="importData" class="btn-import">📥 导入数据</button>
-    </div>
-
-    <!-- 考试模式切换 -->
-    <div class="exam-mode-bar">
-      <div class="exam-toggle">
-        <span>📖 学习模式</span>
-        <label class="switch">
-          <input type="checkbox" v-model="examMode">
-          <span class="slider"></span>
-        </label>
-        <span>🎯 考试模式</span>
-      </div>
-      
-      <div v-if="examMode" class="exam-stats">
-        <span>📊 掌握度：{{ avgMastery }}%</span>
-        <span>📌 考点笔记：{{ examNotesCount }}条</span>
+      <div class="stat-badge">
+        <span class="badge-icon">👁️</span>
+        <span class="badge-num">{{ totalViews }}</span>
+        <span class="badge-label">浏览</span>
       </div>
     </div>
 
-    <!-- 考点看板 -->
-    <div v-if="examMode" class="exam-dashboard">
-      <div class="dashboard-card">
-        <h4>🔥 高频考点 TOP5</h4>
-        <ul>
-          <li v-for="topic in hotTopics" :key="topic.name">
-            <span class="topic-name">{{ topic.name }}</span>
-            <span class="topic-count">{{ topic.count }}次</span>
-          </li>
-        </ul>
-      </div>
-      
-      <div class="dashboard-card">
-        <h4>📊 过程组分布</h4>
-        <div v-for="(count, group) in processGroupStats" :key="group" class="progress-bar">
-          <span>{{ group }}</span>
-          <div class="bar"><div :style="{ width: count + '%' }"></div></div>
-          <span class="bar-label">{{ count }}%</span>
-        </div>
-      </div>
-      
-      <div class="dashboard-card">
-        <h4>📈 掌握度分布</h4>
-        <div class="mastery-distribution">
-          <span>✅ 已掌握 (≥80%)</span>
-          <span>{{ masteryDistribution.high }}条</span>
-        </div>
-        <div class="mastery-distribution">
-          <span>📖 学习中 (40-79%)</span>
-          <span>{{ masteryDistribution.mid }}条</span>
-        </div>
-        <div class="mastery-distribution">
-          <span>🔴 待加强 (&lt;40%)</span>
-          <span>{{ masteryDistribution.low }}条</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="toolbar">
-      <button @click="openAddModal" class="btn-primary">+ 新建笔记</button>
+    <!-- 搜索栏 -->
+    <div class="search-bar">
       <input 
         type="text" 
         v-model="search" 
         placeholder="搜索笔记..."
         class="search-input"
       >
-      <select v-model="categoryFilter" class="filter-select">
-        <option value="">全部分类</option>
-        <option v-for="cat in categories" :key="cat" :value="cat">
-          {{ cat }}
-        </option>
-      </select>
+      <button @click="openAddModal" class="btn-primary">+ 新建笔记</button>
     </div>
 
-    <div class="note-list">
-      <div v-for="note in filteredNotes" :key="note.id" class="note-card">
-        <div class="note-badges">
-          <span v-if="note.difficulty" class="badge" :class="note.difficulty">
-            {{ note.difficulty }}
-          </span>
-          <span class="badge category">{{ note.category || '未分类' }}</span>
-          <span v-if="note.examScore != null" class="badge mastery-badge">
-            🎯 {{ note.examScore }}%
-          </span>
-        </div>
+    <!-- 筛选行 -->
+    <div class="filter-bar">
+      <CustomSelect v-model="categoryFilter" :options="categoryFilterOptions" placeholder="全部分类" class="filter-cs" />
+      <CustomSelect v-model="difficultyFilter" :options="difficultyFilterOptions" placeholder="全部难度" class="filter-cs" />
+      <div class="mode-switch">
+        <button 
+          @click="examMode = false" 
+          :class="{ active: !examMode }"
+          class="mode-btn"
+        >
+          📖 学习
+        </button>
+        <button 
+          @click="examMode = true" 
+          :class="{ active: examMode }"
+          class="mode-btn"
+        >
+          🎯 考试
+        </button>
+      </div>
+      <span v-if="examMode" class="mastery-indicator">
+        📊 掌握度：{{ avgMastery }}%
+      </span>
+    </div>
 
-        <div class="note-header">
-          <h3>{{ note.title }}</h3>
-          <div class="note-actions">
-            <button @click="editNote(note)" class="btn-edit" title="编辑">✏️</button>
-            <button @click="deleteNote(note.id)" class="btn-delete" title="删除">🗑️</button>
-          </div>
-        </div>
-
-        <!-- 核心要点预览 -->
-        <div v-if="note.keyPoints?.length" class="preview-keypoints">
-          <ul>
-            <li v-for="(p, i) in note.keyPoints.slice(0, 2)" :key="i">{{ p }}</li>
-            <li v-if="note.keyPoints.length > 2" class="more">+ {{ note.keyPoints.length - 2 }} 更多</li>
-          </ul>
-        </div>
-
-        <!-- 内容预览 - 支持 Markdown 渲染 -->
-        <div class="note-content markdown-body" v-html="renderMarkdown(note.content)"></div>
-        
-        <div v-if="note.tags?.length" class="tags">
-          <span v-for="tag in note.tags" :key="tag" class="tag">#{{ tag }}</span>
-        </div>
-
-        <!-- ===== 考试视图 ===== -->
-        <div v-if="examMode && note.examMapping" class="exam-view">
-          <div v-if="note.examMapping.relatedProcesses?.length" class="exam-process">
-            <span class="process-label">📋 关联：</span>
-            <span class="process-tag" v-for="p in note.examMapping.relatedProcesses" :key="p">
-              {{ p }}
-            </span>
-          </div>
-          
-          <div v-if="note.examMapping.typicalQuestions?.length" class="exam-section">
-            <span class="section-label">📝 典型考法：</span>
-            <ul>
-              <li v-for="q in note.examMapping.typicalQuestions" :key="q">{{ q }}</li>
-            </ul>
-          </div>
-          
-          <div v-if="note.examMapping.commonPitfalls?.length" class="exam-section pitfall">
-            <span class="section-label">⚠️ 常见陷阱：</span>
-            <ul>
-              <li v-for="p in note.examMapping.commonPitfalls" :key="p">{{ p }}</li>
-            </ul>
-          </div>
-          
-          <div v-if="note.comparisonTable?.enabled" class="comparison-box">
-            <h4>📊 {{ note.comparisonTable.title || '易混对比' }}</h4>
-            <table>
-              <thead>
-                <tr>
-                  <th>对比项</th>
-                  <th v-for="col in note.comparisonTable.cols" :key="col">{{ col }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in note.comparisonTable.rows" :key="row.label">
-                  <td><strong>{{ row.label }}</strong></td>
-                  <td v-for="col in note.comparisonTable.cols" :key="col">{{ row.values[col] || '-' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          
-          <div v-if="note.memoryAids?.length" class="memory-box">
-            <div v-for="(item, index) in note.memoryAids" :key="index" class="memory-item">
-              {{ item }}
+    <div class="main-content">
+      <div class="note-grid">
+        <div v-for="note in filteredNotes" :key="note.id" class="note-card" @click="editNote(note)">
+          <div class="card-header">
+            <div class="card-top-left">
+              <span v-if="note.difficulty" class="difficulty-badge" :class="note.difficulty">
+                {{ note.difficulty }}
+              </span>
+            </div>
+            <div class="card-top-right">
+              <span v-if="note.examScore != null" class="progress-badge">
+                📊 {{ note.examScore }}%
+              </span>
             </div>
           </div>
-          
-          <div v-if="note.examScore != null" class="mastery-bar">
-            <span>掌握度</span>
-            <div class="bar"><div :style="{ width: note.examScore + '%' }"></div></div>
-            <span class="score">{{ note.examScore }}%</span>
+
+          <div class="card-body">
+            <h3 class="card-title">{{ note.title }}</h3>
+            <p class="card-summary">{{ note.content ? stripHtml(note.content).slice(0, 100) + (note.content.length > 100 ? '...' : '') : '暂无内容' }}</p>
+            
+            <div v-if="note.tags?.length" class="card-tags">
+              <span v-for="tag in note.tags.slice(0, 3)" :key="tag" class="tag">#{{ tag }}</span>
+              <span v-if="note.tags.length > 3" class="tag more-tag">+{{ note.tags.length - 3 }}</span>
+            </div>
+          </div>
+
+          <div class="card-footer">
+            <span class="category-tag">{{ note.category || '未分类' }}</span>
+            <div class="card-footer-right">
+              <span class="card-date">📅 {{ note.date }}</span>
+              <span class="view-link">查看全文 →</span>
+            </div>
+          </div>
+
+          <div class="card-actions">
+            <button @click.stop="editNote(note)" class="btn-edit" title="编辑">✏️</button>
+            <button @click.stop="deleteNote(note.id)" class="btn-delete" title="删除">🗑️</button>
+          </div>
+
+          <div v-if="examMode && note.examMapping" class="card-exam-details">
+            <div v-if="note.examMapping.relatedProcesses?.length" class="exam-process">
+              <span class="process-label">📋 关联：</span>
+              <span class="process-tag" v-for="p in note.examMapping.relatedProcesses" :key="p">
+                {{ p }}
+              </span>
+            </div>
+            
+            <div v-if="note.examMapping.typicalQuestions?.length" class="exam-section">
+              <span class="section-label">📝 典型考法：</span>
+              <ul>
+                <li v-for="q in note.examMapping.typicalQuestions" :key="q">{{ q }}</li>
+              </ul>
+            </div>
+            
+            <div v-if="note.examMapping.commonPitfalls?.length" class="exam-section pitfall">
+              <span class="section-label">⚠️ 常见陷阱：</span>
+              <ul>
+                <li v-for="p in note.examMapping.commonPitfalls" :key="p">{{ p }}</li>
+              </ul>
+            </div>
+            
+            <div v-if="note.comparisonTable?.enabled" class="comparison-box">
+              <h4>📊 {{ note.comparisonTable.title || '易混对比' }}</h4>
+              <table>
+                <thead>
+                  <tr>
+                    <th>对比项</th>
+                    <th v-for="col in note.comparisonTable.cols" :key="col">{{ col }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in note.comparisonTable.rows" :key="row.label">
+                    <td><strong>{{ row.label }}</strong></td>
+                    <td v-for="col in note.comparisonTable.cols" :key="col">{{ row.values[col] || '-' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <div v-if="note.memoryAids?.length" class="memory-box">
+              <div v-for="(item, index) in note.memoryAids" :key="index" class="memory-item">
+                {{ item }}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="note-meta">
-          <span>📅 {{ note.date }}</span>
-          <span>👁️ {{ note.viewCount || 0 }}</span>
-          <span>👍 {{ note.usefulCount || 0 }}</span>
+        <div v-if="filteredNotes.length === 0" class="empty">
+          <p>暂无笔记，点击「新建笔记」开始记录</p>
         </div>
       </div>
 
-      <div v-if="filteredNotes.length === 0" class="empty">
-        <p>暂无笔记，点击「新建笔记」开始记录</p>
-      </div>
+      <!-- 侧边面板 - 考试模式统计 -->
+      <aside v-if="examMode" class="side-panel">
+        <div class="panel-card">
+          <h4>🔥 高频考点 TOP5</h4>
+          <ul>
+            <li v-for="topic in hotTopics" :key="topic.name">
+              <span class="topic-name">{{ topic.name }}</span>
+              <span class="topic-count">{{ topic.count }}次</span>
+            </li>
+          </ul>
+        </div>
+        
+        <div class="panel-card">
+          <h4>📊 过程组分布</h4>
+          <div v-for="(count, group) in processGroupStats" :key="group" class="process-bar">
+            <span>{{ group }}</span>
+            <div class="bar-track"><div class="bar-fill" :style="{ width: count + '%' }"></div></div>
+            <span class="bar-label">{{ count }}%</span>
+          </div>
+        </div>
+        
+        <div class="panel-card">
+          <h4>📈 掌握度分布</h4>
+          <div class="mastery-item">
+            <span>✅ 已掌握 (≥80%)</span>
+            <span class="mastery-count">{{ masteryDistribution.high }}条</span>
+          </div>
+          <div class="mastery-item">
+            <span>📖 学习中 (40-79%)</span>
+            <span class="mastery-count">{{ masteryDistribution.mid }}条</span>
+          </div>
+          <div class="mastery-item">
+            <span>🔴 待加强 (&lt;40%)</span>
+            <span class="mastery-count">{{ masteryDistribution.low }}条</span>
+          </div>
+        </div>
+      </aside>
     </div>
 
     <!-- ===== 新建/编辑模态框 ===== -->
@@ -231,30 +251,11 @@
               </div>
               <div class="form-group flex-1">
                 <label>📂 分类 <span class="required">*</span></label>
-                <select v-model="form.category" @change="autoSaveDraft" class="form-select">
-                  <option value="">请选择分类</option>
-                  <optgroup label="项目管理">
-                    <option value="项目管理/启动阶段">启动阶段</option>
-                    <option value="项目管理/规划阶段">规划阶段</option>
-                    <option value="项目管理/执行监控">执行与监控</option>
-                    <option value="项目管理/收尾阶段">收尾阶段</option>
-                  </optgroup>
-                  <optgroup label="系统集成">
-                    <option value="系统集成/技术架构">技术架构</option>
-                    <option value="系统集成/集成方案">集成方案</option>
-                    <option value="系统集成/实施经验">实施经验</option>
-                    <option value="系统集成/运维保障">运维保障</option>
-                  </optgroup>
-                  <option value="其他">其他</option>
-                </select>
+                <CustomSelect v-model="form.category" :options="formCategoryOptions" placeholder="请选择分类" @change="autoSaveDraft" />
               </div>
               <div class="form-group flex-1">
                 <label>📊 难度</label>
-                <select v-model="form.difficulty" @change="autoSaveDraft" class="form-select">
-                  <option value="初级">🌱 初级</option>
-                  <option value="中级" selected>🔥 中级</option>
-                  <option value="高级">🚀 高级</option>
-                </select>
+                <CustomSelect v-model="form.difficulty" :options="formDifficultyOptions" placeholder="请选择难度" @change="autoSaveDraft" />
               </div>
             </div>
 
@@ -435,6 +436,7 @@ import { useAuthStore } from '../stores/auth'
 import { MdEditor } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 import { loadNotesFromCloud, saveNotesToCloud, deleteNoteFromCloud } from '../services/supabase'
+import CustomSelect from '../components/CustomSelect.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -444,10 +446,13 @@ const fileInput = ref(null)
 const notes = ref([])
 const search = ref('')
 const categoryFilter = ref('')
+const difficultyFilter = ref('')
 const showModal = ref(false)
 const isEditMode = ref(false)
 const examMode = ref(false)
 const activeTab = ref('basic')
+const showUserMenu = ref(false)
+const userMenuRef = ref(null)
 
 // ===== 草稿相关 =====
 const draftKey = ref('note_draft')
@@ -500,6 +505,49 @@ const form = reactive({
   examScore: 0
 })
 
+// ===== 下拉选项数据 =====
+const categoryFilterOptions = computed(() => [
+  { value: '', label: '全部分类' },
+  ...categories.value.map(c => ({ value: c, label: c }))
+])
+
+const difficultyFilterOptions = [
+  { value: '', label: '全部难度' },
+  { value: '初级', label: '🌱 初级' },
+  { value: '中级', label: '🔥 中级' },
+  { value: '高级', label: '🚀 高级' },
+]
+
+const formCategoryOptions = [
+  { value: '', label: '请选择分类' },
+  {
+    group: '项目管理',
+    items: [
+      { value: '项目管理/启动阶段', label: '启动阶段' },
+      { value: '项目管理/规划阶段', label: '规划阶段' },
+      { value: '项目管理/执行阶段', label: '执行阶段' },
+      { value: '项目管理/监控阶段', label: '监控阶段' },
+      { value: '项目管理/收尾阶段', label: '收尾阶段' },
+    ],
+  },
+  {
+    group: '系统集成',
+    items: [
+      { value: '系统集成/技术架构', label: '技术架构' },
+      { value: '系统集成/集成方案', label: '集成方案' },
+      { value: '系统集成/实施经验', label: '实施经验' },
+      { value: '系统集成/运维保障', label: '运维保障' },
+    ],
+  },
+  { value: '其他', label: '其他' },
+]
+
+const formDifficultyOptions = [
+  { value: '初级', label: '🌱 初级' },
+  { value: '中级', label: '🔥 中级' },
+  { value: '高级', label: '🚀 高级' },
+]
+
 // ===== 计算属性 =====
 const categories = computed(() => {
   const cats = new Set(notes.value.map(n => n.category).filter(Boolean))
@@ -519,9 +567,19 @@ const filteredNotes = computed(() => {
     
     const matchCategory = !categoryFilter.value || n.category === categoryFilter.value
     
-    return matchSearch && matchCategory
+    const matchDifficulty = !difficultyFilter.value || n.difficulty === difficultyFilter.value
+    
+    return matchSearch && matchCategory && matchDifficulty
   })
 })
+
+const toggleUserMenu = () => {
+  showUserMenu.value = !showUserMenu.value
+}
+
+const closeUserMenu = () => {
+  showUserMenu.value = false
+}
 
 // ===== 考试模式计算属性 =====
 const avgMastery = computed(() => {
@@ -581,6 +639,13 @@ const renderMarkdown = (content) => {
     return content
   }
   return content
+}
+
+const stripHtml = (content) => {
+  if (!content) return ''
+  const tmp = document.createElement('div')
+  tmp.innerHTML = content
+  return tmp.textContent || tmp.innerText || ''
 }
 
 // ===== 草稿自动保存 =====
@@ -1048,7 +1113,7 @@ const deleteNote = async (id) => {
 }
 
 const exportData = () => {
-  const data = JSON.stringify(notes.value, null, 2)
+  const data = JSON.stringify(filteredNotes.value, null, 2)
   const blob = new Blob([data], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -1107,7 +1172,7 @@ onMounted(async () => {
 .admin-panel {
   min-height: 100vh;
   background: #f5f7fa;
-  padding: 24px;
+  padding: 16px;
 }
 
 header {
@@ -1115,200 +1180,216 @@ header {
   justify-content: space-between;
   align-items: center;
   background: white;
-  padding: 16px 24px;
+  padding: 12px 16px;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  margin-bottom: 20px;
+  margin-bottom: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
-header h1 { font-size: 24px; color: #333; }
-header div { display: flex; align-items: center; gap: 16px; }
-
-.logout-btn {
-  padding: 8px 20px;
-  background: #e74c3c;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-.logout-btn:hover { background: #c0392b; }
-
-.stats-bar {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-
-.stat-item {
-  background: white;
-  padding: 12px 20px;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+.header-left {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.stat-number {
-  font-size: 22px;
+.app-logo {
+  font-size: 20px;
+}
+
+.app-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.header-right {
+  position: relative;
+}
+
+.user-menu {
+  position: relative;
+}
+
+.user-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #555;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.user-btn:hover {
+  background: #f5f7fa;
+}
+
+.user-avatar {
+  font-size: 16px;
+}
+
+.user-name {
+  font-weight: 500;
+}
+
+.user-role {
+  color: #999;
+  font-size: 12px;
+}
+
+.menu-arrow {
+  font-size: 10px;
+  color: #999;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  padding: 6px 0;
+  min-width: 160px;
+  z-index: 200;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #333;
+  text-align: left;
+  transition: background 0.2s;
+}
+
+.dropdown-item:hover {
+  background: #f5f7fa;
+}
+
+.dropdown-item.danger {
+  color: #e74c3c;
+}
+
+.item-icon {
+  font-size: 14px;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: #eee;
+  margin: 6px 0;
+}
+
+.stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.stat-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.badge-icon {
+  font-size: 14px;
+}
+
+.badge-num {
+  font-size: 16px;
   font-weight: 700;
   color: #667eea;
 }
 
-.stat-label {
-  font-size: 13px;
+.badge-label {
+  font-size: 12px;
   color: #999;
 }
 
-.btn-export, .btn-import {
-  padding: 10px 20px;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  font-weight: 500;
-  font-size: 14px;
-}
-
-.btn-export {
-  background: #28a745;
-  color: white;
-}
-.btn-export:hover { background: #218838; }
-
-.btn-import {
-  background: #17a2b8;
-  color: white;
-}
-.btn-import:hover { background: #138496; }
-
-.exam-mode-bar {
+.search-bar {
   display: flex;
-  align-items: center;
-  gap: 24px;
-  background: white;
-  padding: 12px 20px;
-  border-radius: 12px;
+  gap: 10px;
   margin-bottom: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  flex-wrap: wrap;
 }
 
-.exam-toggle {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 14px;
-  color: #555;
-}
-
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 48px;
-  height: 26px;
-}
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: #ccc;
-  border-radius: 26px;
-  transition: 0.3s;
-}
-.slider:before {
-  content: "";
-  position: absolute;
-  height: 20px; width: 20px;
-  left: 3px; bottom: 3px;
-  background: white;
-  border-radius: 50%;
-  transition: 0.3s;
-}
-.switch input:checked + .slider { background: #667eea; }
-.switch input:checked + .slider:before { transform: translateX(22px); }
-
-.exam-stats {
-  display: flex;
-  gap: 16px;
-  font-size: 14px;
-  color: #555;
-}
-.exam-stats span { background: #f0f2ff; padding: 4px 12px; border-radius: 12px; }
-
-.exam-dashboard {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.dashboard-card {
-  background: white;
-  padding: 14px 18px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-}
-.dashboard-card h4 { margin: 0 0 10px 0; font-size: 14px; }
-.dashboard-card ul { padding: 0; list-style: none; margin: 0; }
-.dashboard-card li {
-  display: flex;
-  justify-content: space-between;
-  padding: 3px 0;
-  font-size: 14px;
-  border-bottom: 1px solid #f5f7fa;
-}
-.dashboard-card li:last-child { border-bottom: none; }
-.topic-count {
-  background: #667eea20;
-  padding: 0 10px;
-  border-radius: 10px;
-  font-size: 12px;
-  color: #667eea;
-}
-
-.progress-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 3px 0;
-  font-size: 13px;
-}
-.progress-bar .bar {
+.search-bar .search-input {
   flex: 1;
-  height: 6px;
-  background: #eee;
-  border-radius: 3px;
-  overflow: hidden;
-}
-.progress-bar .bar div {
-  height: 100%;
-  background: linear-gradient(90deg, #667eea, #764ba2);
-  border-radius: 3px;
-}
-.progress-bar .bar-label { font-size: 12px; color: #999; min-width: 32px; }
-
-.mastery-distribution {
-  display: flex;
-  justify-content: space-between;
-  padding: 4px 0;
+  padding: 10px 14px;
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
   font-size: 14px;
-  border-bottom: 1px solid #f5f7fa;
 }
-.mastery-distribution:last-child { border-bottom: none; }
 
-.toolbar {
+.search-bar .search-input:focus {
+  border-color: #667eea;
+  outline: none;
+}
+
+.filter-bar {
   display: flex;
-  gap: 12px;
-  margin-bottom: 24px;
+  align-items: center;
+  gap: 10px;
+  background: white;
+  padding: 10px 14px;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  margin-bottom: 16px;
   flex-wrap: wrap;
+}
+
+.filter-bar .filter-cs {
+  min-width: 120px;
+  flex: 0 0 auto;
+}
+
+.mode-switch {
+  display: flex;
+  background: #f5f7fa;
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.mode-btn {
+  padding: 6px 14px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: #666;
+  transition: all 0.2s;
+}
+
+.mode-btn.active {
+  background: white;
+  color: #667eea;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .btn-primary {
-  padding: 10px 24px;
+  padding: 10px 20px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border: none;
@@ -1316,204 +1397,241 @@ header div { display: flex; align-items: center; gap: 16px; }
   cursor: pointer;
   font-weight: 500;
   white-space: nowrap;
+  font-size: 14px;
 }
 .btn-primary:hover { opacity: 0.9; }
 
-.search-input {
-  padding: 10px 16px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  flex: 1;
-  min-width: 200px;
-}
-.search-input:focus {
-  border-color: #667eea;
-  outline: none;
+.main-content {
+  display: block;
 }
 
-.filter-select {
-  padding: 10px 16px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  background: white;
-  min-width: 140px;
-}
-
-.note-list {
+.note-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 20px;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+.side-panel {
+  display: none;
+}
+
+.panel-card {
+  background: white;
+  padding: 16px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+
+.panel-card h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.panel-card ul {
+  padding: 0;
+  list-style: none;
+  margin: 0;
+}
+
+.panel-card li {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 13px;
+  border-bottom: 1px solid #f5f7fa;
+}
+
+.panel-card li:last-child { border-bottom: none; }
+
+.process-bar .bar-track {
+  flex: 1;
+  height: 6px;
+  background: #eee;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.process-bar .bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 3px;
+}
+
+.process-bar .bar-label {
+  font-size: 12px;
+  color: #999;
+  min-width: 32px;
+}
+
+.mastery-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+  border-bottom: 1px solid #f5f7fa;
+}
+
+.mastery-item:last-child { border-bottom: none; }
+
+.mastery-count {
+  font-weight: 600;
+  color: #667eea;
 }
 
 .note-card {
   background: white;
-  padding: 20px;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  transition: transform 0.2s;
+  border-radius: 14px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  transition: all 0.25s ease;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
 }
 
-.note-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+.note-card:active {
+  transform: scale(0.98);
 }
 
-.note-badges {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
-}
-
-.badge {
-  padding: 2px 12px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
-}
-
-.badge.category {
-  background: #e8ecf1;
-  color: #666;
-}
-
-.badge.初级 { background: #d4edda; color: #155724; }
-.badge.中级 { background: #fff3cd; color: #856404; }
-.badge.高级 { background: #f8d7da; color: #721c24; }
-
-.badge.mastery-badge {
-  background: #e8ecf1;
-  color: #667eea;
-}
-
-.note-header {
+.card-header {
   display: flex;
   justify-content: space-between;
-  align-items: start;
-  margin-bottom: 8px;
+  align-items: center;
+  padding: 14px 16px;
 }
 
-.note-header h3 { 
-  margin: 0; 
+.card-top-left {
+  display: flex;
+  align-items: center;
+}
+
+.card-top-right {
+  display: flex;
+  align-items: center;
+}
+
+.difficulty-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.difficulty-badge.初级 { background: #d4edda; color: #155724; }
+.difficulty-badge.中级 { background: #fff3cd; color: #856404; }
+.difficulty-badge.高级 { background: #f8d7da; color: #721c24; }
+
+.progress-badge {
+  font-size: 13px;
+  font-weight: 600;
+  color: #667eea;
+  background: #f0f2ff;
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.card-body {
+  padding: 0 16px 14px;
+}
+
+.card-title {
+  margin: 0 0 8px 0;
   color: #333;
   font-size: 17px;
-  flex: 1;
+  font-weight: 600;
+  line-height: 1.4;
 }
 
-.note-actions { display: flex; gap: 4px; flex-shrink: 0; }
-
-.note-actions button {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px 6px;
-  border-radius: 4px;
-}
-.btn-edit:hover { background: #e3f2fd; }
-.btn-delete:hover { background: #fce4ec; }
-
-.preview-keypoints {
-  background: #f8f9fc;
-  border-left: 3px solid #667eea;
-  padding: 8px 12px;
-  margin-bottom: 10px;
-  border-radius: 4px;
-}
-
-.preview-keypoints ul {
-  margin: 0;
-  padding-left: 18px;
-  font-size: 13px;
-  color: #555;
-}
-
-.preview-keypoints li {
-  line-height: 1.6;
-}
-
-.preview-keypoints .more {
-  color: #667eea;
-  list-style: none;
-  font-weight: 500;
-}
-
-.note-content {
-  color: #333;
-  line-height: 1.8;
+.card-summary {
+  color: #666;
   font-size: 14px;
-  margin-bottom: 10px;
+  line-height: 1.6;
   display: -webkit-box;
-  -webkit-line-clamp: 5;
-  line-clamp: 5;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  margin: 0 0 10px 0;
 }
 
-.note-content :deep(h1),
-.note-content :deep(h2),
-.note-content :deep(h3) {
-  margin: 8px 0 4px 0;
-}
-.note-content :deep(p) { margin: 4px 0; }
-.note-content :deep(ul) { padding-left: 20px; margin: 4px 0; }
-.note-content :deep(li) { margin-bottom: 2px; }
-.note-content :deep(strong) { font-weight: 600; }
-.note-content :deep(pre) {
-  background: #f5f7fa;
-  border-radius: 6px;
-  padding: 10px;
-  overflow-x: auto;
-}
-.note-content :deep(code) {
-  background: #f5f7fa;
-  padding: 2px 6px;
-  border-radius: 4px;
-  font-size: 13px;
-}
-.note-content :deep(blockquote) {
-  border-left: 4px solid #667eea;
-  padding-left: 12px;
-  margin: 6px 0;
-  color: #666;
-}
-.note-content :deep(table) {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 13px;
-}
-.note-content :deep(th),
-.note-content :deep(td) {
-  border: 1px solid #e0e0e0;
-  padding: 4px 8px;
-  text-align: left;
-}
-.note-content :deep(th) {
-  background: #f0f2ff;
-}
-
-.tags {
+.card-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 10px;
+  gap: 6px;
 }
 
 .tag {
   font-size: 12px;
   color: #667eea;
   background: #eef0ff;
-  padding: 1px 10px;
+  padding: 2px 10px;
   border-radius: 12px;
 }
 
-.note-meta {
+.more-tag {
+  background: #f5f7fa;
+  color: #999;
+}
+
+.card-footer {
   display: flex;
-  gap: 16px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-top: 1px solid #f5f7fa;
+  background: #fafbfc;
+}
+
+.category-tag {
+  font-size: 12px;
+  color: #666;
+  background: #e8ecf1;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.card-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.card-date {
   font-size: 13px;
   color: #999;
-  padding-top: 12px;
-  border-top: 1px solid #eee;
+}
+
+.view-link {
+  font-size: 13px;
+  color: #667eea;
+  font-weight: 500;
+}
+
+.card-actions {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 4px;
+}
+
+.card-actions button {
+  background: rgba(255,255,255,0.9);
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 6px;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+.btn-edit:hover { background: #e3f2fd; }
+.btn-delete:hover { background: #fce4ec; }
+
+.card-exam-details {
+  padding: 12px 16px;
+  background: #f8f9fc;
+  border-top: 1px solid #e8ecf1;
 }
 
 .empty {
@@ -1521,14 +1639,6 @@ header div { display: flex; align-items: center; gap: 16px; }
   text-align: center;
   color: #999;
   padding: 60px 0;
-}
-
-.exam-view {
-  background: #f8f9fc;
-  border-radius: 8px;
-  padding: 12px 14px;
-  margin-top: 10px;
-  border: 1px solid #e8ecf1;
 }
 
 .process-label, .section-label {
@@ -1743,8 +1853,7 @@ header div { display: flex; align-items: center; gap: 16px; }
 .required { color: #e74c3c; }
 
 .form-group input,
-.form-group textarea,
-.form-select {
+.form-group textarea {
   width: 100%;
   padding: 10px 12px;
   border: 2px solid #e0e0e0;
@@ -1754,8 +1863,7 @@ header div { display: flex; align-items: center; gap: 16px; }
 }
 
 .form-group input:focus,
-.form-group textarea:focus,
-.form-select:focus {
+.form-group textarea:focus {
   border-color: #667eea;
   outline: none;
 }
@@ -2100,13 +2208,98 @@ header div { display: flex; align-items: center; gap: 16px; }
   min-width: 48px;
 }
 
-@media (max-width: 768px) {
+@media (min-width: 768px) and (max-width: 1023px) {
+  .admin-panel { padding: 16px; }
+  .note-grid {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+  }
+  .main-content {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .side-panel {
+    display: flex;
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .panel-card {
+    flex: 1;
+    min-width: 200px;
+  }
+  .header-right {
+    gap: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .admin-panel { padding: 24px; }
+  .note-grid {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 20px;
+  }
+  .main-content {
+    display: flex;
+    gap: 24px;
+  }
+  .side-panel {
+    display: flex;
+    width: 280px;
+    flex-shrink: 0;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .header-right {
+    gap: 20px;
+  }
+}
+
+@media (max-width: 767px) {
   .admin-panel { padding: 12px; }
+  .header-right {
+    gap: 12px;
+  }
+  .header-left .app-name {
+    font-size: 16px;
+  }
+  .stats-bar {
+    gap: 8px;
+  }
+  .stat-badge {
+    padding: 4px 10px;
+  }
+  .badge-num {
+    font-size: 14px;
+  }
+  .badge-label {
+    font-size: 11px;
+  }
+  .search-bar {
+    flex-direction: column;
+  }
+  .search-bar .search-input {
+    font-size: 14px;
+    padding: 10px 12px;
+    min-width: auto;
+  }
+  .filter-bar {
+    padding: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .filter-bar .filter-cs {
+    min-width: 100px;
+  }
+  .mode-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+  }
   .form-row { flex-direction: column; }
   .modal-body { padding: 16px; }
   .modal-header { padding: 16px; flex-wrap: wrap; }
   .modal-footer { padding: 12px 16px; flex-wrap: wrap; }
-  .exam-dashboard { grid-template-columns: 1fr; }
-  .note-list { grid-template-columns: 1fr; }
 }
 </style>
