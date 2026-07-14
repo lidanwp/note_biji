@@ -1,5 +1,7 @@
 // api/notes.js
 export default async function handler(req, res) {
+  console.log('SUPABASE_URL 是否存在:', !!process.env.SUPABASE_URL);
+  console.log('SUPABASE_ANON_KEY 是否存在:', !!process.env.SUPABASE_ANON_KEY);
   // 设置 CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
