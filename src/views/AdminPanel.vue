@@ -134,7 +134,6 @@
 
         <!-- ===== 考试视图 ===== -->
         <div v-if="examMode && note.examMapping" class="exam-view">
-          <!-- 过程组标签 -->
           <div v-if="note.examMapping.relatedProcesses?.length" class="exam-process">
             <span class="process-label">📋 关联：</span>
             <span class="process-tag" v-for="p in note.examMapping.relatedProcesses" :key="p">
@@ -142,7 +141,6 @@
             </span>
           </div>
           
-          <!-- 典型考法 -->
           <div v-if="note.examMapping.typicalQuestions?.length" class="exam-section">
             <span class="section-label">📝 典型考法：</span>
             <ul>
@@ -150,7 +148,6 @@
             </ul>
           </div>
           
-          <!-- 常见陷阱 -->
           <div v-if="note.examMapping.commonPitfalls?.length" class="exam-section pitfall">
             <span class="section-label">⚠️ 常见陷阱：</span>
             <ul>
@@ -158,7 +155,6 @@
             </ul>
           </div>
           
-          <!-- 易混对比表 -->
           <div v-if="note.comparisonTable?.enabled" class="comparison-box">
             <h4>📊 {{ note.comparisonTable.title || '易混对比' }}</h4>
             <table>
@@ -177,14 +173,12 @@
             </table>
           </div>
           
-          <!-- 记忆辅助 - 多行展示 -->
           <div v-if="note.memoryAids?.length" class="memory-box">
             <div v-for="(item, index) in note.memoryAids" :key="index" class="memory-item">
               {{ item }}
             </div>
           </div>
           
-          <!-- 掌握度 -->
           <div v-if="note.examScore != null" class="mastery-bar">
             <span>掌握度</span>
             <div class="bar"><div :style="{ width: note.examScore + '%' }"></div></div>
@@ -217,7 +211,6 @@
         </div>
 
         <div class="modal-body">
-          <!-- Tab 切换 -->
           <div class="tabs">
             <button 
               v-for="tab in tabs" 
@@ -231,7 +224,6 @@
 
           <!-- ===== Tab: 基础信息 ===== -->
           <div v-if="activeTab === 'basic'">
-            <!-- 基础信息 -->
             <div class="form-row">
               <div class="form-group flex-2">
                 <label>📌 标题 <span class="required">*</span></label>
@@ -266,7 +258,6 @@
               </div>
             </div>
 
-            <!-- 核心要点 -->
             <div class="form-group">
               <label>💡 核心要点 <span class="required">*</span></label>
               <div class="keypoints-editor">
@@ -283,19 +274,16 @@
               </div>
             </div>
 
-            <!-- 适用场景 -->
             <div class="form-group">
               <label>📌 适用场景</label>
               <input v-model="form.scenario" @input="autoSaveDraft" placeholder="什么时候用？解决什么问题？">
             </div>
 
-            <!-- 标签 -->
             <div class="form-group">
               <label>🏷️ 标签（逗号分隔）</label>
               <input v-model="form.tagsInput" @input="autoSaveDraft" placeholder="如：WBS, 范围管理, 工具方法">
             </div>
 
-            <!-- ===== Markdown 编辑器 ===== -->
             <div class="form-group">
               <label>📖 详细内容 <span class="required">*</span></label>
               <div class="editor-hint">支持 Markdown 语法，右侧可实时预览</div>
@@ -310,7 +298,6 @@
               />
             </div>
 
-            <!-- 实战案例 -->
             <div class="form-group">
               <label>💼 实战案例</label>
               <textarea 
@@ -322,7 +309,6 @@
               ></textarea>
             </div>
 
-            <!-- 附件 -->
             <div class="form-group">
               <label>📎 附件资源</label>
               <div class="attachment-list">
@@ -345,7 +331,6 @@
 
           <!-- ===== Tab: 考点专项 ===== -->
           <div v-if="activeTab === 'exam'" class="exam-tab">
-            <!-- 过程组映射 -->
             <div class="form-group">
               <label>📋 关联过程组</label>
               <div class="hint">选择该知识点所属的过程组（可多选）</div>
@@ -357,7 +342,6 @@
               </div>
             </div>
             
-            <!-- 典型考法 -->
             <div class="form-group">
               <label>📝 典型考法</label>
               <div class="hint">描述这个知识点在考试中通常怎么考</div>
@@ -368,7 +352,6 @@
               <button @click="addQuestion" class="btn-add-keypoint">+ 添加考法</button>
             </div>
             
-            <!-- 常见陷阱 -->
             <div class="form-group">
               <label>⚠️ 常见陷阱</label>
               <div class="hint">容易混淆或出错的概念点</div>
@@ -379,7 +362,6 @@
               <button @click="addPitfall" class="btn-add-keypoint">+ 添加陷阱</button>
             </div>
             
-            <!-- 易混对比表 -->
             <div class="form-group">
               <label>📊 易混对比</label>
               <div class="hint">用表格对比容易混淆的概念，考试最爱考</div>
@@ -387,7 +369,6 @@
               <div v-if="form.comparisonTable.enabled" class="comparison-editor">
                 <input v-model="form.comparisonTable.title" @input="autoSaveDraft" placeholder="对比标题，如：范围管理计划 vs 需求管理计划" class="comparison-title">
                 
-                <!-- 列名编辑 -->
                 <div class="cols-editor">
                   <span class="cols-label">列名：</span>
                   <div v-for="(col, i) in form.comparisonTable.cols" :key="i" class="col-input">
@@ -397,7 +378,6 @@
                   <button @click="addCol" class="btn-add-small">+ 添加列</button>
                 </div>
                 
-                <!-- 行编辑 -->
                 <div v-for="(row, i) in form.comparisonTable.rows" :key="i" class="comparison-row">
                   <input v-model="row.label" @input="autoSaveDraft" placeholder="对比项" class="row-label">
                   <div v-for="col in form.comparisonTable.cols" :key="col" class="col-value">
@@ -409,7 +389,6 @@
               </div>
             </div>
             
-            <!-- 记忆辅助 - 多行自由添加 -->
             <div class="form-group">
               <label>🧠 记忆辅助</label>
               <div class="hint">自由添加口诀、公式、思维导图等，帮助快速回忆</div>
@@ -427,7 +406,6 @@
               </div>
             </div>
             
-            <!-- 掌握度自评 -->
             <div class="form-group">
               <label>🎯 掌握度自评</label>
               <div class="hint">根据做题正确率自评，用于复习优先级参考</div>
@@ -446,7 +424,6 @@
       </div>
     </div>
 
-    <!-- 导入对话框 -->
     <input type="file" ref="fileInput" accept=".json" style="display:none" @change="handleImport">
   </div>
 </template>
@@ -457,7 +434,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { MdEditor } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
-import { loadNotesFromCloud, saveNoteToCloud, saveNotesToCloud, deleteNoteFromCloud } from '../services/supabase'
+import { loadNotesFromCloud, saveNotesToCloud, deleteNoteFromCloud } from '../services/supabase'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -486,27 +463,10 @@ const tabs = [
 const processGroups = ['启动过程组', '规划过程组', '执行过程组', '监控过程组', '收尾过程组']
 
 const toolbars = [
-  'bold',
-  'underline',
-  'italic',
-  'strikeThrough',
-  'title',
-  'sub',
-  'sup',
-  'quote',
-  'unorderedList',
-  'orderedList',
-  'task',
-  'codeRow',
-  'code',
-  'link',
-  'image',
-  'table',
-  'split',
-  'preview',
-  'htmlPreview',
-  'catalog',
-  'github'
+  'bold', 'underline', 'italic', 'strikeThrough', 'title',
+  'sub', 'sup', 'quote', 'unorderedList', 'orderedList',
+  'task', 'codeRow', 'code', 'link', 'image', 'table',
+  'split', 'preview', 'htmlPreview', 'catalog', 'github'
 ]
 
 const form = reactive({
@@ -617,11 +577,9 @@ const masteryDistribution = computed(() => {
 // ===== Markdown 渲染（用于预览） =====
 const renderMarkdown = (content) => {
   if (!content) return ''
-  // 如果是 HTML 格式（旧数据），直接显示
   if (content.includes('<p>') || content.includes('<div>')) {
     return content
   }
-  // Markdown 内容，md-editor 会自动解析
   return content
 }
 
@@ -711,45 +669,27 @@ const getDraftTime = () => {
 
 // ===== 方法 =====
 const loadNotes = async () => {
-  // 先从云端加载
   try {
     const cloudData = await loadNotesFromCloud()
     if (cloudData && cloudData.length > 0) {
       notes.value = cloudData.map(migrateNote)
-      // 同步到本地作为备份
-      localStorage.setItem('notes', JSON.stringify(notes.value))
       console.log('✅ 从云端加载了', cloudData.length, '条笔记')
-      return
-    }
-  } catch (e) {
-    console.warn('⚠️ 云端加载失败，尝试本地数据:', e.message)
-  }
-  
-  // 云端失败，使用本地数据
-  const stored = localStorage.getItem('notes')
-  if (stored) {
-    try {
-      const data = JSON.parse(stored)
-      notes.value = data.map(migrateNote)
-      console.log('📁 从本地加载了', notes.value.length, '条笔记')
-    } catch (e) {
+    } else {
       notes.value = []
     }
-  } else {
+  } catch (e) {
+    console.error('❌ 云端加载失败:', e.message)
     notes.value = []
   }
 }
 
 const migrateNote = (note) => {
-  // 迁移 examMapping
   if (!note.examMapping) {
     note.examMapping = { relatedProcesses: [], typicalQuestions: [], commonPitfalls: [] }
   }
-  // 迁移 comparisonTable
   if (!note.comparisonTable) {
     note.comparisonTable = { enabled: false, title: '', cols: [], rows: [] }
   }
-  // 迁移 memoryAids（旧版是对象，新版是数组）
   if (note.memoryAids && !Array.isArray(note.memoryAids)) {
     const old = note.memoryAids
     const newArray = []
@@ -761,7 +701,6 @@ const migrateNote = (note) => {
   if (!note.memoryAids || !Array.isArray(note.memoryAids)) {
     note.memoryAids = []
   }
-  // 迁移 examScore
   if (note.examScore != null && typeof note.examScore === 'string') {
     note.examScore = parseInt(note.examScore, 10) || 0
   }
@@ -772,15 +711,11 @@ const migrateNote = (note) => {
 }
 
 const saveNotes = async () => {
-  // 1. 先保存到本地
-  localStorage.setItem('notes', JSON.stringify(notes.value))
-  
-  // 2. 批量同步到云端
   try {
     await saveNotesToCloud(notes.value)
-    console.log('☁️ 成功同步到云端')
   } catch (e) {
-    console.warn('⚠️ 云端同步失败，数据已保存在本地:', e.message)
+    console.error('❌ 云端保存失败:', e.message)
+    throw e
   }
 }
 
@@ -848,7 +783,6 @@ const editNote = (note) => {
     noteData.examScore = 0
   }
   
-  // 逐个字段赋值
   form.id = noteData.id
   form.title = noteData.title || ''
   form.category = noteData.category || ''
@@ -1028,8 +962,7 @@ const removeMemoryAid = (index) => {
 }
 
 // ===== 保存笔记 =====
-const saveNote = () => {
-  // 验证
+const saveNote = async () => {
   if (!form.title.trim()) {
     alert('请输入标题')
     return
@@ -1047,16 +980,13 @@ const saveNote = () => {
     return
   }
 
-  // 处理标签
   const tags = form.tagsInput
     .split(',')
     .map(t => t.trim())
     .filter(Boolean)
 
-  // 过滤空的核心要点
   const keyPoints = form.keyPoints.filter(p => p.trim())
 
-  // 构建完整数据
   const noteData = {
     id: form.id || Date.now(),
     title: form.title.trim(),
@@ -1097,26 +1027,22 @@ const saveNote = () => {
     notes.value.push(noteData)
   }
 
-  saveNotes()
+  await saveNotes()
   clearDraft()
   closeModal()
   resetForm()
   alert('保存成功！')
 }
 
-// ===== 删除笔记（修复：同时删除云端和本地） =====
+// ===== 删除笔记 =====
 const deleteNote = async (id) => {
   if (confirm('确定要删除这条笔记吗？')) {
-    // 1. 从本地删除
     notes.value = notes.value.filter(n => n.id !== id)
-    localStorage.setItem('notes', JSON.stringify(notes.value))
-    
-    // 2. 从云端删除
     try {
       await deleteNoteFromCloud(id)
-      console.log('☁️ 云端删除成功')
     } catch (e) {
-      console.warn('⚠️ 云端删除失败，但本地已删除:', e.message)
+      console.error('❌ 云端删除失败:', e.message)
+      alert('删除失败，请重试')
     }
   }
 }
@@ -1141,7 +1067,7 @@ const handleImport = (event) => {
   if (!file) return
 
   const reader = new FileReader()
-  reader.onload = (e) => {
+  reader.onload = async (e) => {
     try {
       const data = JSON.parse(e.target.result)
       if (Array.isArray(data) && data.length) {
@@ -1150,7 +1076,7 @@ const handleImport = (event) => {
         } else {
           notes.value = [...notes.value, ...data.map(migrateNote)]
         }
-        saveNotes()
+        await saveNotes()
         alert('导入成功！')
       } else {
         alert('数据格式错误')
@@ -1184,7 +1110,6 @@ onMounted(async () => {
   padding: 24px;
 }
 
-/* ===== 头部 ===== */
 header {
   display: flex;
   justify-content: space-between;
@@ -1209,7 +1134,6 @@ header div { display: flex; align-items: center; gap: 16px; }
 }
 .logout-btn:hover { background: #c0392b; }
 
-/* ===== 统计栏 ===== */
 .stats-bar {
   display: flex;
   gap: 12px;
@@ -1260,7 +1184,6 @@ header div { display: flex; align-items: center; gap: 16px; }
 }
 .btn-import:hover { background: #138496; }
 
-/* ===== 考试模式切换 ===== */
 .exam-mode-bar {
   display: flex;
   align-items: center;
@@ -1316,7 +1239,6 @@ header div { display: flex; align-items: center; gap: 16px; }
 }
 .exam-stats span { background: #f0f2ff; padding: 4px 12px; border-radius: 12px; }
 
-/* ===== 考点看板 ===== */
 .exam-dashboard {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -1378,7 +1300,6 @@ header div { display: flex; align-items: center; gap: 16px; }
 }
 .mastery-distribution:last-child { border-bottom: none; }
 
-/* ===== 工具栏 ===== */
 .toolbar {
   display: flex;
   gap: 12px;
@@ -1418,7 +1339,6 @@ header div { display: flex; align-items: center; gap: 16px; }
   min-width: 140px;
 }
 
-/* ===== 笔记列表 ===== */
 .note-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -1518,7 +1438,6 @@ header div { display: flex; align-items: center; gap: 16px; }
   font-weight: 500;
 }
 
-/* Markdown 内容样式 */
 .note-content {
   color: #333;
   line-height: 1.8;
@@ -1527,7 +1446,6 @@ header div { display: flex; align-items: center; gap: 16px; }
   display: -webkit-box;
   -webkit-line-clamp: 5;
   line-clamp: 5;
-  background-clip: text;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -1605,7 +1523,6 @@ header div { display: flex; align-items: center; gap: 16px; }
   padding: 60px 0;
 }
 
-/* ===== 考试视图 ===== */
 .exam-view {
   background: #f8f9fc;
   border-radius: 8px;
@@ -1700,7 +1617,6 @@ header div { display: flex; align-items: center; gap: 16px; }
 }
 .mastery-bar .score { font-weight: 600; color: #667eea; }
 
-/* ===== 模态框 ===== */
 .modal-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
@@ -1784,7 +1700,6 @@ header div { display: flex; align-items: center; gap: 16px; }
   flex-shrink: 0;
 }
 
-/* ===== Tab ===== */
 .tabs {
   display: flex;
   gap: 4px;
@@ -1807,7 +1722,6 @@ header div { display: flex; align-items: center; gap: 16px; }
 }
 .tabs button:hover { color: #667eea; }
 
-/* ===== 表单 ===== */
 .form-row {
   display: flex;
   gap: 16px;
@@ -1855,7 +1769,6 @@ header div { display: flex; align-items: center; gap: 16px; }
   margin-bottom: 6px;
 }
 
-/* ===== Markdown 编辑器 ===== */
 .md-editor {
   border-radius: 8px;
   overflow: hidden;
@@ -1944,7 +1857,6 @@ header div { display: flex; align-items: center; gap: 16px; }
   background: #f0f2ff;
 }
 
-/* ===== 核心要点编辑器 ===== */
 .keypoints-editor {
   border: 2px solid #e0e0e0;
   border-radius: 8px;
@@ -1993,13 +1905,11 @@ header div { display: flex; align-items: center; gap: 16px; }
 }
 .btn-add-keypoint:hover { background: #d5d9e0; }
 
-/* ===== 实战案例 ===== */
 .case-editor {
   resize: vertical;
   font-family: inherit;
 }
 
-/* ===== 附件 ===== */
 .attachment-list {
   margin-bottom: 8px;
 }
@@ -2046,7 +1956,6 @@ header div { display: flex; align-items: center; gap: 16px; }
 }
 .btn-cancel:hover { background: #ddd; }
 
-/* ===== 考试专项表单 ===== */
 .exam-tab .hint {
   font-size: 12px;
   color: #999;
@@ -2148,7 +2057,6 @@ header div { display: flex; align-items: center; gap: 16px; }
   font-size: 13px;
 }
 
-/* ===== 记忆辅助编辑器 ===== */
 .memory-editor {
   border: 2px solid #e0e0e0;
   border-radius: 8px;
@@ -2192,7 +2100,6 @@ header div { display: flex; align-items: center; gap: 16px; }
   min-width: 48px;
 }
 
-/* ===== 响应式 ===== */
 @media (max-width: 768px) {
   .admin-panel { padding: 12px; }
   .form-row { flex-direction: column; }

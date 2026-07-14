@@ -323,19 +323,18 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import MarkdownIt from 'markdown-it'
-import { loadNotesFromCloud } from '../services/supabase'
+import { loadNotesFromCloud, updateViewCount, updateUsefulCount } from '../services/supabase'
 
 const router = useRouter()
 const authStore = useAuthStore()
 
-// 创建 markdown 实例
 const md = new MarkdownIt({
   html: true,
   linkify: true,
   typographer: true
 })
 
-// 数据
+// ===== 数据 =====
 const notes = ref([])
 const search = ref('')
 const categoryFilter = ref('')
@@ -343,7 +342,7 @@ const difficultyFilter = ref('')
 const selectedNote = ref(null)
 const examMode = ref(false)
 
-// 计算属性
+// ===== 计算属性 =====
 const categories = computed(() => {
   const cats = new Set(notes.value.map(n => n.category).filter(Boolean))
   return [...cats]
@@ -367,7 +366,6 @@ const filteredNotes = computed(() => {
   })
 })
 
-// ===== 考试模式计算属性 =====
 const hotTopics = computed(() => {
   const map = {}
   notes.value.forEach(n => {
@@ -398,11 +396,9 @@ const processGroupStats = computed(() => {
 const renderMarkdown = (content) => {
   if (!content) return '<p>暂无内容</p>'
   try {
-    // 如果是 HTML 格式（旧数据），直接返回
     if (content.includes('<p>') || content.includes('<div>') || content.includes('<h')) {
       return content
     }
-    // 否则作为 Markdown 渲染
     return md.render(content)
   } catch (e) {
     return content
@@ -410,67 +406,66 @@ const renderMarkdown = (content) => {
 }
 
 const loadNotes = async () => {
-  // 先从云端加载
   try {
     const cloudData = await loadNotesFromCloud()
-    if (cloudData && cloudData.length > 0) {
-      notes.value = cloudData.map(n => ({
-        ...n,
-        keyPoints: n.keyPoints || [],
-        tags: n.tags || [],
-        difficulty: n.difficulty || '中级',
-        viewCount: n.viewCount || 0,
-        usefulCount: n.usefulCount || 0,
-        examMapping: n.examMapping || { relatedProcesses: [], typicalQuestions: [], commonPitfalls: [] },
-        comparisonTable: n.comparisonTable || { enabled: false, title: '', cols: [], rows: [] },
-        memoryAids: (() => {
-          if (Array.isArray(n.memoryAids)) return n.memoryAids
-          if (n.memoryAids && typeof n.memoryAids === 'object') {
-            const arr = []
-            if (n.memoryAids.mnemonic) arr.push(`🧠 口诀：${n.memoryAids.mnemonic}`)
-            if (n.memoryAids.formula) arr.push(`📐 公式：${n.memoryAids.formula}`)
-            if (n.memoryAids.mindMap) arr.push(`🗺️ 脉络：${n.memoryAids.mindMap}`)
-            return arr
-          }
-          return []
-        })(),
-        examScore: n.examScore != null ? Number(n.examScore) : 0
-      }))
-      localStorage.setItem('notes', JSON.stringify(notes.value))
-      console.log('✅ 从云端加载了', cloudData.length, '条笔记')
-      return
-    }
+    notes.value = cloudData.map(n => ({
+      ...n,
+      keyPoints: n.keyPoints || [],
+      tags: n.tags || [],
+      difficulty: n.difficulty || '中级',
+      viewCount: n.viewCount || 0,
+      usefulCount: n.usefulCount || 0,
+      examMapping: n.examMapping || { relatedProcesses: [], typicalQuestions: [], commonPitfalls: [] },
+      comparisonTable: n.comparisonTable || { enabled: false, title: '', cols: [], rows: [] },
+      memoryAids: (() => {
+        if (Array.isArray(n.memoryAids)) return n.memoryAids
+        if (n.memoryAids && typeof n.memoryAids === 'object') {
+          const arr = []
+          if (n.memoryAids.mnemonic) arr.push(`🧠 口诀：${n.memoryAids.mnemonic}`)
+          if (n.memoryAids.formula) arr.push(`📐 公式：${n.memoryAids.formula}`)
+          if (n.memoryAids.mindMap) arr.push(`🗺️ 脉络：${n.memoryAids.mindMap}`)
+          return arr
+        }
+        return []
+      })(),
+      examScore: n.examScore != null ? Number(n.examScore) : 0
+    }))
   } catch (e) {
-    console.warn('云端加载失败，使用本地数据:', e)
-  }
-  
-  // 云端失败，使用本地
-  const stored = localStorage.getItem('notes')
-  if (stored) {
-    try {
-      notes.value = JSON.parse(stored)
-    } catch (e) {
-      notes.value = []
-    }
-  } else {
+    console.error('❌ 云端加载失败:', e.message)
     notes.value = []
   }
 }
 
-const viewDetail = (note) => {
-  note.viewCount = (note.viewCount || 0) + 1
-  localStorage.setItem('notes', JSON.stringify(notes.value))
+const viewDetail = async (note) => {
+  // 更新本地
+  const newViewCount = (note.viewCount || 0) + 1
+  note.viewCount = newViewCount
   selectedNote.value = note
+  
+  // 同步到云端
+  try {
+    await updateViewCount(note.id, newViewCount)
+  } catch (e) {
+    console.error('❌ 更新浏览量失败:', e.message)
+  }
 }
 
 const closeDetail = () => {
   selectedNote.value = null
 }
 
-const markUseful = (note) => {
-  note.usefulCount = (note.usefulCount || 0) + 1
-  localStorage.setItem('notes', JSON.stringify(notes.value))
+const markUseful = async (note) => {
+  // 更新本地
+  const newUsefulCount = (note.usefulCount || 0) + 1
+  note.usefulCount = newUsefulCount
   selectedNote.value = { ...note }
+  
+  // 同步到云端
+  try {
+    await updateUsefulCount(note.id, newUsefulCount)
+  } catch (e) {
+    console.error('❌ 更新有用数失败:', e.message)
+  }
 }
 
 const logout = () => {

@@ -3,9 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-// 只在环境变量齐全时才创建 Supabase 客户端，否则不阻塞启动
-const isConfigured = !!(supabaseUrl && supabaseAnonKey)
-export const supabase = isConfigured ? createClient(supabaseUrl, supabaseAnonKey) : null
+export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 // ===== 通过 Vercel API 代理 =====
 
@@ -25,7 +23,6 @@ export const loadNotesFromCloud = async () => {
 
   const data = await response.json()
   
-  // 转换字段名
   return data.map(row => ({
     id: row.id,
     title: row.title || '',
@@ -92,6 +89,48 @@ export const deleteNoteFromCloud = async (id) => {
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: '删除失败' }))
     throw new Error(error.error || `删除失败: ${response.status}`)
+  }
+
+  return await response.json()
+}
+
+// 更新浏览量
+export const updateViewCount = async (id, viewCount) => {
+  const response = await fetch('/api/notes', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      id: id,
+      viewCount: viewCount
+    })
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: '更新浏览量失败' }))
+    throw new Error(error.error || `更新浏览量失败: ${response.status}`)
+  }
+
+  return await response.json()
+}
+
+// 更新有用数
+export const updateUsefulCount = async (id, usefulCount) => {
+  const response = await fetch('/api/notes', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      id: id,
+      usefulCount: usefulCount
+    })
+  })
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: '更新有用数失败' }))
+    throw new Error(error.error || `更新有用数失败: ${response.status}`)
   }
 
   return await response.json()
