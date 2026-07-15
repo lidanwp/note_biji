@@ -177,11 +177,9 @@ const submitComment = async () => {
   try {
     const response = await fetch('/api/comments', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeader(),
       body: JSON.stringify({
         note_id: Number(props.noteId),
-        user_id: authStore.user.id || authStore.user.username,
-        username: authStore.user.username,
         content: newComment.value.trim()
       })
     })
@@ -226,11 +224,9 @@ const submitReply = async (parentComment) => {
   try {
     const response = await fetch('/api/comments', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeader(),
       body: JSON.stringify({
         note_id: Number(props.noteId),
-        user_id: authStore.user.id || authStore.user.username,
-        username: authStore.user.username,
         content: replyContent.value.trim(),
         parent_id: parentComment.id
       })
@@ -256,7 +252,8 @@ const deleteComment = async (commentId) => {
 
   try {
     const response = await fetch('/api/comments/' + commentId, {
-      method: 'DELETE'
+      method: 'DELETE',
+      headers: getAuthHeader()
     })
 
     if (!response.ok) {
@@ -281,6 +278,19 @@ const scrollToBottom = () => {
 
 // 暴露加载方法给父组件
 defineExpose({ loadComments })
+
+/** 从 localStorage 取 token，构造请求头 */
+function getAuthHeader() {
+  const headers = { 'Content-Type': 'application/json' }
+  try {
+    const stored = localStorage.getItem('auth')
+    if (stored) {
+      const { token } = JSON.parse(stored)
+      if (token) headers['Authorization'] = `Bearer ${token}`
+    }
+  } catch (_) {}
+  return headers
+}
 
 onMounted(() => {
   loadComments()

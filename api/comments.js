@@ -1,7 +1,9 @@
+import { requireAuth } from '../_lib/auth.js'
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
   if (req.method === 'OPTIONS') {
     res.status(200).end()
@@ -33,11 +35,17 @@ export default async function handler(req, res) {
       const data = await response.json()
       res.status(200).json(data)
     } else if (req.method === 'POST') {
+      // 鉴权：需登录才可评论
+      const auth = await requireAuth(req, supabaseUrl, supabaseKey)
+      if (auth.error) {
+        return res.status(auth.status).json({ error: auth.error })
+      }
+
       const body = req.body
       const commentData = {
         note_id: Number(body.note_id),
-        user_id: body.user_id,
-        username: body.username,
+        user_id: auth.session.user_id,
+        username: auth.session.username,
         content: body.content,
         parent_id: body.parent_id || null,
         created_at: new Date().toISOString()

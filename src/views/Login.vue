@@ -87,12 +87,12 @@ const showPassword = ref(false)
 const loading = ref(false)
 const error = ref('')
 
-const handleLogin = () => {
+const handleLogin = async () => {
   loading.value = true
   error.value = ''
 
   try {
-    const result = authStore.login(username.value, password.value)
+    const result = await authStore.login(username.value, password.value)
 
     if (result.success) {
       if (result.role === 'admin') {

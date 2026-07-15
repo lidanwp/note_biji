@@ -15,6 +15,21 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
 
 // ===== 通过 Vercel API 代理 =====
 
+/** 从 localStorage 获取认证 token */
+function getAuthHeaders() {
+  const headers = { 'Content-Type': 'application/json' }
+  try {
+    const stored = localStorage.getItem('auth')
+    if (stored) {
+      const { token } = JSON.parse(stored)
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+    }
+  } catch (_) {}
+  return headers
+}
+
 // 加载笔记
 export const loadNotesFromCloud = async () => {
   const response = await fetch('/api/notes', {
@@ -56,9 +71,7 @@ export const loadNotesFromCloud = async () => {
 export const saveNoteToCloud = async (note) => {
   const response = await fetch('/api/notes', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
+    headers: getAuthHeaders(),
     body: JSON.stringify(note)
   })
 
@@ -74,9 +87,7 @@ export const saveNoteToCloud = async (note) => {
 export const saveNotesToCloud = async (notes) => {
   const response = await fetch('/api/notes', {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
+    headers: getAuthHeaders(),
     body: JSON.stringify(notes)
   })
 
@@ -91,7 +102,8 @@ export const saveNotesToCloud = async (notes) => {
 // 删除笔记
 export const deleteNoteFromCloud = async (id) => {
   const response = await fetch(`/api/notes/${id}`, {
-    method: 'DELETE'
+    method: 'DELETE',
+    headers: getAuthHeaders()
   })
 
   if (!response.ok) {

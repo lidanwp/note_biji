@@ -1092,7 +1092,7 @@ header {
 
 .comparison-box {
   margin-top: 8px;
-  background: white;
+  background: var(--bg-secondary, #ffffff);
   border-radius: 6px;
   border-left: 3px solid #667eea;
   padding: 10px 12px;
@@ -1103,6 +1103,7 @@ header {
 .comparison-box h5 {
   margin: 0 0 6px 0;
   font-size: 14px;
+  color: var(--text-primary, #333);
 }
 
 .comparison-box table {
@@ -1114,12 +1115,12 @@ header {
 .comparison-box th,
 .comparison-box td {
   padding: 4px 10px;
-  border: 1px solid #e8ecf1;
+  border: 1px solid var(--border-color, #e8ecf1);
   text-align: left;
 }
 
 .comparison-box th {
-  background: #f0f2ff;
+  background: var(--accent-light, #f0f2ff);
   font-weight: 600;
 }
 
@@ -1132,15 +1133,15 @@ header {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: #fffbeb;
+  background: var(--memory-box-bg, #fffbeb);
   border-radius: 6px;
   padding: 10px 14px;
-  border: 1px solid #fde68a;
+  border: 1px solid var(--memory-box-border, #fde68a);
 }
 
 .memory-box .memory-item {
   font-size: 13px;
-  color: #92400e;
+  color: var(--memory-box-text, #92400e);
   padding: 2px 0;
 }
 

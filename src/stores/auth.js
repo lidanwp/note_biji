@@ -4,64 +4,91 @@ import { ref } from 'vue'
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
   const isLoggedIn = ref(false)
+  const token = ref(null)
 
-  const login = (username, password) => {
-    // 账号配置
-    const users = [
-      { 
-        username: '13302465541', 
-        password: 'wp199582', 
-        role: 'admin',
-        displayName: '管理员' 
-      },
-      { 
-        username: '呼叫中心冲冲冲', 
-        password: '呼叫中心666', 
-        role: 'viewer',
-        displayName: '呼叫中心冲冲冲' 
-      },
-      { 
-        username: '13800138000', 
-        password: '123456', 
-        role: 'viewer',
-        displayName: '张经理' 
+  const login = async (username, password) => {
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      })
+
+      const data = await response.json()
+
+      if (response.ok) {
+        user.value = data.user
+        token.value = data.token
+        isLoggedIn.value = true
+        localStorage.setItem('auth', JSON.stringify({ user: data.user, token: data.token }))
+        return { success: true, role: data.user.role }
       }
-    ]
 
-    // 🔧 修复：用 find 方法在数组中查找
-    const foundUser = users.find(
-      u => u.username === username && u.password === password
-    )
-
-    if (foundUser) {
-    user.value = { 
-      id: foundUser.username,
-      username: foundUser.displayName || foundUser.username, 
-      role: foundUser.role 
+      return { success: false, message: data.error || '账号或密码错误' }
+    } catch (e) {
+      console.error('登录请求失败:', e)
+      return { success: false, message: '网络错误，请稍后重试' }
     }
-    isLoggedIn.value = true
-    localStorage.setItem('auth', JSON.stringify(user.value))
-    return { success: true, role: foundUser.role }
-  }
-    return { success: false, message: '账号或密码错误' }
   }
 
   const logout = () => {
+    // 通知后端删除 session（不阻塞登出）
+    const stored = localStorage.getItem('auth')
+    if (stored) {
+      try {
+        const { token: savedToken } = JSON.parse(stored)
+        if (savedToken) {
+          fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token: savedToken })
+          }).catch(() => {})
+        }
+      } catch (_) {}
+    }
+
     user.value = null
+    token.value = null
     isLoggedIn.value = false
     localStorage.removeItem('auth')
   }
 
-  const checkAuth = () => {
+  const checkAuth = async () => {
     const stored = localStorage.getItem('auth')
-    if (stored) {
+    if (!stored) return false
+
+    try {
       const data = JSON.parse(stored)
-      user.value = data
-      isLoggedIn.value = true
-      return true
+      if (!data.token) {
+        throw new Error('无 token')
+      }
+
+      // 向后端验证 token 是否仍然有效
+      const response = await fetch('/api/auth/verify', {
+        headers: {
+          'Authorization': `Bearer ${data.token}`
+        }
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        user.value = result.user
+        token.value = data.token
+        isLoggedIn.value = true
+        return true
+      }
+
+      // token 过期或无效，清除登录状态
+      throw new Error('token 无效')
+    } catch (e) {
+      console.warn('登录状态已过期，请重新登录')
+      user.value = null
+      token.value = null
+      isLoggedIn.value = false
+      localStorage.removeItem('auth')
+      return false
     }
-    return false
   }
 
-  return { user, isLoggedIn, login, logout, checkAuth }
+  return { user, isLoggedIn, token, login, logout, checkAuth }
 })

@@ -10,8 +10,8 @@ import { useAuthStore } from './stores/auth'
 
 const authStore = useAuthStore()
 
-onMounted(() => {
-  authStore.checkAuth()
+onMounted(async () => {
+  await authStore.checkAuth()
 })
 </script>
 

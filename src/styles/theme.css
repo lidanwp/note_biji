@@ -25,6 +25,11 @@
   --warning-color: #f59e0b;
   --danger-color: #ef4444;
 
+  /* memory-box (便签黄色) */
+  --memory-box-bg: #fffbeb;
+  --memory-box-border: #fde68a;
+  --memory-box-text: #92400e;
+
   --font-size-base: 16px;
   --line-height-base: 1.7;
   --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -49,6 +54,11 @@
   --border-light: #22223a;
 
   --accent-light: rgba(102, 126, 234, 0.2);
+
+  /* memory-box 暗色模式 → 与卡片背景一致 */
+  --memory-box-bg: #1a1a2e;
+  --memory-box-border: #2a2a42;
+  --memory-box-text: #b0b0c0;
 }
 
 /* ===== 字体大小 ===== */

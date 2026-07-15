@@ -1,9 +1,11 @@
+import { requireAuth } from '../_lib/auth.js'
+
 export default async function handler(req, res) {
   const { id } = req.query
 
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'DELETE, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
   if (req.method === 'OPTIONS') {
     res.status(200).end()
@@ -20,6 +22,15 @@ export default async function handler(req, res) {
   if (!supabaseUrl || !supabaseKey) {
     console.error('删除API: 环境变量缺失')
     return res.status(500).json({ error: 'Supabase 环境变量未配置' })
+  }
+
+  // 鉴权：仅 admin 可删除笔记
+  const auth = await requireAuth(req, supabaseUrl, supabaseKey)
+  if (auth.error) {
+    return res.status(auth.status).json({ error: auth.error })
+  }
+  if (auth.session.role !== 'admin') {
+    return res.status(403).json({ error: '无权限，仅管理员可删除笔记' })
   }
 
   try {

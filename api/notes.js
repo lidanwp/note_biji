@@ -1,3 +1,5 @@
+import { requireAuth } from '../_lib/auth.js'
+
 export default async function handler(req, res) {
   console.log('=== API /api/notes 被调用 ===')
   console.log('请求方法:', req.method)
@@ -6,7 +8,7 @@ export default async function handler(req, res) {
 
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
 
   if (req.method === 'OPTIONS') {
     res.status(200).end()
@@ -88,6 +90,15 @@ export default async function handler(req, res) {
           allData = allData.concat(data)
         } else {
           // ===== 完整保存 → 用 POST (upsert) =====
+          // 鉴权：仅管理员可创建/编辑笔记
+          const auth = await requireAuth(req, supabaseUrl, supabaseKey)
+          if (auth.error) {
+            return res.status(auth.status).json({ error: auth.error })
+          }
+          if (auth.session.role !== 'admin') {
+            return res.status(403).json({ error: '无权限，仅管理员可编辑笔记' })
+          }
+
           const noteData = {
             id: note.id,
             title: note.title || '',
