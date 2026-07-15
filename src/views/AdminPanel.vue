@@ -437,6 +437,7 @@ import { MdEditor } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 import { loadNotesFromCloud, saveNotesToCloud, deleteNoteFromCloud } from '../services/supabase'
 import CustomSelect from '../components/CustomSelect.vue'
+import { migrateNote } from '../utils/noteMigrate'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -748,33 +749,6 @@ const loadNotes = async () => {
   }
 }
 
-const migrateNote = (note) => {
-  if (!note.examMapping) {
-    note.examMapping = { relatedProcesses: [], typicalQuestions: [], commonPitfalls: [] }
-  }
-  if (!note.comparisonTable) {
-    note.comparisonTable = { enabled: false, title: '', cols: [], rows: [] }
-  }
-  if (note.memoryAids && !Array.isArray(note.memoryAids)) {
-    const old = note.memoryAids
-    const newArray = []
-    if (old.mnemonic) newArray.push(`🧠 口诀：${old.mnemonic}`)
-    if (old.formula) newArray.push(`📐 公式：${old.formula}`)
-    if (old.mindMap) newArray.push(`🗺️ 脉络：${old.mindMap}`)
-    note.memoryAids = newArray
-  }
-  if (!note.memoryAids || !Array.isArray(note.memoryAids)) {
-    note.memoryAids = []
-  }
-  if (note.examScore != null && typeof note.examScore === 'string') {
-    note.examScore = parseInt(note.examScore, 10) || 0
-  }
-  if (note.examScore == null) {
-    note.examScore = 0
-  }
-  return note
-}
-
 const saveNotes = async () => {
   try {
     await saveNotesToCloud(notes.value)
@@ -1062,9 +1036,7 @@ const saveNote = async () => {
     content: form.content.trim(),
     caseStudy: form.caseStudy || '',
     tags: tags,
-    tagsInput: form.tagsInput || '',
     attachments: form.attachments || [],
-    newAttachment: '',
     date: form.date || new Date().toISOString().split('T')[0],
     viewCount: form.viewCount || 0,
     usefulCount: form.usefulCount || 0,

@@ -40,8 +40,35 @@
         <span class="badge-num">{{ totalViews }}</span>
         <span class="badge-label">浏览</span>
       </span>
+       <button 
+        @click="showHistoryPanel = !showHistoryPanel" 
+        class="stat-badge history-toggle"
+        :class="{ active: showHistoryPanel }"
+      >
+        <span class="badge-icon">📜</span>
+        <span class="badge-num">{{ historyStore.history.length }}</span>
+        <span class="badge-label">历史</span>
+      </button>
+       <button 
+        @click="showSettings = !showSettings" 
+        class="stat-badge settings-toggle"
+        :class="{ active: showSettings }"
+      >
+        <span class="badge-icon">⚙️</span>
+        <span class="badge-label">设置</span>
+      </button>
     </div>
-
+    <!-- 设置面板 -->
+    <SettingsPanel 
+      v-if="showSettings" 
+      @close="showSettings = false" 
+    />
+    <!-- 👇 历史记录面板 -->
+    <HistoryPanel 
+      v-if="showHistoryPanel" 
+      @close="showHistoryPanel = false" 
+      class="history-section"
+    />
     <!-- ===== 搜索 + 筛选行 ===== -->
     <div class="filter-wrap">
       <input
@@ -269,21 +296,31 @@
             👍 有用 ({{ selectedNote.usefulCount || 0 }})
           </button>
         </div>
+        
+        <CommentSection :noteId="String(selectedNote.id)" />
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import SettingsPanel from '@/components/SettingsPanel.vue'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import MarkdownIt from 'markdown-it'
 import { loadNotesFromCloud, updateViewCount, updateUsefulCount } from '../services/supabase'
 import CustomSelect from '../components/CustomSelect.vue'
+import { migrateNote } from '../utils/noteMigrate'
+import { useHistoryStore } from '@/stores/history'
+import HistoryPanel from '@/components/HistoryPanel.vue'
+import CommentSection from '../components/CommentSection.vue'
 
+const showSettings = ref(false)
+const showHistoryPanel = ref(false)
 const router = useRouter()
 const authStore = useAuthStore()
+const historyStore = useHistoryStore()
 
 const md = new MarkdownIt({
   html: true,
@@ -407,28 +444,7 @@ const handleClickOutside = (e) => {
 const loadNotes = async () => {
   try {
     const cloudData = await loadNotesFromCloud()
-    notes.value = cloudData.map(n => ({
-      ...n,
-      keyPoints: n.keyPoints || [],
-      tags: n.tags || [],
-      difficulty: n.difficulty || '中级',
-      viewCount: n.viewCount || 0,
-      usefulCount: n.usefulCount || 0,
-      examMapping: n.examMapping || { relatedProcesses: [], typicalQuestions: [], commonPitfalls: [] },
-      comparisonTable: n.comparisonTable || { enabled: false, title: '', cols: [], rows: [] },
-      memoryAids: (() => {
-        if (Array.isArray(n.memoryAids)) return n.memoryAids
-        if (n.memoryAids && typeof n.memoryAids === 'object') {
-          const arr = []
-          if (n.memoryAids.mnemonic) arr.push(`🧠 口诀：${n.memoryAids.mnemonic}`)
-          if (n.memoryAids.formula) arr.push(`📐 公式：${n.memoryAids.formula}`)
-          if (n.memoryAids.mindMap) arr.push(`🗺️ 脉络：${n.memoryAids.mindMap}`)
-          return arr
-        }
-        return []
-      })(),
-      examScore: n.examScore != null ? Number(n.examScore) : 0
-    }))
+    notes.value = cloudData.map(migrateNote)
   } catch (e) {
     console.error('❌ 云端加载失败:', e.message)
     notes.value = []
@@ -439,6 +455,7 @@ const viewDetail = async (note) => {
   const newViewCount = (note.viewCount || 0) + 1
   note.viewCount = newViewCount
   selectedNote.value = note
+  historyStore.addHistory(note)
   // 阻止页面滚动穿透
   document.body.style.overflow = 'hidden'
   try {
@@ -492,6 +509,32 @@ onUnmounted(() => {
   background: #f5f7fa;
   padding: 16px;
 }
+.settings-toggle {
+  cursor: pointer;
+  background: white;
+  border: none;
+  transition: all 0.2s;
+  padding: 6px 14px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.settings-toggle:hover {
+  background: #f0f2ff;
+  transform: translateY(-1px);
+}
+
+.settings-toggle.active {
+  background: #667eea;
+  color: white;
+}
+
+.settings-toggle.active .badge-label {
+  color: rgba(255,255,255,0.8);
+}
 
 /* ===== 头部 ===== */
 header {
@@ -507,7 +550,46 @@ header {
   top: 0;
   z-index: 100;
 }
+.history-toggle {
+  cursor: pointer;
+  background: white;
+  border: none;
+  transition: all 0.2s;
+}
 
+.history-toggle:hover {
+  background: #f0f2ff;
+  transform: translateY(-1px);
+}
+
+.history-toggle.active {
+  background: #667eea;
+  color: white;
+}
+
+.history-toggle.active .badge-num {
+  color: white;
+}
+
+.history-toggle.active .badge-label {
+  color: rgba(255,255,255,0.8);
+}
+
+.history-section {
+  margin-bottom: 16px;
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
 .header-left {
   display: flex;
   align-items: center;

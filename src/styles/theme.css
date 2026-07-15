@@ -1,0 +1,86 @@
+/* ===== 主题变量 ===== */
+:root {
+  /* 亮色主题 */
+  --bg-primary: #f5f7fa;
+  --bg-secondary: #ffffff;
+  --bg-hover: #f0f2ff;
+  --bg-card: #ffffff;
+  --bg-input: #ffffff;
+  --bg-code: #f5f7fa;
+  --bg-blockquote: #f0f2ff;
+
+  --text-primary: #1a1a2e;
+  --text-secondary: #444444;
+  --text-muted: #888888;
+  --text-light: #bbbbbb;
+
+  --border-color: #e8ecf1;
+  --border-light: #f0f0f0;
+
+  --accent-color: #667eea;
+  --accent-hover: #5a6fd6;
+  --accent-light: rgba(102, 126, 234, 0.12);
+
+  --success-color: #22c55e;
+  --warning-color: #f59e0b;
+  --danger-color: #ef4444;
+
+  --font-size-base: 16px;
+  --line-height-base: 1.7;
+  --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ===== 暗色主题 ===== */
+[data-theme="dark"] {
+  --bg-primary: #0f0f1a;
+  --bg-secondary: #1a1a2e;
+  --bg-hover: #2a2a42;
+  --bg-card: #1e1e32;
+  --bg-input: #12121f;
+  --bg-code: #2a2a42;
+  --bg-blockquote: #1a1a2e;
+
+  --text-primary: #e8e8f0;
+  --text-secondary: #b0b0c0;
+  --text-muted: #707080;
+  --text-light: #505060;
+
+  --border-color: #2a2a42;
+  --border-light: #22223a;
+
+  --accent-light: rgba(102, 126, 234, 0.2);
+}
+
+/* ===== 字体大小 ===== */
+[data-font-size="small"] { --font-size-base: 14px; }
+[data-font-size="medium"] { --font-size-base: 16px; }
+[data-font-size="large"] { --font-size-base: 18px; }
+
+/* ===== 行间距 ===== */
+[data-line-height="compact"] { --line-height-base: 1.4; }
+[data-line-height="comfortable"] { --line-height-base: 1.7; }
+[data-line-height="relaxed"] { --line-height-base: 2.0; }
+
+/* ===== 字体家族 ===== */
+[data-font-family="default"] {
+  --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+[data-font-family="serif"] {
+  --font-family-base: "Georgia", "Times New Roman", serif;
+}
+[data-font-family="mono"] {
+  --font-family-base: "JetBrains Mono", "Fira Code", "Courier New", monospace;
+}
+
+/* ===== 全局应用 ===== */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+  font-family: var(--font-family-base);
+}

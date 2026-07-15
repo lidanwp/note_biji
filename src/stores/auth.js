@@ -34,14 +34,15 @@ export const useAuthStore = defineStore('auth', () => {
     )
 
     if (foundUser) {
-      user.value = { 
-        username: foundUser.displayName || foundUser.username, 
-        role: foundUser.role 
-      }
-      isLoggedIn.value = true
-      localStorage.setItem('auth', JSON.stringify(user.value))
-      return { success: true, role: foundUser.role }
+    user.value = { 
+      id: foundUser.username,
+      username: foundUser.displayName || foundUser.username, 
+      role: foundUser.role 
     }
+    isLoggedIn.value = true
+    localStorage.setItem('auth', JSON.stringify(user.value))
+    return { success: true, role: foundUser.role }
+  }
     return { success: false, message: '账号或密码错误' }
   }
 
