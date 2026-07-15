@@ -88,9 +88,9 @@ const resetSettings = () => {
 <style scoped>
 .settings-panel {
   padding: 20px 24px;
-  background: #ffffff;
+  background: var(--bg-secondary, #ffffff);
   border-radius: 14px;
-  border: 1px solid #e8ecf1;
+  border: 1px solid var(--border-color, #e8ecf1);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   animation: slideDown 0.3s ease;
   max-width: 480px;
@@ -121,12 +121,12 @@ const resetSettings = () => {
   margin: 0;
   font-size: 17px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 .btn-close {
   font-size: 18px;
-  color: #999;
+  color: var(--text-muted, #999);
   background: none;
   border: none;
   cursor: pointer;
@@ -136,7 +136,7 @@ const resetSettings = () => {
 }
 
 .btn-close:hover {
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 /* ===== 设置组 ===== */
@@ -152,7 +152,7 @@ const resetSettings = () => {
   display: block;
   font-size: 13px;
   font-weight: 600;
-  color: #888;
+  color: var(--text-muted, #888);
   margin-bottom: 8px;
   letter-spacing: 0.3px;
 }
@@ -172,10 +172,10 @@ const resetSettings = () => {
 .theme-btn {
   flex: 1;
   padding: 10px 16px;
-  border: 2px solid #e8ecf1;
+  border: 2px solid var(--border-color, #e8ecf1);
   border-radius: 10px;
-  background: #f5f7fa;
-  color: #555;
+  background: var(--bg-hover, #f5f7fa);
+  color: var(--text-secondary, #555);
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
@@ -206,10 +206,10 @@ const resetSettings = () => {
 .size-btn {
   flex: 1;
   padding: 8px 12px;
-  border: 2px solid #e8ecf1;
+  border: 2px solid var(--border-color, #e8ecf1);
   border-radius: 10px;
-  background: #f5f7fa;
-  color: #555;
+  background: var(--bg-hover, #f5f7fa);
+  color: var(--text-secondary, #555);
   cursor: pointer;
   transition: all 0.25s ease;
   display: flex;
@@ -238,9 +238,9 @@ const resetSettings = () => {
 .preview-box {
   margin-top: 4px;
   padding: 16px 20px;
-  background: #f5f7fa;
+  background: var(--bg-primary, #f5f7fa);
   border-radius: 10px;
-  border: 1px dashed #e8ecf1;
+  border: 1px dashed var(--border-color, #e8ecf1);
 }
 
 .preview-text {
@@ -248,7 +248,7 @@ const resetSettings = () => {
   font-size: var(--font-size-base, 16px);
   line-height: var(--line-height-base, 1.7);
   font-family: var(--font-family-base, -apple-system, sans-serif);
-  color: #555;
+  color: var(--text-secondary, #555);
   text-align: center;
 }
 
@@ -267,10 +267,10 @@ const resetSettings = () => {
 
 .btn-reset {
   padding: 8px 20px;
-  border: 1px solid #e8ecf1;
+  border: 1px solid var(--border-color, #e8ecf1);
   border-radius: 8px;
   background: transparent;
-  color: #999;
+  color: var(--text-muted, #999);
   cursor: pointer;
   font-size: 13px;
   transition: all 0.2s;

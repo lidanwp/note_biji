@@ -198,12 +198,12 @@ const handleMediaChange = (e) => {
   width: 100%;
   min-height: 44px;
   padding: 8px 12px;
-  border: 2px solid #e8ecf1;
+  border: 2px solid var(--border-color, #e8ecf1);
   border-radius: 8px;
-  background: #fff;
+  background: var(--bg-input, #fff);
   cursor: pointer;
   font-size: 14px;
-  color: #333;
+  color: var(--text-primary, #333);
   box-sizing: border-box;
   transition: border-color 0.2s, box-shadow 0.2s;
   user-select: none;
@@ -211,7 +211,7 @@ const handleMediaChange = (e) => {
 }
 
 .cs-trigger:hover {
-  border-color: #d0d5dd;
+  border-color: var(--border-color, #d0d5dd);
 }
 
 .cs-trigger:focus,
@@ -223,7 +223,7 @@ const handleMediaChange = (e) => {
 }
 
 .cs-trigger.cs-disabled {
-  background: #f5f7fa;
+  background: var(--bg-hover, #f5f7fa);
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -236,13 +236,13 @@ const handleMediaChange = (e) => {
 }
 
 .cs-value.cs-placeholder {
-  color: #999;
+  color: var(--text-muted, #999);
 }
 
 /* ===== Arrow ===== */
 .cs-arrow {
   flex-shrink: 0;
-  color: #999;
+  color: var(--text-muted, #999);
   transition: transform 0.25s ease;
 }
 
@@ -256,8 +256,8 @@ const handleMediaChange = (e) => {
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  background: #fff;
-  border: 1px solid #e8ecf1;
+  background: var(--bg-secondary, #fff);
+  border: 1px solid var(--border-color, #e8ecf1);
   border-radius: 10px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
   z-index: 100;
@@ -284,17 +284,17 @@ const handleMediaChange = (e) => {
   justify-content: space-between;
   padding: 10px 14px;
   font-size: 14px;
-  color: #333;
+  color: var(--text-primary, #333);
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .cs-option:hover {
-  background: #f5f7fa;
+  background: var(--bg-hover, #f5f7fa);
 }
 
 .cs-option:active {
-  background: #eef0ff;
+  background: var(--accent-light, #eef0ff);
 }
 
 .cs-option-selected {
@@ -314,7 +314,7 @@ const handleMediaChange = (e) => {
   padding: 8px 14px 4px;
   font-size: 12px;
   font-weight: 600;
-  color: #999;
+  color: var(--text-muted, #999);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -368,7 +368,7 @@ const handleMediaChange = (e) => {
 .cs-sheet {
   width: 100%;
   max-width: 100%;
-  background: #fff;
+  background: var(--bg-secondary, #fff);
   border-radius: 20px 20px 0 0;
   max-height: 60vh;
   display: flex;
@@ -380,7 +380,7 @@ const handleMediaChange = (e) => {
   width: 36px;
   height: 4px;
   border-radius: 2px;
-  background: #ddd;
+  background: var(--border-color, #ddd);
   margin: 10px auto 4px;
   flex-shrink: 0;
 }
@@ -389,9 +389,9 @@ const handleMediaChange = (e) => {
   padding: 8px 20px 12px;
   font-size: 15px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary, #333);
   text-align: center;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-light, #f0f0f0);
   flex-shrink: 0;
 }
 
@@ -408,14 +408,14 @@ const handleMediaChange = (e) => {
   justify-content: space-between;
   padding: 14px 20px;
   font-size: 16px;
-  color: #333;
+  color: var(--text-primary, #333);
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .cs-sheet-option:hover,
 .cs-sheet-option:active {
-  background: #f5f7fa;
+  background: var(--bg-hover, #f5f7fa);
 }
 
 .cs-sheet-option.cs-option-selected {
@@ -432,7 +432,7 @@ const handleMediaChange = (e) => {
   padding: 12px 20px 4px;
   font-size: 13px;
   font-weight: 600;
-  color: #999;
+  color: var(--text-muted, #999);
 }
 
 /* ===== Responsive ===== */

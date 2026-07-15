@@ -18,7 +18,7 @@ export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const { noteId } = req.query
-      const response = await fetch(`${supabaseUrl}/rest/v1/comments?select=*&note_id=eq.${noteId}&order=created_at.asc`, {
+      const response = await fetch(`${supabaseUrl}/rest/v1/comments?select=*&note_id=eq.${Number(noteId)}&order=created_at.asc`, {
         headers: {
           'apikey': supabaseKey,
           'Authorization': `Bearer ${supabaseKey}`,
@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     } else if (req.method === 'POST') {
       const body = req.body
       const commentData = {
-        note_id: body.note_id,
+        note_id: Number(body.note_id),
         user_id: body.user_id,
         username: body.username,
         content: body.content,

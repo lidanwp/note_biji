@@ -1322,7 +1322,7 @@ header {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: white;
+  background: var(--bg-secondary, white);
   padding: 10px 14px;
   border-radius: 10px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
@@ -1337,7 +1337,7 @@ header {
 
 .mode-switch {
   display: flex;
-  background: #f5f7fa;
+  background: var(--bg-hover, #f5f7fa);
   border-radius: 8px;
   padding: 2px;
 }
@@ -1350,13 +1350,13 @@ header {
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
-  color: #666;
+  color: var(--text-muted, #666);
   transition: all 0.2s;
 }
 
 .mode-btn.active {
-  background: white;
-  color: #667eea;
+  background: var(--bg-secondary, white);
+  color: var(--accent-color, #667eea);
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 

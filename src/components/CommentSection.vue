@@ -179,7 +179,7 @@ const submitComment = async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        note_id: props.noteId,
+        note_id: Number(props.noteId),
         user_id: authStore.user.id || authStore.user.username,
         username: authStore.user.username,
         content: newComment.value.trim()
@@ -228,7 +228,7 @@ const submitReply = async (parentComment) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        note_id: props.noteId,
+        note_id: Number(props.noteId),
         user_id: authStore.user.id || authStore.user.username,
         username: authStore.user.username,
         content: replyContent.value.trim(),
@@ -291,8 +291,9 @@ onMounted(() => {
 .comment-section {
   margin-top: 24px;
   padding: 20px;
-  background: #f8f9fc;
+  background: var(--bg-secondary, #f8f9fc);
   border-radius: 12px;
+  border: 1px solid var(--border-color, #e8ecf1);
 }
 
 .comment-header {
@@ -305,12 +306,12 @@ onMounted(() => {
 .comment-header h4 {
   margin: 0;
   font-size: 16px;
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 .comment-count {
   font-size: 14px;
-  color: #999;
+  color: var(--text-muted, #999);
   font-weight: normal;
 }
 
@@ -336,9 +337,9 @@ onMounted(() => {
 
 .comment-input-area {
   flex: 1;
-  background: white;
+  background: var(--bg-input, #ffffff);
   border-radius: 10px;
-  border: 1px solid #e8ecf1;
+  border: 1px solid var(--border-color, #e8ecf1);
   overflow: hidden;
 }
 
@@ -352,10 +353,11 @@ onMounted(() => {
   font-family: inherit;
   min-height: 50px;
   background: transparent;
+  color: var(--text-primary, #333);
 }
 
 .comment-input-area textarea::placeholder {
-  color: #bbb;
+  color: var(--text-light, #bbb);
 }
 
 .input-actions {
@@ -363,12 +365,12 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 6px 12px 10px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border-light, #f0f0f0);
 }
 
 .input-hint {
   font-size: 12px;
-  color: #bbb;
+  color: var(--text-muted, #bbb);
 }
 
 .btn-submit {
@@ -415,7 +417,7 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   padding: 12px 0;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--border-light, #f0f0f0);
 }
 
 .comment-item:last-child {
@@ -438,25 +440,25 @@ onMounted(() => {
 .comment-author {
   font-weight: 600;
   font-size: 14px;
-  color: #333;
+  color: var(--text-primary, #333);
 }
 
 .comment-time {
   font-size: 12px;
-  color: #bbb;
+  color: var(--text-muted, #bbb);
 }
 
 .reply-to {
   font-size: 12px;
-  color: #667eea;
-  background: #f0f2ff;
+  color: var(--accent-color, #667eea);
+  background: var(--accent-light, #f0f2ff);
   padding: 0 8px;
   border-radius: 4px;
 }
 
 .btn-reply {
   font-size: 12px;
-  color: #667eea;
+  color: var(--accent-color, #667eea);
   background: none;
   border: none;
   cursor: pointer;
@@ -469,7 +471,7 @@ onMounted(() => {
 
 .btn-delete {
   font-size: 12px;
-  color: #e74c3c;
+  color: var(--danger-color, #e74c3c);
   background: none;
   border: none;
   cursor: pointer;
@@ -482,7 +484,7 @@ onMounted(() => {
 
 .comment-content {
   font-size: 14px;
-  color: #444;
+  color: var(--text-secondary, #444);
   line-height: 1.7;
 }
 
@@ -491,25 +493,26 @@ onMounted(() => {
 }
 
 .comment-content :deep(code) {
-  background: #f0f0f0;
+  background: var(--bg-code, #f0f0f0);
   padding: 1px 6px;
   border-radius: 4px;
   font-size: 13px;
+  color: var(--text-primary, #333);
 }
 
 .comment-content :deep(blockquote) {
-  border-left: 3px solid #667eea;
+  border-left: 3px solid var(--accent-color, #667eea);
   padding-left: 12px;
   margin: 4px 0;
-  color: #666;
+  color: var(--text-secondary, #666);
 }
 
 /* 回复输入框 */
 .reply-input-wrapper {
   margin-top: 8px;
-  background: white;
+  background: var(--bg-input, #ffffff);
   border-radius: 8px;
-  border: 1px solid #e8ecf1;
+  border: 1px solid var(--border-color, #e8ecf1);
   overflow: hidden;
 }
 
@@ -522,18 +525,19 @@ onMounted(() => {
   font-size: 14px;
   font-family: inherit;
   background: transparent;
+  color: var(--text-primary, #333);
 }
 
 .reply-input-wrapper .input-actions {
   padding: 4px 10px 8px;
-  border-top: 1px solid #f0f0f0;
+  border-top: 1px solid var(--border-light, #f0f0f0);
 }
 
 /* 空状态 */
 .empty-comments {
   text-align: center;
   padding: 30px 0;
-  color: #999;
+  color: var(--text-muted, #999);
 }
 
 .empty-comments span {
