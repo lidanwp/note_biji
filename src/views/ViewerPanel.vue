@@ -305,8 +305,8 @@
 
 <script setup>
 import SettingsPanel from '@/components/SettingsPanel.vue'
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import MarkdownIt from 'markdown-it'
 import { loadNotesFromCloud, updateViewCount, updateUsefulCount } from '../services/supabase'
@@ -319,6 +319,7 @@ import CommentSection from '../components/CommentSection.vue'
 const showSettings = ref(false)
 const showHistoryPanel = ref(false)
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const historyStore = useHistoryStore()
 
@@ -482,6 +483,16 @@ const markUseful = async (note) => {
   }
 }
 
+const openNoteById = (noteId) => {
+  if (!noteId || notes.value.length === 0) return
+  
+  const note = notes.value.find(n => String(n.id) === String(noteId))
+  if (note) {
+    viewDetail(note)
+    showHistoryPanel.value = false
+  }
+}
+
 const logout = () => {
   authStore.logout()
   router.push('/login')
@@ -493,7 +504,23 @@ onMounted(async () => {
     return
   }
   await loadNotes()
+  
+  const noteId = route.query.noteId
+  if (noteId) {
+    setTimeout(() => {
+      openNoteById(noteId)
+      router.replace({ query: {} })
+    }, 100)
+  }
+  
   document.addEventListener('click', handleClickOutside)
+})
+
+watch(() => route.query.noteId, (newNoteId) => {
+  if (newNoteId && notes.value.length > 0) {
+    openNoteById(newNoteId)
+    router.replace({ query: {} })
+  }
 })
 
 onUnmounted(() => {
@@ -506,12 +533,12 @@ onUnmounted(() => {
 <style scoped>
 .viewer-panel {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: var(--bg-primary);
   padding: 16px;
 }
 .settings-toggle {
   cursor: pointer;
-  background: white;
+  background: var(--bg-secondary);
   border: none;
   transition: all 0.2s;
   padding: 6px 14px;
@@ -523,7 +550,7 @@ onUnmounted(() => {
 }
 
 .settings-toggle:hover {
-  background: #f0f2ff;
+  background: var(--bg-hover);
   transform: translateY(-1px);
 }
 
@@ -541,7 +568,7 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: white;
+  background: var(--bg-secondary);
   padding: 12px 16px;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
@@ -552,13 +579,13 @@ header {
 }
 .history-toggle {
   cursor: pointer;
-  background: white;
+  background: var(--bg-secondary);
   border: none;
   transition: all 0.2s;
 }
 
 .history-toggle:hover {
-  background: #f0f2ff;
+  background: var(--bg-hover);
   transform: translateY(-1px);
 }
 
@@ -603,7 +630,7 @@ header {
 .app-name {
   font-size: 18px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .header-right {
@@ -619,13 +646,13 @@ header {
   border: none;
   cursor: pointer;
   font-size: 14px;
-  color: #555;
+  color: var(--text-secondary);
   border-radius: 8px;
   transition: background 0.2s;
 }
 
 .user-btn:hover {
-  background: #f5f7fa;
+  background: var(--bg-primary);
 }
 
 .user-avatar {
@@ -638,14 +665,14 @@ header {
 
 .menu-arrow {
   font-size: 10px;
-  color: #999;
+  color: var(--text-muted);
 }
 
 .dropdown-menu {
   position: absolute;
   top: calc(100% + 4px);
   right: 0;
-  background: white;
+  background: var(--bg-secondary);
   border-radius: 10px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.12);
   padding: 6px 0;
@@ -673,13 +700,13 @@ header {
   border: none;
   cursor: pointer;
   font-size: 14px;
-  color: #333;
+  color: var(--text-primary);
   text-align: left;
   transition: background 0.2s;
 }
 
 .dropdown-item:hover {
-  background: #f5f7fa;
+  background: var(--bg-hover);
 }
 
 .dropdown-item.danger {
@@ -703,7 +730,7 @@ header {
   display: flex;
   align-items: center;
   gap: 4px;
-  background: white;
+  background: var(--bg-secondary);
   padding: 6px 14px;
   border-radius: 20px;
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
@@ -721,7 +748,7 @@ header {
 
 .badge-label {
   font-size: 12px;
-  color: #999;
+  color: var(--text-muted);
 }
 
 /* ===== 搜索 + 筛选 ===== */
@@ -732,12 +759,14 @@ header {
 .search-input {
   width: 100%;
   padding: 10px 14px;
-  border: 2px solid #e8ecf1;
+  border: 2px solid var(--border-color);
   border-radius: 10px;
   font-size: 14px;
   box-sizing: border-box;
   margin-bottom: 8px;
   transition: border-color 0.2s;
+  background: var(--bg-input);
+  color: var(--text-primary);
 }
 
 .search-input:focus {
@@ -763,9 +792,9 @@ header {
   gap: 6px;
   flex-shrink: 0;
   padding: 4px 10px 4px 4px;
-  background: #f0f2ff;
+  background: var(--accent-light);
   border-radius: 24px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border-color);
 }
 
 .switch {
@@ -816,7 +845,7 @@ header {
 
 .toggle-label {
   font-size: 12px;
-  color: #555;
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
@@ -829,7 +858,7 @@ header {
 }
 
 .dashboard-card {
-  background: white;
+  background: var(--bg-secondary);
   padding: 14px 18px;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
@@ -838,6 +867,7 @@ header {
 .dashboard-card h4 {
   margin: 0 0 10px 0;
   font-size: 14px;
+  color: var(--text-primary);
 }
 
 .dashboard-card ul {
@@ -851,7 +881,8 @@ header {
   justify-content: space-between;
   padding: 3px 0;
   font-size: 14px;
-  border-bottom: 1px solid #f5f7fa;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-secondary);
 }
 
 .dashboard-card li:last-child {
@@ -877,7 +908,7 @@ header {
 .progress-bar .bar {
   flex: 1;
   height: 6px;
-  background: #eee;
+  background: var(--border-light);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -890,7 +921,7 @@ header {
 
 .progress-bar .bar-label {
   font-size: 12px;
-  color: #999;
+  color: var(--text-muted);
   min-width: 32px;
 }
 
@@ -902,7 +933,7 @@ header {
 }
 
 .note-card {
-  background: white;
+  background: var(--bg-secondary);
   border-radius: 14px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.08);
   transition: all 0.25s ease;
@@ -967,14 +998,14 @@ header {
 /* 卡片中间：标题 + 摘要 */
 .card-title {
   margin: 10px 16px 6px;
-  color: #333;
+  color: var(--text-primary);
   font-size: 17px;
   font-weight: 600;
   line-height: 1.4;
 }
 
 .card-summary {
-  color: #666;
+  color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.6;
   display: -webkit-box;
@@ -991,14 +1022,14 @@ header {
   justify-content: space-between;
   align-items: center;
   padding: 10px 16px;
-  border-top: 1px solid #f0f0f0;
-  background: #fafbfc;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-primary);
 }
 
 .category-tag {
   font-size: 12px;
-  color: #666;
-  background: #e8ecf1;
+  color: var(--text-secondary);
+  background: var(--border-color);
   padding: 4px 12px;
   border-radius: 12px;
 }
@@ -1011,7 +1042,7 @@ header {
 
 .card-date {
   font-size: 12px;
-  color: #999;
+  color: var(--text-muted);
 }
 
 .view-link {
@@ -1023,15 +1054,15 @@ header {
 /* ===== 考试模式附加详情 ===== */
 .card-exam-details {
   padding: 12px 16px;
-  background: #f8f9fc;
-  border-top: 1px solid #e8ecf1;
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-color);
 }
 
 .process-label,
 .section-label {
   font-weight: 600;
   font-size: 13px;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 .process-tag {
@@ -1052,7 +1083,7 @@ header {
   margin: 2px 0 0 0;
   padding-left: 20px;
   font-size: 13px;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 .exam-section.pitfall ul {
@@ -1152,13 +1183,13 @@ header {
 }
 
 .empty p {
-  color: #999;
+  color: var(--text-muted);
   font-size: 18px;
   margin: 12px 0;
 }
 
 .empty-hint {
-  color: #ccc;
+  color: var(--text-light);
   font-size: 14px;
 }
 
@@ -1171,7 +1202,7 @@ header {
   left: 0;
   right: 0;
   bottom: 0;
-  background: #f5f7fa;  /* 浅灰背景，和列表页一致 */
+  background: var(--bg-primary);
   z-index: 1000;
   padding: 0;
   display: block;
@@ -1179,7 +1210,7 @@ header {
 }
 
 .modal-detail {
-  background: white;
+  background: var(--bg-secondary);
   padding: 20px 20px 40px;
   border-radius: 0;
   width: 100%;
@@ -1222,24 +1253,24 @@ header {
 
 .detail-category {
   display: inline-block;
-  background: #e8ecf1;
+  background: var(--border-color);
   padding: 2px 16px;
   border-radius: 12px;
   font-size: 13px;
-  color: #666;
+  color: var(--text-secondary);
 }
 
 .detail-header h2 {
   margin: 8px 0;
   font-size: 26px;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .detail-meta {
   display: flex;
   gap: 20px;
   font-size: 14px;
-  color: #999;
+  color: var(--text-muted);
   flex-wrap: wrap;
 }
 
@@ -1255,7 +1286,7 @@ header {
 .detail-exam {
   margin-bottom: 24px;
   padding: 16px 20px;
-  background: #f8f9fc;
+  background: var(--bg-primary);
   border-radius: 8px;
 }
 
@@ -1265,7 +1296,7 @@ header {
 .detail-attachments h4,
 .detail-exam h4 {
   margin: 0 0 8px 0;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .detail-keypoints ul {
@@ -1275,7 +1306,7 @@ header {
 
 .detail-keypoints li {
   line-height: 1.8;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 .detail-exam-item {
@@ -1285,14 +1316,14 @@ header {
 .detail-exam-item .exam-label {
   font-weight: 600;
   font-size: 13px;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 .detail-exam-item ul {
   margin: 2px 0 0 0;
   padding-left: 20px;
   font-size: 14px;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 .detail-exam-item.pitfall ul {
@@ -1301,7 +1332,7 @@ header {
 
 .detail-content {
   line-height: 1.9;
-  color: #444;
+  color: var(--text-secondary);
   margin-bottom: 24px;
   font-size: 15px;
 }
@@ -1309,17 +1340,19 @@ header {
 .detail-content :deep(h1) {
   font-size: 26px;
   margin: 20px 0 10px;
+  color: var(--text-primary);
 }
 
 .detail-content :deep(h2) {
   font-size: 22px;
   margin: 18px 0 8px;
+  color: var(--text-primary);
 }
 
 .detail-content :deep(h3) {
   font-size: 18px;
   margin: 16px 0 8px;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .detail-content :deep(ul) {
@@ -1331,14 +1364,14 @@ header {
 }
 
 .detail-content :deep(pre) {
-  background: #f5f7fa;
+  background: var(--bg-code);
   border-radius: 6px;
   padding: 12px;
   overflow-x: auto;
 }
 
 .detail-content :deep(code) {
-  background: #f5f7fa;
+  background: var(--bg-code);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 13px;
@@ -1348,7 +1381,7 @@ header {
   border-left: 4px solid #667eea;
   padding-left: 16px;
   margin: 8px 0;
-  color: #666;
+  color: var(--text-muted);
 }
 
 .detail-content :deep(table) {
@@ -1358,19 +1391,19 @@ header {
 
 .detail-content :deep(th),
 .detail-content :deep(td) {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--border-color);
   padding: 6px 12px;
 }
 
 .detail-content :deep(th) {
-  background: #f0f2ff;
+  background: var(--accent-light);
 }
 
 .case-content {
-  background: white;
+  background: var(--bg-primary);
   padding: 16px;
   border-radius: 6px;
-  color: #555;
+  color: var(--text-secondary);
   line-height: 1.8;
 }
 
@@ -1397,18 +1430,18 @@ header {
 
 .detail-tags .tag {
   display: inline-block;
-  background: #e8ecf1;
+  background: var(--border-color);
   padding: 4px 12px;
   border-radius: 12px;
   font-size: 13px;
-  color: #555;
+  color: var(--text-secondary);
 }
 
 .detail-actions {
   display: flex;
   gap: 12px;
   padding-top: 20px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--border-light);
 }
 
 .btn-useful {
