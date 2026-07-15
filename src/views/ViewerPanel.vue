@@ -178,10 +178,12 @@
       </div>
     </div>
 
-    <!-- ===== 笔记详情弹窗 ===== -->
+    <!-- ===== 笔记详情弹窗 - 全屏铺开 ===== -->
     <div v-if="selectedNote" class="modal-overlay" @click="closeDetail">
       <div class="modal-detail" @click.stop>
-        <button class="modal-close" @click="closeDetail">✕</button>
+        <!-- 关闭按钮 - 固定在顶部 -->
+        <button class="modal-close" @click="closeDetail">✕ 关闭</button>
+        
         <div class="detail-header">
           <span class="detail-category">{{ selectedNote.category }}</span>
           <h2>{{ selectedNote.title }}</h2>
@@ -191,21 +193,26 @@
             <span v-if="selectedNote.examScore != null" class="meta-score">🎯 掌握度 {{ selectedNote.examScore }}%</span>
           </div>
         </div>
+        
         <div v-if="selectedNote.keyPoints?.length" class="detail-keypoints">
           <h4>💡 核心要点</h4>
           <ul>
             <li v-for="(point, idx) in selectedNote.keyPoints" :key="idx">{{ point }}</li>
           </ul>
         </div>
+        
         <div v-if="selectedNote.scenario" class="detail-scenario">
           <h4>📌 适用场景</h4>
           <p>{{ selectedNote.scenario }}</p>
         </div>
+        
         <div class="detail-content markdown-body" v-html="renderMarkdown(selectedNote.content)"></div>
+        
         <div v-if="selectedNote.caseStudy" class="detail-case">
           <h4>💡 实战案例</h4>
           <div class="case-content">{{ selectedNote.caseStudy }}</div>
         </div>
+        
         <div v-if="examMode && selectedNote.examMapping" class="detail-exam">
           <h4>🎯 考点专项</h4>
           <div v-if="selectedNote.examMapping.relatedProcesses?.length" class="detail-exam-item">
@@ -245,15 +252,18 @@
             <div v-for="(item, index) in selectedNote.memoryAids" :key="index" class="memory-item">{{ item }}</div>
           </div>
         </div>
+        
         <div v-if="selectedNote.attachments?.length" class="detail-attachments">
           <h4>📎 附件资源</h4>
           <ul>
             <li v-for="file in selectedNote.attachments" :key="file"><a href="#">{{ file }}</a></li>
           </ul>
         </div>
+        
         <div v-if="selectedNote.tags?.length" class="detail-tags">
           <span v-for="tag in selectedNote.tags" :key="tag" class="tag">#{{ tag }}</span>
         </div>
+        
         <div class="detail-actions">
           <button @click="markUseful(selectedNote)" class="btn-useful">
             👍 有用 ({{ selectedNote.usefulCount || 0 }})
@@ -429,6 +439,8 @@ const viewDetail = async (note) => {
   const newViewCount = (note.viewCount || 0) + 1
   note.viewCount = newViewCount
   selectedNote.value = note
+  // 阻止页面滚动穿透
+  document.body.style.overflow = 'hidden'
   try {
     await updateViewCount(note.id, newViewCount)
   } catch (e) {
@@ -438,6 +450,8 @@ const viewDetail = async (note) => {
 
 const closeDetail = () => {
   selectedNote.value = null
+  // 恢复页面滚动
+  document.body.style.overflow = ''
 }
 
 const markUseful = async (note) => {
@@ -467,6 +481,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  // 组件卸载时恢复滚动
+  document.body.style.overflow = ''
 })
 </script>
 
@@ -1064,50 +1080,62 @@ header {
   font-size: 14px;
 }
 
-/* ===== 详情弹窗 ===== */
+/* ================================================================
+   ===== 详情弹窗 - 全屏铺开版（核心修改） =====
+   ================================================================ */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: #f5f7fa;  /* 浅灰背景，和列表页一致 */
   z-index: 1000;
-  padding: 20px;
+  padding: 0;
+  display: block;
+  overflow: hidden;
 }
 
 .modal-detail {
   background: white;
-  padding: 40px;
-  border-radius: 16px;
+  padding: 20px 20px 40px;
+  border-radius: 0;
   width: 100%;
-  max-width: 780px;
-  max-height: 90vh;
+  height: 100%;
+  max-height: 100%;
+  max-width: 100%;
   overflow-y: auto;
-  position: relative;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
 }
 
+/* 关闭按钮 - 悬浮固定在顶部 */
 .modal-close {
   position: sticky;
-  top: 0;
+  top: 12px;
   float: right;
-  background: none;
+  background: rgba(102, 126, 234, 0.12);
   border: none;
-  font-size: 28px;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  color: #999;
-  padding: 0 8px;
+  color: #667eea;
+  padding: 8px 18px;
+  border-radius: 20px;
+  z-index: 10;
+  margin-bottom: 8px;
+  backdrop-filter: blur(4px);
+  transition: background 0.2s;
 }
 
 .modal-close:hover {
-  color: #333;
+  background: rgba(102, 126, 234, 0.25);
 }
 
+/* 详情内容样式 */
 .detail-header {
   margin-bottom: 24px;
+  padding-top: 4px;
 }
 
 .detail-category {
@@ -1285,6 +1313,15 @@ header {
   margin-bottom: 24px;
 }
 
+.detail-tags .tag {
+  display: inline-block;
+  background: #e8ecf1;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  color: #555;
+}
+
 .detail-actions {
   display: flex;
   gap: 12px;
@@ -1316,6 +1353,10 @@ header {
     grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
     gap: 24px;
   }
+
+  .modal-detail {
+    padding: 30px 40px 50px;
+  }
 }
 
 @media (max-width: 767px) {
@@ -1328,7 +1369,11 @@ header {
   }
 
   .modal-detail {
-    padding: 20px;
+    padding: 16px 16px 30px;
+  }
+
+  .detail-header h2 {
+    font-size: 20px;
   }
 }
 </style>
