@@ -36,7 +36,7 @@
     <div class="stats-bar">
       <div class="stat-badge">
         <span class="badge-icon">📝</span>
-        <span class="badge-num">{{ notes.length }}</span>
+        <span class="badge-num">{{ notesStore.notes.length }}</span>
         <span class="badge-label">笔记</span>
       </div>
       <div class="stat-badge">
@@ -109,11 +109,11 @@
 
           <div class="card-body">
             <h3 class="card-title">{{ note.title }}</h3>
-            <p class="card-summary">{{ note.content ? stripHtml(note.content).slice(0, 100) + (note.content.length > 100 ? '...' : '') : '暂无内容' }}</p>
+            <p class="card-summary">{{ note.content ? stripHtml(note.content).slice(0, 100) + ((note.content?.length || 0) > 100 ? '...' : '') : '暂无内容' }}</p>
             
             <div v-if="note.tags?.length" class="card-tags">
               <span v-for="tag in note.tags.slice(0, 3)" :key="tag" class="tag">#{{ tag }}</span>
-              <span v-if="note.tags.length > 3" class="tag more-tag">+{{ note.tags.length - 3 }}</span>
+              <span v-if="(note.tags?.length || 0) > 3" class="tag more-tag">+{{ (note.tags?.length || 0) - 3 }}</span>
             </div>
           </div>
 
@@ -729,8 +729,13 @@ const getDraftTime = () => {
 const loadNotes = async () => {
   try {
     const data = await notesStore.loadNotes()
-    toastSuccess(`成功加载 ${data.length} 条笔记`)
+    if (data && Array.isArray(data)) {
+      toastSuccess(`成功加载 ${data.length} 条笔记`)
+    } else {
+      toastWarning('未加载到笔记数据')
+    }
   } catch (e) {
+    console.error('加载笔记失败:', e)
     toastError('加载笔记失败，请稍后重试')
   }
 }

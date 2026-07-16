@@ -27,7 +27,7 @@
     <div class="stats-bar">
       <span class="stat-badge">
         <span class="badge-icon">📝</span>
-        <span class="badge-num">{{ notes.length }}</span>
+        <span class="badge-num">{{ notesStore.notes.length }}</span>
         <span class="badge-label">笔记</span>
       </span>
       <span class="stat-badge">
@@ -370,7 +370,7 @@ const totalNotes = computed(() => notesStore.totalNotes)
 const isLoading = computed(() => notesStore.isLoading)
 
 const resetPage = () => {
-  currentPage.value = 1
+  notesStore.currentPage = 1
 }
 
 const hotTopics = computed(() => {
@@ -442,8 +442,13 @@ const handleClickOutside = (e) => {
 const loadNotes = async () => {
   try {
     const data = await notesStore.loadNotes()
-    toastSuccess(`成功加载 ${data.length} 条笔记`)
+    if (data && Array.isArray(data)) {
+      toastSuccess(`成功加载 ${data.length} 条笔记`)
+    } else {
+      toastWarning('未加载到笔记数据')
+    }
   } catch (e) {
+    console.error('加载笔记失败:', e)
     toastError('加载笔记失败，请稍后重试')
   }
 }
