@@ -73,14 +73,13 @@
     <div class="filter-wrap">
       <input
         type="text"
-        v-model="search"
+        v-model="notesStore.search"
         placeholder="🔍 搜索标题、内容、标签..."
         class="search-input"
-        @input="resetPage"
       />
       <div class="filter-row">
-        <CustomSelect v-model="categoryFilter" :options="categoryFilterOptions" placeholder="📂 全部分类" class="filter-cs" @change="resetPage" />
-        <CustomSelect v-model="difficultyFilter" :options="difficultyFilterOptions" placeholder="📊 全部难度" class="filter-cs" @change="resetPage" />
+        <CustomSelect v-model="notesStore.categoryFilter" :options="categoryFilterOptions" placeholder="📂 全部分类" class="filter-cs" />
+        <CustomSelect v-model="notesStore.difficultyFilter" :options="difficultyFilterOptions" placeholder="📊 全部难度" class="filter-cs" />
         <div class="exam-toggle">
           <label class="switch">
             <input type="checkbox" v-model="examMode" />
@@ -211,8 +210,8 @@
     </div>
     
     <Pagination 
-      v-model:currentPage="currentPage" 
-      v-model:pageSize="pageSize"
+      v-model:currentPage="notesStore.currentPage" 
+      v-model:pageSize="notesStore.pageSize"
       :total="totalNotes"
       v-show="!isLoading"
     />
@@ -320,11 +319,10 @@ import SettingsPanel from '@/components/SettingsPanel.vue'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useNotesStore } from '../stores/notes'
 import MarkdownIt from 'markdown-it'
-import { loadNotesFromCloud, updateViewCount, updateUsefulCount } from '../services/supabase'
 import CustomSelect from '../components/CustomSelect.vue'
 import Pagination from '../components/Pagination.vue'
-import { migrateNote } from '../utils/noteMigrate'
 import { useHistoryStore } from '@/stores/history'
 import HistoryPanel from '@/components/HistoryPanel.vue'
 import CommentSection from '../components/CommentSection.vue'
@@ -335,6 +333,7 @@ const showHistoryPanel = ref(false)
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
+const notesStore = useNotesStore()
 const historyStore = useHistoryStore()
 
 const md = new MarkdownIt({
@@ -344,19 +343,10 @@ const md = new MarkdownIt({
 })
 
 // ===== 数据 =====
-const notes = ref([])
-const search = ref('')
-const categoryFilter = ref('')
-const difficultyFilter = ref('')
 const selectedNote = ref(null)
 const examMode = ref(false)
 const showUserMenu = ref(false)
 const userMenuRef = ref(null)
-const isLoading = ref(false)
-
-// ===== 分页 =====
-const currentPage = ref(1)
-const pageSize = ref(10)
 
 // ===== 下拉选项数据 =====
 const categoryFilterOptions = computed(() => [
@@ -372,36 +362,12 @@ const difficultyFilterOptions = [
 ]
 
 // ===== 计算属性 =====
-const categories = computed(() => {
-  const cats = new Set(notes.value.map(n => n.category).filter(Boolean))
-  return [...cats]
-})
-
-const totalViews = computed(() => {
-  return notes.value.reduce((sum, n) => sum + (n.viewCount || 0), 0)
-})
-
-const filteredNotes = computed(() => {
-  return notes.value.filter(n => {
-    const matchSearch = !search.value ||
-      n.title?.toLowerCase().includes(search.value.toLowerCase()) ||
-      n.content?.toLowerCase().includes(search.value.toLowerCase()) ||
-      n.tags?.some(t => t.toLowerCase().includes(search.value.toLowerCase()))
-
-    const matchCategory = !categoryFilter.value || n.category === categoryFilter.value
-    const matchDifficulty = !difficultyFilter.value || n.difficulty === difficultyFilter.value
-
-    return matchSearch && matchCategory && matchDifficulty
-  })
-})
-
-const paginatedNotes = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return filteredNotes.value.slice(start, end)
-})
-
-const totalNotes = computed(() => filteredNotes.value.length)
+const categories = computed(() => notesStore.categories)
+const totalViews = computed(() => notesStore.totalViews)
+const filteredNotes = computed(() => notesStore.filteredNotes)
+const paginatedNotes = computed(() => notesStore.paginatedNotes)
+const totalNotes = computed(() => notesStore.totalNotes)
+const isLoading = computed(() => notesStore.isLoading)
 
 const resetPage = () => {
   currentPage.value = 1
@@ -409,7 +375,7 @@ const resetPage = () => {
 
 const hotTopics = computed(() => {
   const map = {}
-  notes.value.forEach(n => {
+  notesStore.notes.forEach(n => {
     ;(n.tags || []).forEach(t => {
       map[t] = (map[t] || 0) + 1
     })
@@ -423,11 +389,11 @@ const hotTopics = computed(() => {
 const processGroupStats = computed(() => {
   const map = {}
   const groups = ['启动', '规划', '执行', '监控', '收尾']
-  notes.value.forEach(n => {
+  notesStore.notes.forEach(n => {
     const found = groups.find(g => n.category?.includes(g))
     if (found) map[found] = (map[found] || 0) + 1
   })
-  const total = notes.value.length || 1
+  const total = notesStore.notes.length || 1
   return Object.fromEntries(
     Object.entries(map).map(([k, v]) => [k, Math.round(v / total * 100)])
   )
@@ -474,55 +440,35 @@ const handleClickOutside = (e) => {
 }
 
 const loadNotes = async () => {
-  isLoading.value = true
   try {
-    const cloudData = await loadNotesFromCloud()
-    notes.value = cloudData.map(migrateNote)
-    toastSuccess(`成功加载 ${cloudData.length} 条笔记`)
+    const data = await notesStore.loadNotes()
+    toastSuccess(`成功加载 ${data.length} 条笔记`)
   } catch (e) {
-    console.error('❌ 云端加载失败:', e.message)
-    notes.value = []
     toastError('加载笔记失败，请稍后重试')
-  } finally {
-    isLoading.value = false
   }
 }
 
 const viewDetail = async (note) => {
-  const newViewCount = (note.viewCount || 0) + 1
-  note.viewCount = newViewCount
-  selectedNote.value = note
+  await notesStore.incrementViewCount(note.id)
+  selectedNote.value = notesStore.getNoteById(note.id) || note
   historyStore.addHistory(note)
-  // 阻止页面滚动穿透
   document.body.style.overflow = 'hidden'
-  try {
-    await updateViewCount(note.id, newViewCount)
-  } catch (e) {
-    console.error('❌ 更新浏览量失败:', e.message)
-  }
 }
 
 const closeDetail = () => {
   selectedNote.value = null
-  // 恢复页面滚动
   document.body.style.overflow = ''
 }
 
 const markUseful = async (note) => {
-  const newUsefulCount = (note.usefulCount || 0) + 1
-  note.usefulCount = newUsefulCount
-  selectedNote.value = { ...note }
-  try {
-    await updateUsefulCount(note.id, newUsefulCount)
-  } catch (e) {
-    console.error('❌ 更新有用数失败:', e.message)
-  }
+  await notesStore.incrementUsefulCount(note.id)
+  selectedNote.value = notesStore.getNoteById(note.id) || note
 }
 
 const openNoteById = (noteId) => {
-  if (!noteId || notes.value.length === 0) return
+  if (!noteId || notesStore.notes.length === 0) return
   
-  const note = notes.value.find(n => String(n.id) === String(noteId))
+  const note = notesStore.getNoteById(parseInt(noteId)) || notesStore.notes.find(n => String(n.id) === String(noteId))
   if (note) {
     viewDetail(note)
     showHistoryPanel.value = false
@@ -553,7 +499,7 @@ onMounted(async () => {
 })
 
 watch(() => route.query.noteId, (newNoteId) => {
-  if (newNoteId && notes.value.length > 0) {
+  if (newNoteId && notesStore.notes.length > 0) {
     openNoteById(newNoteId)
     router.replace({ query: {} })
   }

@@ -55,18 +55,17 @@
     <div class="search-bar">
       <input 
         type="text" 
-        v-model="search" 
+        v-model="notesStore.search" 
         placeholder="搜索笔记..."
         class="search-input"
-        @input="resetPage"
       >
       <button @click="openAddModal" class="btn-primary">+ 新建笔记</button>
     </div>
 
     <!-- 筛选行 -->
     <div class="filter-bar">
-      <CustomSelect v-model="categoryFilter" :options="categoryFilterOptions" placeholder="全部分类" class="filter-cs" @change="resetPage" />
-      <CustomSelect v-model="difficultyFilter" :options="difficultyFilterOptions" placeholder="全部难度" class="filter-cs" @change="resetPage" />
+      <CustomSelect v-model="notesStore.categoryFilter" :options="categoryFilterOptions" placeholder="全部分类" class="filter-cs" />
+      <CustomSelect v-model="notesStore.difficultyFilter" :options="difficultyFilterOptions" placeholder="全部难度" class="filter-cs" />
       <div class="mode-switch">
         <button 
           @click="examMode = false" 
@@ -185,8 +184,8 @@
       </div>
       
       <Pagination 
-        v-model:currentPage="currentPage" 
-        v-model:pageSize="pageSize"
+        v-model:currentPage="notesStore.currentPage" 
+        v-model:pageSize="notesStore.pageSize"
         :total="totalNotes"
         v-show="!isLoading"
       />
@@ -445,34 +444,25 @@
 import { ref, computed, onMounted, reactive, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
+import { useNotesStore } from '../stores/notes'
 import { MdEditor } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
-import { loadNotesFromCloud, saveNotesToCloud, deleteNoteFromCloud } from '../services/supabase'
 import CustomSelect from '../components/CustomSelect.vue'
 import Pagination from '../components/Pagination.vue'
-import { migrateNote } from '../utils/noteMigrate'
 import { toastSuccess, toastError, toastInfo, toastWarning } from '../utils/toast'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const notesStore = useNotesStore()
 const fileInput = ref(null)
 
 // ===== 数据 =====
-const notes = ref([])
-const search = ref('')
-const categoryFilter = ref('')
-const difficultyFilter = ref('')
 const showModal = ref(false)
 const isEditMode = ref(false)
 const examMode = ref(false)
 const activeTab = ref('basic')
 const showUserMenu = ref(false)
 const userMenuRef = ref(null)
-const isLoading = ref(false)
-
-// ===== 分页 =====
-const currentPage = ref(1)
-const pageSize = ref(10)
 
 // ===== 草稿相关 =====
 const draftKey = ref('note_draft')
@@ -569,41 +559,12 @@ const formDifficultyOptions = [
 ]
 
 // ===== 计算属性 =====
-const categories = computed(() => {
-  const cats = new Set(notes.value.map(n => n.category).filter(Boolean))
-  return [...cats]
-})
-
-const totalViews = computed(() => {
-  return notes.value.reduce((sum, n) => sum + (n.viewCount || 0), 0)
-})
-
-const filteredNotes = computed(() => {
-  return notes.value.filter(n => {
-    const matchSearch = !search.value || 
-      n.title?.toLowerCase().includes(search.value.toLowerCase()) ||
-      n.content?.toLowerCase().includes(search.value.toLowerCase()) ||
-      n.tags?.some(t => t.toLowerCase().includes(search.value.toLowerCase()))
-    
-    const matchCategory = !categoryFilter.value || n.category === categoryFilter.value
-    
-    const matchDifficulty = !difficultyFilter.value || n.difficulty === difficultyFilter.value
-    
-    return matchSearch && matchCategory && matchDifficulty
-  })
-})
-
-const paginatedNotes = computed(() => {
-  const start = (currentPage.value - 1) * pageSize.value
-  const end = start + pageSize.value
-  return filteredNotes.value.slice(start, end)
-})
-
-const totalNotes = computed(() => filteredNotes.value.length)
-
-const resetPage = () => {
-  currentPage.value = 1
-}
+const categories = computed(() => notesStore.categories)
+const totalViews = computed(() => notesStore.totalViews)
+const filteredNotes = computed(() => notesStore.filteredNotes)
+const paginatedNotes = computed(() => notesStore.paginatedNotes)
+const totalNotes = computed(() => notesStore.totalNotes)
+const isLoading = computed(() => notesStore.isLoading)
 
 const toggleUserMenu = () => {
   showUserMenu.value = !showUserMenu.value
@@ -615,13 +576,13 @@ const closeUserMenu = () => {
 
 // ===== 考试模式计算属性 =====
 const avgMastery = computed(() => {
-  const scored = notes.value.filter(n => n.examScore != null)
+  const scored = notesStore.notes.filter(n => n.examScore != null)
   if (!scored.length) return 0
   return Math.round(scored.reduce((s, n) => s + n.examScore, 0) / scored.length)
 })
 
 const examNotesCount = computed(() => {
-  return notes.value.filter(n => 
+  return notesStore.notes.filter(n => 
     n.examMapping?.typicalQuestions?.length || 
     n.examMapping?.commonPitfalls?.length ||
     n.comparisonTable?.enabled ||
@@ -631,7 +592,7 @@ const examNotesCount = computed(() => {
 
 const hotTopics = computed(() => {
   const map = {}
-  notes.value.forEach(n => {
+  notesStore.notes.forEach(n => {
     ;(n.tags || []).forEach(t => {
       map[t] = (map[t] || 0) + 1
     })
@@ -645,18 +606,18 @@ const hotTopics = computed(() => {
 const processGroupStats = computed(() => {
   const map = {}
   const groups = ['启动', '规划', '执行', '监控', '收尾']
-  notes.value.forEach(n => {
+  notesStore.notes.forEach(n => {
     const found = groups.find(g => n.category?.includes(g))
     if (found) map[found] = (map[found] || 0) + 1
   })
-  const total = notes.value.length || 1
+  const total = notesStore.notes.length || 1
   return Object.fromEntries(
     Object.entries(map).map(([k, v]) => [k, Math.round(v / total * 100)])
   )
 })
 
 const masteryDistribution = computed(() => {
-  const scores = notes.value.filter(n => n.examScore != null).map(n => n.examScore)
+  const scores = notesStore.notes.filter(n => n.examScore != null).map(n => n.examScore)
   return {
     high: scores.filter(s => s >= 80).length,
     mid: scores.filter(s => s >= 40 && s < 80).length,
@@ -766,31 +727,19 @@ const getDraftTime = () => {
 
 // ===== 方法 =====
 const loadNotes = async () => {
-  isLoading.value = true
   try {
-    const cloudData = await loadNotesFromCloud()
-    if (cloudData && cloudData.length > 0) {
-      notes.value = cloudData.map(migrateNote)
-      toastSuccess(`成功加载 ${cloudData.length} 条笔记`)
-    } else {
-      notes.value = []
-      toastInfo('暂无笔记，点击「新建笔记」开始记录')
-    }
+    const data = await notesStore.loadNotes()
+    toastSuccess(`成功加载 ${data.length} 条笔记`)
   } catch (e) {
-    console.error('❌ 云端加载失败:', e.message)
-    notes.value = []
     toastError('加载笔记失败，请稍后重试')
-  } finally {
-    isLoading.value = false
   }
 }
 
 const saveNotes = async () => {
   try {
-    await saveNotesToCloud(notes.value)
+    await notesStore.saveNotes()
     toastSuccess('保存成功')
   } catch (e) {
-    console.error('❌ 云端保存失败:', e.message)
     toastError('保存失败，请稍后重试')
     throw e
   }
@@ -1094,35 +1043,26 @@ const saveNote = async () => {
   }
 
   if (isEditMode.value) {
-    const index = notes.value.findIndex(n => n.id === noteData.id)
-    if (index !== -1) {
-      notes.value[index] = noteData
-    }
+    notesStore.updateNote(noteData)
   } else {
-    notes.value.push(noteData)
+    notesStore.addNote(noteData)
   }
 
   await saveNotes()
   clearDraft()
   closeModal()
   resetForm()
-  alert('保存成功！')
 }
 
 // ===== 删除笔记 =====
 const deleteNote = async (id) => {
-  const noteTitle = notes.value.find(n => n.id === id)?.title || '该笔记'
+  const noteTitle = notesStore.getNoteById(id)?.title || '该笔记'
   if (confirm(`确定要删除「${noteTitle}」吗？`)) {
-    isLoading.value = true
     try {
-      notes.value = notes.value.filter(n => n.id !== id)
-      await deleteNoteFromCloud(id)
+      await notesStore.deleteNote(id)
       toastSuccess('删除成功')
     } catch (e) {
-      console.error('❌ 云端删除失败:', e.message)
       toastError('删除失败，请重试')
-    } finally {
-      isLoading.value = false
     }
   }
 }
@@ -1152,17 +1092,17 @@ const handleImport = (event) => {
       const data = JSON.parse(e.target.result)
       if (Array.isArray(data) && data.length) {
         if (confirm(`将导入 ${data.length} 条笔记，是否覆盖现有数据？\n（取消则追加）`)) {
-          notes.value = data.map(migrateNote)
+          notesStore.notes = data.map(migrateNote)
         } else {
-          notes.value = [...notes.value, ...data.map(migrateNote)]
+          notesStore.notes = [...notesStore.notes, ...data.map(migrateNote)]
         }
         await saveNotes()
-        alert('导入成功！')
+        toastSuccess(`成功导入 ${data.length} 条笔记`)
       } else {
-        alert('数据格式错误')
+        toastWarning('数据格式错误')
       }
     } catch (err) {
-      alert('文件解析失败，请确认是有效的 JSON 文件')
+      toastError('文件解析失败，请确认是有效的 JSON 文件')
     }
   }
   reader.readAsText(file)
