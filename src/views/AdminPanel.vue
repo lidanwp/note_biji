@@ -58,14 +58,15 @@
         v-model="search" 
         placeholder="搜索笔记..."
         class="search-input"
+        @input="resetPage"
       >
       <button @click="openAddModal" class="btn-primary">+ 新建笔记</button>
     </div>
 
     <!-- 筛选行 -->
     <div class="filter-bar">
-      <CustomSelect v-model="categoryFilter" :options="categoryFilterOptions" placeholder="全部分类" class="filter-cs" />
-      <CustomSelect v-model="difficultyFilter" :options="difficultyFilterOptions" placeholder="全部难度" class="filter-cs" />
+      <CustomSelect v-model="categoryFilter" :options="categoryFilterOptions" placeholder="全部分类" class="filter-cs" @change="resetPage" />
+      <CustomSelect v-model="difficultyFilter" :options="difficultyFilterOptions" placeholder="全部难度" class="filter-cs" @change="resetPage" />
       <div class="mode-switch">
         <button 
           @click="examMode = false" 
@@ -88,8 +89,12 @@
     </div>
 
     <div class="main-content">
-      <div class="note-grid">
-        <div v-for="note in filteredNotes" :key="note.id" class="note-card" @click="editNote(note)">
+      <div v-if="isLoading" class="loading-overlay">
+        <div class="loading-spinner"></div>
+        <span>加载中...</span>
+      </div>
+      <div class="note-grid" v-show="!isLoading">
+        <div v-for="note in paginatedNotes" :key="note.id" class="note-card" @click="editNote(note)">
           <div class="card-header">
             <div class="card-top-left">
               <span v-if="note.difficulty" class="difficulty-badge" :class="note.difficulty">
@@ -174,10 +179,17 @@
           </div>
         </div>
 
-        <div v-if="filteredNotes.length === 0" class="empty">
+        <div v-if="paginatedNotes.length === 0 && !isLoading" class="empty">
           <p>暂无笔记，点击「新建笔记」开始记录</p>
         </div>
       </div>
+      
+      <Pagination 
+        v-model:currentPage="currentPage" 
+        v-model:pageSize="pageSize"
+        :total="totalNotes"
+        v-show="!isLoading"
+      />
 
       <!-- 侧边面板 - 考试模式统计 -->
       <aside v-if="examMode" class="side-panel">
@@ -437,7 +449,9 @@ import { MdEditor } from 'md-editor-v3'
 import 'md-editor-v3/lib/style.css'
 import { loadNotesFromCloud, saveNotesToCloud, deleteNoteFromCloud } from '../services/supabase'
 import CustomSelect from '../components/CustomSelect.vue'
+import Pagination from '../components/Pagination.vue'
 import { migrateNote } from '../utils/noteMigrate'
+import { toastSuccess, toastError, toastInfo, toastWarning } from '../utils/toast'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -454,6 +468,11 @@ const examMode = ref(false)
 const activeTab = ref('basic')
 const showUserMenu = ref(false)
 const userMenuRef = ref(null)
+const isLoading = ref(false)
+
+// ===== 分页 =====
+const currentPage = ref(1)
+const pageSize = ref(10)
 
 // ===== 草稿相关 =====
 const draftKey = ref('note_draft')
@@ -573,6 +592,18 @@ const filteredNotes = computed(() => {
     return matchSearch && matchCategory && matchDifficulty
   })
 })
+
+const paginatedNotes = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return filteredNotes.value.slice(start, end)
+})
+
+const totalNotes = computed(() => filteredNotes.value.length)
+
+const resetPage = () => {
+  currentPage.value = 1
+}
 
 const toggleUserMenu = () => {
   showUserMenu.value = !showUserMenu.value
@@ -735,25 +766,32 @@ const getDraftTime = () => {
 
 // ===== 方法 =====
 const loadNotes = async () => {
+  isLoading.value = true
   try {
     const cloudData = await loadNotesFromCloud()
     if (cloudData && cloudData.length > 0) {
       notes.value = cloudData.map(migrateNote)
-      console.log('✅ 从云端加载了', cloudData.length, '条笔记')
+      toastSuccess(`成功加载 ${cloudData.length} 条笔记`)
     } else {
       notes.value = []
+      toastInfo('暂无笔记，点击「新建笔记」开始记录')
     }
   } catch (e) {
     console.error('❌ 云端加载失败:', e.message)
     notes.value = []
+    toastError('加载笔记失败，请稍后重试')
+  } finally {
+    isLoading.value = false
   }
 }
 
 const saveNotes = async () => {
   try {
     await saveNotesToCloud(notes.value)
+    toastSuccess('保存成功')
   } catch (e) {
     console.error('❌ 云端保存失败:', e.message)
+    toastError('保存失败，请稍后重试')
     throw e
   }
 }
@@ -1003,19 +1041,19 @@ const removeMemoryAid = (index) => {
 // ===== 保存笔记 =====
 const saveNote = async () => {
   if (!form.title.trim()) {
-    alert('请输入标题')
+    toastWarning('请输入标题')
     return
   }
   if (!form.category) {
-    alert('请选择分类')
+    toastWarning('请选择分类')
     return
   }
   if (!form.content || !form.content.trim()) {
-    alert('请输入内容')
+    toastWarning('请输入内容')
     return
   }
   if (form.keyPoints.length === 0 || form.keyPoints.every(p => !p.trim())) {
-    alert('请至少添加1条核心要点')
+    toastWarning('请至少添加1条核心要点')
     return
   }
 
@@ -1073,13 +1111,18 @@ const saveNote = async () => {
 
 // ===== 删除笔记 =====
 const deleteNote = async (id) => {
-  if (confirm('确定要删除这条笔记吗？')) {
-    notes.value = notes.value.filter(n => n.id !== id)
+  const noteTitle = notes.value.find(n => n.id === id)?.title || '该笔记'
+  if (confirm(`确定要删除「${noteTitle}」吗？`)) {
+    isLoading.value = true
     try {
+      notes.value = notes.value.filter(n => n.id !== id)
       await deleteNoteFromCloud(id)
+      toastSuccess('删除成功')
     } catch (e) {
       console.error('❌ 云端删除失败:', e.message)
-      alert('删除失败，请重试')
+      toastError('删除失败，请重试')
+    } finally {
+      isLoading.value = false
     }
   }
 }
@@ -1611,6 +1654,30 @@ header {
   text-align: center;
   color: #999;
   padding: 60px 0;
+}
+
+.loading-overlay {
+  grid-column: 1/-1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 0;
+  gap: 12px;
+  color: #667eea;
+}
+
+.loading-overlay .loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(102, 126, 234, 0.2);
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .process-label, .section-label {

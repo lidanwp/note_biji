@@ -76,10 +76,11 @@
         v-model="search"
         placeholder="🔍 搜索标题、内容、标签..."
         class="search-input"
+        @input="resetPage"
       />
       <div class="filter-row">
-        <CustomSelect v-model="categoryFilter" :options="categoryFilterOptions" placeholder="📂 全部分类" class="filter-cs" />
-        <CustomSelect v-model="difficultyFilter" :options="difficultyFilterOptions" placeholder="📊 全部难度" class="filter-cs" />
+        <CustomSelect v-model="categoryFilter" :options="categoryFilterOptions" placeholder="📂 全部分类" class="filter-cs" @change="resetPage" />
+        <CustomSelect v-model="difficultyFilter" :options="difficultyFilterOptions" placeholder="📊 全部难度" class="filter-cs" @change="resetPage" />
         <div class="exam-toggle">
           <label class="switch">
             <input type="checkbox" v-model="examMode" />
@@ -112,9 +113,13 @@
     </div>
 
     <!-- ===== 笔记列表 ===== -->
-    <div class="note-grid">
+    <div v-if="isLoading" class="loading-overlay">
+      <div class="loading-spinner"></div>
+      <span>加载中...</span>
+    </div>
+    <div class="note-grid" v-show="!isLoading">
       <div
-        v-for="note in filteredNotes"
+        v-for="note in paginatedNotes"
         :key="note.id"
         class="note-card"
         @click="viewDetail(note)"
@@ -198,12 +203,19 @@
         </div>
       </div>
 
-      <div v-if="filteredNotes.length === 0" class="empty">
+      <div v-if="paginatedNotes.length === 0 && !isLoading" class="empty">
         <div class="empty-icon">📭</div>
         <p>暂无匹配的笔记</p>
         <span class="empty-hint">试试调整筛选条件</span>
       </div>
     </div>
+    
+    <Pagination 
+      v-model:currentPage="currentPage" 
+      v-model:pageSize="pageSize"
+      :total="totalNotes"
+      v-show="!isLoading"
+    />
 
     <!-- ===== 笔记详情弹窗 - 全屏铺开 ===== -->
     <div v-if="selectedNote" class="modal-overlay" @click="closeDetail">
@@ -311,10 +323,12 @@ import { useAuthStore } from '../stores/auth'
 import MarkdownIt from 'markdown-it'
 import { loadNotesFromCloud, updateViewCount, updateUsefulCount } from '../services/supabase'
 import CustomSelect from '../components/CustomSelect.vue'
+import Pagination from '../components/Pagination.vue'
 import { migrateNote } from '../utils/noteMigrate'
 import { useHistoryStore } from '@/stores/history'
 import HistoryPanel from '@/components/HistoryPanel.vue'
 import CommentSection from '../components/CommentSection.vue'
+import { toastSuccess, toastError, toastInfo, toastWarning } from '../utils/toast'
 
 const showSettings = ref(false)
 const showHistoryPanel = ref(false)
@@ -338,6 +352,11 @@ const selectedNote = ref(null)
 const examMode = ref(false)
 const showUserMenu = ref(false)
 const userMenuRef = ref(null)
+const isLoading = ref(false)
+
+// ===== 分页 =====
+const currentPage = ref(1)
+const pageSize = ref(10)
 
 // ===== 下拉选项数据 =====
 const categoryFilterOptions = computed(() => [
@@ -375,6 +394,18 @@ const filteredNotes = computed(() => {
     return matchSearch && matchCategory && matchDifficulty
   })
 })
+
+const paginatedNotes = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  const end = start + pageSize.value
+  return filteredNotes.value.slice(start, end)
+})
+
+const totalNotes = computed(() => filteredNotes.value.length)
+
+const resetPage = () => {
+  currentPage.value = 1
+}
 
 const hotTopics = computed(() => {
   const map = {}
@@ -443,12 +474,17 @@ const handleClickOutside = (e) => {
 }
 
 const loadNotes = async () => {
+  isLoading.value = true
   try {
     const cloudData = await loadNotesFromCloud()
     notes.value = cloudData.map(migrateNote)
+    toastSuccess(`成功加载 ${cloudData.length} 条笔记`)
   } catch (e) {
     console.error('❌ 云端加载失败:', e.message)
     notes.value = []
+    toastError('加载笔记失败，请稍后重试')
+  } finally {
+    isLoading.value = false
   }
 }
 
@@ -1187,6 +1223,30 @@ header {
   color: var(--text-muted);
   font-size: 18px;
   margin: 12px 0;
+}
+
+.loading-overlay {
+  grid-column: 1/-1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0;
+  gap: 12px;
+  color: #667eea;
+}
+
+.loading-overlay .loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(102, 126, 234, 0.2);
+  border-top-color: #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
 .empty-hint {

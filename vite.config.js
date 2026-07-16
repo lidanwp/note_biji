@@ -12,6 +12,13 @@ export default defineConfig({
   server: {
     port: 5173,
     open: true,
-    host: true
+    host: true,
+    proxy: {
+      '/api': {
+        target: 'https://bdxxg.asia',
+        changeOrigin: true,
+        secure: true
+      }
+    }
   }
 })
