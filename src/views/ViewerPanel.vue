@@ -453,8 +453,8 @@ const loadNotes = async () => {
   }
 }
 
-const viewDetail = async (note) => {
-  await notesStore.incrementViewCount(note.id)
+const viewDetail = (note) => {
+  notesStore.incrementViewCount(note.id)
   selectedNote.value = notesStore.getNoteById(note.id) || note
   historyStore.addHistory(note)
   document.body.style.overflow = 'hidden'
@@ -465,8 +465,8 @@ const closeDetail = () => {
   document.body.style.overflow = ''
 }
 
-const markUseful = async (note) => {
-  await notesStore.incrementUsefulCount(note.id)
+const markUseful = (note) => {
+  notesStore.incrementUsefulCount(note.id)
   selectedNote.value = notesStore.getNoteById(note.id) || note
 }
 
