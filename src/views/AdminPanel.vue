@@ -450,6 +450,7 @@ import 'md-editor-v3/lib/style.css'
 import CustomSelect from '../components/CustomSelect.vue'
 import Pagination from '../components/Pagination.vue'
 import { toastSuccess, toastError, toastInfo, toastWarning } from '../utils/toast'
+import { migrateNote } from '../utils/noteMigrate'
 
 const router = useRouter()
 const authStore = useAuthStore()
