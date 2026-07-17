@@ -1107,9 +1107,10 @@ const handleImport = (event) => {
       return
     }
 
+    const backupNotes = [...notesStore.notes]
+    
     try {
       const shouldOverwrite = confirm(`将导入 ${parsedData.length} 条笔记，是否覆盖现有数据？\n（取消则追加）`)
-      const backupNotes = [...notesStore.notes]
       
       const migratedData = parsedData.map(migrateNote)
       
@@ -1122,7 +1123,7 @@ const handleImport = (event) => {
       await saveNotes()
       toastSuccess(`成功导入 ${migratedData.length} 条笔记`)
     } catch (saveErr) {
-      notesStore.notes = backupNotes || []
+      notesStore.notes = backupNotes
       toastError(`导入失败: ${saveErr.message || '保存到云端时出错'}`)
       console.error('导入保存失败:', saveErr)
     }
