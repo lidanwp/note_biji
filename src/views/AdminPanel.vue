@@ -1093,21 +1093,38 @@ const handleImport = (event) => {
 
   const reader = new FileReader()
   reader.onload = async (e) => {
+    let parsedData = null
+    
     try {
-      const data = JSON.parse(e.target.result)
-      if (Array.isArray(data) && data.length) {
-        if (confirm(`将导入 ${data.length} 条笔记，是否覆盖现有数据？\n（取消则追加）`)) {
-          notesStore.notes = data.map(migrateNote)
-        } else {
-          notesStore.notes = [...notesStore.notes, ...data.map(migrateNote)]
-        }
-        await saveNotes()
-        toastSuccess(`成功导入 ${data.length} 条笔记`)
-      } else {
-        toastWarning('数据格式错误')
-      }
-    } catch (err) {
+      parsedData = JSON.parse(e.target.result)
+    } catch (parseErr) {
       toastError('文件解析失败，请确认是有效的 JSON 文件')
+      return
+    }
+
+    if (!Array.isArray(parsedData) || parsedData.length === 0) {
+      toastWarning('数据格式错误，需要包含笔记数组')
+      return
+    }
+
+    try {
+      const shouldOverwrite = confirm(`将导入 ${parsedData.length} 条笔记，是否覆盖现有数据？\n（取消则追加）`)
+      const backupNotes = [...notesStore.notes]
+      
+      const migratedData = parsedData.map(migrateNote)
+      
+      if (shouldOverwrite) {
+        notesStore.notes = migratedData
+      } else {
+        notesStore.notes = [...notesStore.notes, ...migratedData]
+      }
+
+      await saveNotes()
+      toastSuccess(`成功导入 ${migratedData.length} 条笔记`)
+    } catch (saveErr) {
+      notesStore.notes = backupNotes || []
+      toastError(`导入失败: ${saveErr.message || '保存到云端时出错'}`)
+      console.error('导入保存失败:', saveErr)
     }
   }
   reader.readAsText(file)
