@@ -23,6 +23,10 @@
               <span>导出数据</span>
             </button>
             <div class="dropdown-divider"></div>
+            <button @click="openChangePassword" class="dropdown-item">
+              <span class="item-icon">🔐</span>
+              <span>修改密码</span>
+            </button>
             <button @click="logout" class="dropdown-item danger">
               <span class="item-icon">🚪</span>
               <span>退出登录</span>
@@ -437,6 +441,12 @@
     </div>
 
     <input type="file" ref="fileInput" accept=".json" style="display:none" @change="handleImport">
+    
+    <ChangePasswordModal 
+      v-model:visible="showChangePassword" 
+      :user-id="authStore.user?.id" 
+      @success="handlePasswordChangeSuccess" 
+    />
   </div>
 </template>
 
@@ -451,6 +461,7 @@ import CustomSelect from '../components/CustomSelect.vue'
 import Pagination from '../components/Pagination.vue'
 import { toastSuccess, toastError, toastInfo, toastWarning } from '../utils/toast'
 import { migrateNote } from '../utils/noteMigrate'
+import ChangePasswordModal from '../components/ChangePasswordModal.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -464,6 +475,7 @@ const examMode = ref(false)
 const activeTab = ref('basic')
 const showUserMenu = ref(false)
 const userMenuRef = ref(null)
+const showChangePassword = ref(false)
 
 // ===== 草稿相关 =====
 const draftKey = ref('note_draft')
@@ -1131,6 +1143,19 @@ const handleImport = (event) => {
   }
   reader.readAsText(file)
   event.target.value = ''
+}
+
+const openChangePassword = () => {
+  showUserMenu.value = false
+  showChangePassword.value = true
+}
+
+const handlePasswordChangeSuccess = () => {
+  toastSuccess('密码修改成功，请重新登录')
+  setTimeout(() => {
+    authStore.logout()
+    router.push('/login')
+  }, 2000)
 }
 
 const logout = () => {

@@ -45,11 +45,13 @@ export default async function handler(req, res) {
       return res.json({ message: '✅ 用户已存在，跳过初始化', count: existing.length })
     }
 
-    // 种子用户
+    const adminPassword = process.env.ADMIN_PASSWORD
+    if (!adminPassword) {
+      return res.status(400).json({ error: '未配置 ADMIN_PASSWORD 环境变量' })
+    }
+    
     const rawUsers = [
-      { username: '13302465541', password: 'wp199582', display_name: '管理员', role: 'admin' },
-      { username: '呼叫中心冲冲冲', password: '呼叫中心666', display_name: '呼叫中心冲冲冲', role: 'viewer' },
-      { username: '13800138000', password: '123456', display_name: '张经理', role: 'viewer' }
+      { username: process.env.ADMIN_USERNAME || 'admin', password: adminPassword, display_name: '管理员', role: 'admin' }
     ]
 
     const hashedUsers = rawUsers.map(u => ({
