@@ -14,6 +14,10 @@
         </button>
         <Transition name="menu-fade">
           <div v-if="showUserMenu" class="dropdown-menu">
+            <button @click="openChangePassword" class="dropdown-item">
+              <span class="item-icon">🔐</span>
+              <span>修改密码</span>
+            </button>
             <button @click="logout" class="dropdown-item danger">
               <span class="item-icon">🚪</span>
               <span>退出登录</span>
@@ -311,6 +315,12 @@
         <CommentSection :noteId="String(selectedNote.id)" />
       </div>
     </div>
+    
+    <ChangePasswordModal 
+      v-model:visible="showChangePassword" 
+      :user-id="authStore.user?.id" 
+      @success="handlePasswordChangeSuccess" 
+    />
   </div>
 </template>
 
@@ -327,6 +337,7 @@ import { useHistoryStore } from '@/stores/history'
 import HistoryPanel from '@/components/HistoryPanel.vue'
 import CommentSection from '../components/CommentSection.vue'
 import { toastSuccess, toastError, toastInfo, toastWarning } from '../utils/toast'
+import ChangePasswordModal from '../components/ChangePasswordModal.vue'
 
 const showSettings = ref(false)
 const showHistoryPanel = ref(false)
@@ -346,6 +357,7 @@ const md = new MarkdownIt({
 const selectedNote = ref(null)
 const examMode = ref(false)
 const showUserMenu = ref(false)
+const showChangePassword = ref(false)
 const userMenuRef = ref(null)
 
 // ===== 下拉选项数据 =====
@@ -478,6 +490,19 @@ const openNoteById = (noteId) => {
     viewDetail(note)
     showHistoryPanel.value = false
   }
+}
+
+const openChangePassword = () => {
+  showUserMenu.value = false
+  showChangePassword.value = true
+}
+
+const handlePasswordChangeSuccess = () => {
+  toastSuccess('密码修改成功，请重新登录')
+  setTimeout(() => {
+    authStore.logout()
+    router.push('/login')
+  }, 2000)
 }
 
 const logout = () => {

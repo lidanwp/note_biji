@@ -14,7 +14,17 @@ export const useAuthStore = defineStore('auth', () => {
         body: JSON.stringify({ username, password })
       })
 
-      const data = await response.json()
+      let data = null
+      try {
+        data = await response.json()
+      } catch (parseErr) {
+        const text = await response.text().catch(() => '')
+        console.error('登录响应解析失败:', response.status, text)
+        if (response.status === 500) {
+          return { success: false, message: '服务器内部错误，请稍后重试' }
+        }
+        return { success: false, message: '登录失败，请稍后重试' }
+      }
 
       if (response.ok) {
         user.value = data.user

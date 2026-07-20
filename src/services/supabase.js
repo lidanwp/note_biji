@@ -34,9 +34,7 @@ function getAuthHeaders() {
 export const loadNotesFromCloud = async () => {
   const response = await fetch('/api/notes', {
     method: 'GET',
-    headers: {
-      'Content-Type': 'application/json'
-    }
+    headers: getAuthHeaders()
   })
 
   if (!response.ok) {

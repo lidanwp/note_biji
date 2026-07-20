@@ -23,6 +23,10 @@
               <span>导出数据</span>
             </button>
             <div class="dropdown-divider"></div>
+            <button @click="openChangePassword" class="dropdown-item">
+              <span class="item-icon">🔐</span>
+              <span>修改密码</span>
+            </button>
             <button @click="logout" class="dropdown-item danger">
               <span class="item-icon">🚪</span>
               <span>退出登录</span>
@@ -437,6 +441,12 @@
     </div>
 
     <input type="file" ref="fileInput" accept=".json" style="display:none" @change="handleImport">
+    
+    <ChangePasswordModal 
+      v-model:visible="showChangePassword" 
+      :user-id="authStore.user?.id" 
+      @success="handlePasswordChangeSuccess" 
+    />
   </div>
 </template>
 
@@ -450,6 +460,8 @@ import 'md-editor-v3/lib/style.css'
 import CustomSelect from '../components/CustomSelect.vue'
 import Pagination from '../components/Pagination.vue'
 import { toastSuccess, toastError, toastInfo, toastWarning } from '../utils/toast'
+import { migrateNote } from '../utils/noteMigrate'
+import ChangePasswordModal from '../components/ChangePasswordModal.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -463,6 +475,7 @@ const examMode = ref(false)
 const activeTab = ref('basic')
 const showUserMenu = ref(false)
 const userMenuRef = ref(null)
+const showChangePassword = ref(false)
 
 // ===== 草稿相关 =====
 const draftKey = ref('note_draft')
@@ -1093,25 +1106,56 @@ const handleImport = (event) => {
 
   const reader = new FileReader()
   reader.onload = async (e) => {
+    let parsedData = null
+    
     try {
-      const data = JSON.parse(e.target.result)
-      if (Array.isArray(data) && data.length) {
-        if (confirm(`将导入 ${data.length} 条笔记，是否覆盖现有数据？\n（取消则追加）`)) {
-          notesStore.notes = data.map(migrateNote)
-        } else {
-          notesStore.notes = [...notesStore.notes, ...data.map(migrateNote)]
-        }
-        await saveNotes()
-        toastSuccess(`成功导入 ${data.length} 条笔记`)
-      } else {
-        toastWarning('数据格式错误')
-      }
-    } catch (err) {
+      parsedData = JSON.parse(e.target.result)
+    } catch (parseErr) {
       toastError('文件解析失败，请确认是有效的 JSON 文件')
+      return
+    }
+
+    if (!Array.isArray(parsedData) || parsedData.length === 0) {
+      toastWarning('数据格式错误，需要包含笔记数组')
+      return
+    }
+
+    const backupNotes = [...notesStore.notes]
+    
+    try {
+      const shouldOverwrite = confirm(`将导入 ${parsedData.length} 条笔记，是否覆盖现有数据？\n（取消则追加）`)
+      
+      const migratedData = parsedData.map(migrateNote)
+      
+      if (shouldOverwrite) {
+        notesStore.notes = migratedData
+      } else {
+        notesStore.notes = [...notesStore.notes, ...migratedData]
+      }
+
+      await saveNotes()
+      toastSuccess(`成功导入 ${migratedData.length} 条笔记`)
+    } catch (saveErr) {
+      notesStore.notes = backupNotes
+      toastError(`导入失败: ${saveErr.message || '保存到云端时出错'}`)
+      console.error('导入保存失败:', saveErr)
     }
   }
   reader.readAsText(file)
   event.target.value = ''
+}
+
+const openChangePassword = () => {
+  showUserMenu.value = false
+  showChangePassword.value = true
+}
+
+const handlePasswordChangeSuccess = () => {
+  toastSuccess('密码修改成功，请重新登录')
+  setTimeout(() => {
+    authStore.logout()
+    router.push('/login')
+  }, 2000)
 }
 
 const logout = () => {
