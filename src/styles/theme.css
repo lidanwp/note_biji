@@ -92,5 +92,5 @@ body {
   color: var(--text-primary);
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
-  font-family: var(--font-family-base);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }

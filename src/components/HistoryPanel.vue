@@ -195,12 +195,12 @@ const clearAll = () => {
 }
 
 .history-list::-webkit-scrollbar-thumb {
-  background: #d0d0d0;
+  background: var(--text-light, #d0d0d0);
   border-radius: 4px;
 }
 
 .history-list::-webkit-scrollbar-thumb:hover {
-  background: #b0b0b0;
+  background: var(--text-muted, #b0b0b0);
 }
 
 /* ===== 分组 ===== */
@@ -294,31 +294,29 @@ const clearAll = () => {
 }
 
 /* ===== 暗色主题适配 ===== */
-@media (prefers-color-scheme: dark) {
-  .history-panel {
-    background: #1a1a2e;
-    border-color: #2a2a42;
-  }
+[data-theme="dark"] .history-panel {
+  background: var(--bg-secondary);
+  border-color: var(--border-color);
+}
 
-  .history-item:hover {
-    background: #2a2a42;
-  }
+[data-theme="dark"] .history-item:hover {
+  background: var(--bg-hover);
+}
 
-  .item-category {
-    background: #2a2a42;
-    color: #888;
-  }
+[data-theme="dark"] .item-category {
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
 
-  .group-date {
-    border-bottom-color: #2a2a42;
-  }
+[data-theme="dark"] .group-date {
+  border-bottom-color: var(--border-light);
+}
 
-  .history-list::-webkit-scrollbar-thumb {
-    background: #444;
-  }
+[data-theme="dark"] .history-list::-webkit-scrollbar-thumb {
+  background: var(--text-light);
+}
 
-  .history-list::-webkit-scrollbar-thumb:hover {
-    background: #555;
-  }
+[data-theme="dark"] .history-list::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
 }
 </style>

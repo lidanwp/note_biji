@@ -82,7 +82,7 @@
         class="search-input"
       />
       <div class="filter-row">
-        <CustomSelect v-model="notesStore.categoryFilter" :options="categoryFilterOptions" placeholder="📂 全部分类" class="filter-cs" />
+        <CustomSelect v-model="notesStore.categoryFilter" :options="categoryFilterOptions" placeholder="📂 过程组" class="filter-cs" />
         <CustomSelect v-model="notesStore.difficultyFilter" :options="difficultyFilterOptions" placeholder="📊 全部难度" class="filter-cs" />
         <div class="exam-toggle">
           <label class="switch">
@@ -548,7 +548,9 @@ onUnmounted(() => {
   background: var(--bg-primary);
   padding: 16px;
 }
-.settings-toggle {
+/* 设置与历史按钮统一样式 */
+.settings-toggle,
+.history-toggle {
   cursor: pointer;
   background: var(--bg-secondary);
   border: none;
@@ -561,18 +563,25 @@ onUnmounted(() => {
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
 
-.settings-toggle:hover {
+.settings-toggle:hover,
+.history-toggle:hover {
   background: var(--bg-hover);
   transform: translateY(-1px);
 }
 
-.settings-toggle.active {
+.settings-toggle.active,
+.history-toggle.active {
   background: #667eea;
   color: white;
 }
 
-.settings-toggle.active .badge-label {
+.settings-toggle.active .badge-label,
+.history-toggle.active .badge-label {
   color: rgba(255,255,255,0.8);
+}
+
+.history-toggle.active .badge-num {
+  color: white;
 }
 
 /* ===== 头部 ===== */
@@ -588,30 +597,6 @@ header {
   position: sticky;
   top: 0;
   z-index: 100;
-}
-.history-toggle {
-  cursor: pointer;
-  background: var(--bg-secondary);
-  border: none;
-  transition: all 0.2s;
-}
-
-.history-toggle:hover {
-  background: var(--bg-hover);
-  transform: translateY(-1px);
-}
-
-.history-toggle.active {
-  background: #667eea;
-  color: white;
-}
-
-.history-toggle.active .badge-num {
-  color: white;
-}
-
-.history-toggle.active .badge-label {
-  color: rgba(255,255,255,0.8);
 }
 
 .history-section {
@@ -629,6 +614,7 @@ header {
     transform: translateY(0);
   }
 }
+
 .header-left {
   display: flex;
   align-items: center;

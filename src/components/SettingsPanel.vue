@@ -39,14 +39,6 @@
       </div>
     </div>
 
-    <!-- 预览 -->
-    <div class="preview-box">
-      <p class="preview-text">
-        这是一个预览文本，用来展示当前的阅读设置效果。<br />
-        你可以调整以上选项，找到最舒适的阅读体验。
-      </p>
-    </div>
-
     <!-- 重置按钮 -->
     <div class="settings-footer">
       <button @click="resetSettings" class="btn-reset">🔄 恢复默认设置</button>
@@ -232,30 +224,6 @@ const resetSettings = () => {
 
 .size-btn span {
   font-weight: 600;
-}
-
-/* ===== 预览框 ===== */
-.preview-box {
-  margin-top: 4px;
-  padding: 16px 20px;
-  background: var(--bg-primary, #f5f7fa);
-  border-radius: 10px;
-  border: 1px dashed var(--border-color, #e8ecf1);
-}
-
-.preview-text {
-  margin: 0;
-  font-size: var(--font-size-base, 16px);
-  line-height: var(--line-height-base, 1.7);
-  font-family: var(--font-family-base, -apple-system, sans-serif);
-  color: var(--text-secondary, #555);
-  text-align: center;
-}
-
-.preview-text br {
-  display: block;
-  content: '';
-  margin-bottom: 4px;
 }
 
 /* ===== 底部 ===== */
