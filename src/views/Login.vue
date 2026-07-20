@@ -1,80 +1,101 @@
 <template>
   <div class="login-container">
-    <!-- 动态粒子背景 -->
-    <div class="particles-bg"></div>
-    
-    <!-- 网格线效果 -->
-    <div class="grid-overlay"></div>
+    <div class="floating-emojis">
+      <span 
+        v-for="(emoji, index) in floatingEmojis" 
+        :key="index"
+        class="floating-emoji"
+        :style="{
+          left: emoji.x + '%',
+          top: emoji.y + '%',
+          fontSize: emoji.size + 'px',
+          animationDuration: emoji.duration + 's',
+          animationDelay: emoji.delay + 's'
+        }"
+      >
+        {{ emoji.char }}
+      </span>
+    </div>
 
-    <!-- 登录卡片 -->
     <div class="login-card">
-      <!-- 装饰光效 -->
-      <div class="glow-orb glow-orb-1"></div>
-      <div class="glow-orb glow-orb-2"></div>
+      <div class="card-top-emoji">🌸</div>
 
-      <div class="logo-icon">⚡</div>
-      <h1>笔记分享平台</h1>
-      <p class="subtitle">系统集成 & 项目管理</p>
+      <h1>Hi，欢迎回来 <span class="wave-hand">👋</span></h1>
+      <p class="subtitle">今天也想和你一起记录美好 ✨</p>
 
       <form @submit.prevent="handleLogin">
-        <div class="form-group">
-          <label>
-            <span class="label-icon">👤</span>
-            账号
-          </label>
-          <input 
-            type="text" 
-            v-model="username" 
-            placeholder="请输入账号"
-            required
-            class="tech-input"
-          >
-          <div class="input-line"></div>
+        <div class="form-group" :class="{ shake: shakeUsername }">
+          <label class="input-label">账号</label>
+          <div class="input-wrapper">
+            <span class="input-icon">👤</span>
+            <input 
+              type="text" 
+              v-model="username" 
+              placeholder="请输入账号"
+              required
+              class="login-input"
+              @input="handleInput"
+            >
+          </div>
         </div>
 
-        <div class="form-group">
-          <label>
-            <span class="label-icon">🔒</span>
-            密码
-          </label>
-          <div class="password-wrapper">
+        <div class="form-group" :class="{ shake: shakePassword }">
+          <label class="input-label">密码</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🔒</span>
             <input 
               :type="showPassword ? 'text' : 'password'" 
               v-model="password" 
               placeholder="请输入密码"
               required
-              class="tech-input"
+              class="login-input"
             >
-            <span class="toggle-pwd" @click="showPassword = !showPassword">
-              {{ showPassword ? '🙈' : '👁️' }}
-            </span>
+            <span class="toggle-pwd" @click="showPassword = !showPassword">👁️</span>
           </div>
-          <div class="input-line"></div>
         </div>
 
-        <button type="submit" :disabled="loading" class="tech-btn">
-          <span class="btn-text">{{ loading ? '登录中...' : '登 录' }}</span>
-          <span class="btn-glow"></span>
+        <button type="submit" :disabled="!username || !password || loading" class="login-btn">
+          <span v-if="loginSuccess" class="btn-success">✅</span>
+          <span v-else-if="loading" class="btn-loading">
+            <span class="spinner"></span>
+          </span>
+          <span v-else class="btn-text">登录</span>
         </button>
 
-        <div v-if="error" class="error">
-          <span class="error-icon">⚠️</span>
-          {{ error }}
+        <div class="helper-links">
+          <a href="#" class="helper-link">忘记密码？</a>
+          <span class="dot-divider">·</span>
+          <a href="#" class="helper-link register-link">注册新账号</a>
         </div>
       </form>
+    </div>
 
-      <!-- 底部装饰 -->
-      <div class="footer-decoration">
-        <span class="dot"></span>
-        <span class="line"></span>
-        <span class="dot"></span>
+    <div class="toast-container" v-if="showToast">
+      <div class="toast" :class="{ leaving: toastLeaving }">
+        {{ toastMessage }}
       </div>
+    </div>
+
+    <div class="stars-container" v-if="showStars">
+      <span 
+        v-for="(star, index) in fallingStars" 
+        :key="index"
+        class="falling-star"
+        :style="{
+          left: star.x + '%',
+          animationDuration: star.duration + 's',
+          animationDelay: star.delay + 's',
+          fontSize: star.size + 'px'
+        }"
+      >
+        {{ star.char }}
+      </span>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 
@@ -85,266 +106,370 @@ const username = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
-const error = ref('')
+const loginSuccess = ref(false)
+
+const shakeUsername = ref(false)
+const shakePassword = ref(false)
+
+const showToast = ref(false)
+const toastMessage = ref('')
+const toastLeaving = ref(false)
+
+const showStars = ref(false)
+const fallingStars = ref([])
+
+const floatingEmojis = ref([
+  { char: '☁️', x: 8, y: 12, size: 36, duration: 7, delay: 0 },
+  { char: '🌸', x: 88, y: 8, size: 28, duration: 5, delay: 1 },
+  { char: '✨', x: 15, y: 45, size: 32, duration: 8, delay: 0.5 },
+  { char: '🌈', x: 82, y: 72, size: 44, duration: 6, delay: 2 },
+  { char: '🦋', x: 10, y: 85, size: 30, duration: 9, delay: 1.5 },
+  { char: '☀️', x: 90, y: 40, size: 40, duration: 5.5, delay: 0.8 }
+])
+
+const starEmojis = ['⭐', '🌟', '✨', '🎉', '💫', '🌈']
+
+const showErrorToast = (message) => {
+  toastMessage.value = message
+  showToast.value = true
+  toastLeaving.value = false
+  
+  setTimeout(() => {
+    toastLeaving.value = true
+    setTimeout(() => {
+      showToast.value = false
+    }, 400)
+  }, 2200)
+}
+
+const triggerShake = () => {
+  shakeUsername.value = true
+  shakePassword.value = true
+  setTimeout(() => {
+    shakeUsername.value = false
+    shakePassword.value = false
+  }, 600)
+}
+
+const createStarsRain = () => {
+  showStars.value = true
+  fallingStars.value = Array.from({ length: 7 }, (_, i) => ({
+    id: i,
+    char: starEmojis[Math.floor(Math.random() * starEmojis.length)],
+    x: 5 + Math.random() * 90,
+    duration: 2 + Math.random(),
+    delay: Math.random() * 0.5,
+    size: 24 + Math.random() * 16
+  }))
+  
+  setTimeout(() => {
+    showStars.value = false
+  }, 3500)
+}
+
+const handleInput = () => {
+}
 
 const handleLogin = async () => {
+  if (!username.value || !password.value) {
+    triggerShake()
+    showErrorToast('请输入账号和密码')
+    return
+  }
+
   loading.value = true
-  error.value = ''
+  loginSuccess.value = false
 
   try {
     const result = await authStore.login(username.value, password.value)
 
     if (result.success) {
-      if (result.role === 'admin') {
-        router.push('/admin')
-      } else {
-        router.push('/viewer')
-      }
+      loginSuccess.value = true
+      createStarsRain()
+      setTimeout(() => {
+        if (result.role === 'admin') {
+          router.push('/admin')
+        } else {
+          router.push('/viewer')
+        }
+      }, 1000)
     } else {
-      error.value = result.message
+      triggerShake()
+      showErrorToast(result.message)
     }
   } catch (e) {
-    error.value = '登录过程中发生错误，请重试'
+    triggerShake()
+    showErrorToast('登录过程中发生错误，请重试')
   } finally {
-    loading.value = false
+    if (!loginSuccess.value) {
+      loading.value = false
+    }
   }
 }
+
+onMounted(() => {
+})
 </script>
 
 <style scoped>
-/* ===== 基础重置 ===== */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-/* ===== 容器 ===== */
 .login-container {
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0a0e1a;
+  background: linear-gradient(180deg, #FFF5F5 0%, #F0E6FF 50%, #E6F0FF 100%);
   position: relative;
   overflow: hidden;
-  font-family: 'Segoe UI', 'PingFang SC', sans-serif;
+  font-family: 'PingFang SC', -apple-system, sans-serif;
 }
 
-/* ===== 粒子背景 ===== */
-.particles-bg {
+.floating-emojis {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: 
-    radial-gradient(circle at 20% 50%, rgba(0, 212, 255, 0.05) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(138, 43, 226, 0.05) 0%, transparent 50%),
-    radial-gradient(circle at 50% 80%, rgba(0, 212, 255, 0.03) 0%, transparent 50%);
-  animation: particleFloat 20s ease-in-out infinite alternate;
+  pointer-events: none;
+  z-index: 1;
 }
 
-@keyframes particleFloat {
-  0% { transform: scale(1) rotate(0deg); }
-  100% { transform: scale(1.2) rotate(3deg); }
-}
-
-/* ===== 网格线 ===== */
-.grid-overlay {
+.floating-emoji {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-image: 
-    linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
-  background-size: 60px 60px;
+  opacity: 0.3;
+  animation: float ease-in-out infinite;
 }
 
-/* ===== 登录卡片 ===== */
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0) rotate(-5deg); 
+  }
+  50% { 
+    transform: translateY(-20px) rotate(5deg); 
+  }
+}
+
 .login-card {
   position: relative;
   z-index: 10;
   width: 100%;
-  max-width: 420px;
+  max-width: 400px;
   padding: 48px 40px 40px;
-  background: rgba(255, 255, 255, 0.04);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 24px;
-  border: 1px solid rgba(0, 212, 255, 0.15);
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border-radius: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.8);
   box-shadow: 
-    0 30px 80px rgba(0, 0, 0, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    0 20px 60px rgba(124, 58, 237, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  animation: cardEntrance 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  opacity: 0;
+  transform: translateY(40px) scale(0.8);
 }
 
-/* ===== 装饰光晕 ===== */
-.glow-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(60px);
-  pointer-events: none;
+@keyframes cardEntrance {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-.glow-orb-1 {
-  width: 200px;
-  height: 200px;
-  top: -80px;
-  right: -60px;
-  background: rgba(0, 212, 255, 0.15);
-}
-
-.glow-orb-2 {
-  width: 150px;
-  height: 150px;
-  bottom: -60px;
-  left: -50px;
-  background: rgba(138, 43, 226, 0.15);
-}
-
-/* ===== Logo ===== */
-.logo-icon {
-  font-size: 48px;
+.card-top-emoji {
   text-align: center;
-  margin-bottom: 8px;
+  font-size: 48px;
+  margin-bottom: 16px;
+  animation: sway 3s ease-in-out infinite;
   display: block;
-  filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.3));
 }
 
-/* ===== 标题 ===== */
+@keyframes sway {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+
 h1 {
   text-align: center;
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
-  color: #fff;
+  color: #2D1B3D;
   margin-bottom: 4px;
-  letter-spacing: 2px;
-  text-shadow: 0 0 30px rgba(0, 212, 255, 0.2);
+  letter-spacing: 0.5px;
+}
+
+.wave-hand {
+  display: inline-block;
+  transform-origin: 70% bottom;
+  animation: wave 2.5s ease-in-out infinite;
+}
+
+@keyframes wave {
+  0%, 100% { transform: rotate(-20deg); }
+  50% { transform: rotate(20deg); }
 }
 
 .subtitle {
   text-align: center;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(45, 27, 61, 0.4);
   font-size: 14px;
-  letter-spacing: 4px;
-  margin-bottom: 36px;
-  font-weight: 300;
+  font-weight: 400;
+  margin-bottom: 32px;
 }
 
-/* ===== 表单 ===== */
 .form-group {
-  margin-bottom: 28px;
-  position: relative;
+  margin-bottom: 16px;
 }
 
-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.input-label {
+  display: block;
   font-size: 13px;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.6);
-  margin-bottom: 8px;
-  letter-spacing: 1px;
+  font-weight: 600;
+  color: #2D1B3D;
+  margin-bottom: 5px;
 }
 
-.label-icon {
-  font-size: 14px;
+.input-wrapper {
+  position: relative;
+  animation: inputSlideIn 0.6s ease-out forwards;
+  opacity: 0;
+  transform: translateY(20px);
 }
 
-/* ===== 输入框 ===== */
-.tech-input {
+.form-group:nth-child(1) .input-wrapper {
+  animation-delay: 0.2s;
+}
+
+.form-group:nth-child(2) .input-wrapper {
+  animation-delay: 0.35s;
+}
+
+@keyframes inputSlideIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-input {
   width: 100%;
-  padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  height: 54px;
+  padding: 0 16px 0 46px;
+  background: rgba(255, 255, 255, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  border-radius: 20px;
   font-size: 15px;
-  color: #fff;
-  transition: all 0.3s ease;
-  box-sizing: border-box;
+  color: #2D1B3D;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   font-family: inherit;
 }
 
-.tech-input::placeholder {
-  color: rgba(255, 255, 255, 0.2);
+.login-input::placeholder {
+  color: rgba(45, 27, 61, 0.2);
 }
 
-.tech-input:focus {
+.login-input:focus {
   outline: none;
-  border-color: rgba(0, 212, 255, 0.4);
-  background: rgba(255, 255, 255, 0.06);
-  box-shadow: 0 0 30px rgba(0, 212, 255, 0.05);
+  border-color: #A78BFA;
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 0 8px rgba(167, 139, 250, 0.1);
+  transform: scale(1.02);
 }
 
-/* ===== 输入框底部发光线条 ===== */
-.input-line {
-  height: 2px;
-  width: 0;
-  background: linear-gradient(90deg, transparent, #00d4ff, transparent);
-  transition: width 0.4s ease;
-  margin-top: 4px;
+.login-input:focus + .input-icon {
+  color: #7C3AED;
+  transform: rotate(-5deg);
 }
 
-.tech-input:focus ~ .input-line {
-  width: 100%;
-}
-
-/* ===== 密码切换 ===== */
-.password-wrapper {
-  position: relative;
-}
-
-.password-wrapper .tech-input {
-  padding-right: 48px;
+.input-icon {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 18px;
+  color: rgba(45, 27, 61, 0.2);
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
 }
 
 .toggle-pwd {
   position: absolute;
-  right: 14px;
+  right: 16px;
   top: 50%;
   transform: translateY(-50%);
-  cursor: pointer;
   font-size: 18px;
-  opacity: 0.4;
-  transition: opacity 0.3s;
+  color: rgba(45, 27, 61, 0.2);
+  cursor: pointer;
+  transition: color 0.3s;
   background: transparent;
   border: none;
 }
 
 .toggle-pwd:hover {
-  opacity: 0.8;
+  color: rgba(45, 27, 61, 0.5);
 }
 
-/* ===== 按钮 ===== */
-.tech-btn {
-  position: relative;
+.form-group.shake .input-wrapper {
+  animation: shake 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-12px); }
+  40% { transform: translateX(12px); }
+  60% { transform: translateX(-8px); }
+  80% { transform: translateX(8px); }
+  90% { transform: translateX(-4px); }
+}
+
+.login-btn {
   width: 100%;
-  padding: 16px;
-  background: linear-gradient(135deg, #00d4ff 0%, #7b2ffc 100%);
+  height: 54px;
+  margin-top: 12px;
+  background: linear-gradient(135deg, #A78BFA, #7C3AED);
   border: none;
-  border-radius: 12px;
-  font-size: 16px;
-  font-weight: 600;
+  border-radius: 100px;
+  font-size: 17px;
+  font-weight: 700;
   color: #fff;
   cursor: pointer;
-  overflow: hidden;
-  transition: all 0.3s ease;
-  letter-spacing: 2px;
-  margin-top: 8px;
+  box-shadow: 0 8px 30px rgba(124, 58, 237, 0.25);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: btnSlideIn 0.6s ease-out forwards;
+  opacity: 0;
+  transform: translateY(20px);
+  animation-delay: 0.5s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.tech-btn:hover:not(:disabled) {
+@keyframes btnSlideIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.login-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 8px 40px rgba(0, 212, 255, 0.25);
+  box-shadow: 0 12px 40px rgba(124, 58, 237, 0.3);
 }
 
-.tech-btn:disabled {
-  opacity: 0.5;
+.login-btn:active:not(:disabled) {
+  transform: scale(0.92);
+  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.15);
+}
+
+.login-btn:disabled {
+  background: rgba(200, 180, 210, 0.6);
+  box-shadow: none;
   cursor: not-allowed;
-  transform: none;
+  opacity: 0.5;
 }
 
 .btn-text {
@@ -352,78 +477,160 @@ label {
   z-index: 2;
 }
 
-.btn-glow {
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.1) 0%, transparent 60%);
-  opacity: 0;
-  transition: opacity 0.5s ease;
+.btn-loading {
+  position: relative;
 }
 
-.tech-btn:hover:not(:disabled) .btn-glow {
-  opacity: 1;
-}
-
-/* ===== 错误信息 ===== */
-.error {
-  margin-top: 16px;
-  padding: 12px 16px;
-  background: rgba(255, 0, 0, 0.08);
-  border: 1px solid rgba(255, 0, 0, 0.15);
-  border-radius: 8px;
-  color: #ff6b6b;
-  font-size: 14px;
-  text-align: center;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.error-icon {
-  font-size: 16px;
-}
-
-/* ===== 底部装饰 ===== */
-.footer-decoration {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-top: 28px;
-}
-
-.footer-decoration .dot {
-  width: 4px;
-  height: 4px;
+.spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
   border-radius: 50%;
-  background: rgba(0, 212, 255, 0.2);
+  animation: spin 0.7s linear infinite;
 }
 
-.footer-decoration .line {
-  flex: 1;
-  max-width: 60px;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.2), transparent);
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 
-/* ===== 响应式 ===== */
+.btn-success {
+  font-size: 24px;
+  animation: successPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  transform: scale(0);
+}
+
+@keyframes successPop {
+  to { transform: scale(1); }
+}
+
+.helper-links {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 24px;
+  animation: linksSlideIn 0.6s ease-out forwards;
+  opacity: 0;
+  transform: translateY(20px);
+  animation-delay: 0.7s;
+}
+
+@keyframes linksSlideIn {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.helper-link {
+  font-size: 13px;
+  color: rgba(45, 27, 61, 0.35);
+  text-decoration: none;
+  transition: color 0.3s;
+}
+
+.helper-link:hover {
+  color: rgba(45, 27, 61, 0.6);
+}
+
+.register-link {
+  color: #7C3AED;
+  font-weight: 600;
+}
+
+.register-link:hover {
+  color: #FF6BB5;
+}
+
+.dot-divider {
+  font-size: 4px;
+  color: rgba(45, 27, 61, 0.1);
+}
+
+.toast-container {
+  position: fixed;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+}
+
+.toast {
+  background: rgba(255, 71, 87, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 16px;
+  padding: 14px 28px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 8px 24px rgba(255, 71, 87, 0.3);
+  animation: toastEnter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes toastEnter {
+  from {
+    opacity: 0;
+    transform: translateY(-40px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.toast.leaving {
+  animation: toastLeave 0.4s ease-out forwards;
+}
+
+@keyframes toastLeave {
+  to {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+}
+
+.stars-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.falling-star {
+  position: absolute;
+  top: -50px;
+  animation: starFall linear forwards;
+}
+
+@keyframes starFall {
+  0% {
+    transform: translateY(0) rotate(0deg) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg) scale(0.2);
+    opacity: 0;
+  }
+}
+
 @media (max-width: 480px) {
   .login-card {
-    padding: 32px 24px 28px;
+    padding: 36px 24px 32px;
     margin: 16px;
-    border-radius: 16px;
+    border-radius: 32px;
   }
 
   h1 {
-    font-size: 20px;
+    font-size: 22px;
   }
 
-  .logo-icon {
-    font-size: 36px;
+  .card-top-emoji {
+    font-size: 40px;
   }
 }
 </style>
