@@ -315,14 +315,17 @@
             </div>
 
             <div class="form-group">
-              <label>💼 实战案例</label>
-              <textarea 
+              <label>💡 实战案例</label>
+              <div class="editor-hint">支持 Markdown 语法，右侧可实时预览</div>
+              <MdEditor 
                 v-model="form.caseStudy" 
                 @input="autoSaveDraft"
-                rows="3" 
-                placeholder="背景 → 问题 → 解决方案 → 效果"
-                class="case-editor"
-              ></textarea>
+                :toolbars="toolbars"
+                :theme="'light'"
+                class="md-editor case-md-editor"
+                placeholder="背景 → 问题 → 解决方案 → 效果，支持 Markdown 格式..."
+                style="min-height: 200px;"
+              />
             </div>
 
             <div class="form-group">
@@ -2041,9 +2044,9 @@ header {
 }
 .btn-add-keypoint:hover { background: #d5d9e0; }
 
-.case-editor {
-  resize: vertical;
-  font-family: inherit;
+.case-md-editor {
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .attachment-list {

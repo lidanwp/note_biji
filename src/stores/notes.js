@@ -52,6 +52,17 @@ export const useNotesStore = defineStore('notes', () => {
     return notes.value.reduce((sum, n) => sum + (n.viewCount || 0), 0)
   })
 
+  const totalCharacters = computed(() => {
+    return notes.value.reduce((sum, n) => {
+      const content = n.content || ''
+      const caseStudy = n.caseStudy || ''
+      // 去除HTML标签和markdown语法，只计算纯文本字数
+      const cleanContent = content.replace(/<[^>]*>/g, '').replace(/[#*`>\-\[\]()]/g, '')
+      const cleanCaseStudy = caseStudy.replace(/<[^>]*>/g, '').replace(/[#*`>\-\[\]()]/g, '')
+      return sum + cleanContent.length + cleanCaseStudy.length
+    }, 0)
+  })
+
   const loadNotes = async () => {
     isLoading.value = true
     error.value = null
@@ -182,6 +193,7 @@ export const useNotesStore = defineStore('notes', () => {
     totalNotes,
     categories,
     totalViews,
+    totalCharacters,
     loadNotes,
     saveNotes,
     addNote,

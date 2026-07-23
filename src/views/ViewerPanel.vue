@@ -44,6 +44,11 @@
         <span class="badge-num">{{ totalViews }}</span>
         <span class="badge-label">浏览</span>
       </span>
+      <span class="stat-badge">
+        <span class="badge-icon">📄</span>
+        <span class="badge-num">{{ totalCharacters }}</span>
+        <span class="badge-label">字数</span>
+      </span>
        <button 
         @click="showHistoryPanel = !showHistoryPanel" 
         class="stat-badge history-toggle"
@@ -222,11 +227,20 @@
 
     <!-- ===== 笔记详情弹窗 - 全屏铺开 ===== -->
     <div v-if="selectedNote" class="modal-overlay" @click="closeDetail">
-      <div class="modal-detail" @click.stop>
-        <!-- 关闭按钮 - 固定在顶部 -->
-        <button class="modal-close" @click="closeDetail">✕ 关闭</button>
-        
+      <div 
+        class="modal-detail" 
+        @click.stop
+        @touchstart="handleTouchStart"
+        @touchmove="handleTouchMove"
+        @touchend="handleTouchEnd"
+        :style="{ transform: slideX !== 0 ? `translateX(${slideX}px)` : 'none', transition: isSliding ? 'none' : 'transform 0.3s ease' }"
+      >
         <div class="detail-header">
+          <button class="modal-back" @click="closeDetail">
+            <svg viewBox="0 0 24 24" class="back-icon" aria-label="返回">
+              <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
           <span class="detail-category">{{ selectedNote.category }}</span>
           <h2>{{ selectedNote.title }}</h2>
           <div class="detail-meta">
@@ -252,7 +266,7 @@
         
         <div v-if="selectedNote.caseStudy" class="detail-case">
           <h4>💡 实战案例</h4>
-          <div class="case-content">{{ selectedNote.caseStudy }}</div>
+          <div class="case-content markdown-body" v-html="renderMarkdown(selectedNote.caseStudy)"></div>
         </div>
         
         <div v-if="examMode && selectedNote.examMapping" class="detail-exam">
@@ -360,6 +374,12 @@ const showUserMenu = ref(false)
 const showChangePassword = ref(false)
 const userMenuRef = ref(null)
 
+// 滑动返回相关
+const startX = ref(0)
+const startY = ref(0)
+const slideX = ref(0)
+const isSliding = ref(false)
+
 // ===== 下拉选项数据 =====
 const categoryFilterOptions = computed(() => [
   { value: '', label: '📂 全部分类' },
@@ -376,6 +396,7 @@ const difficultyFilterOptions = [
 // ===== 计算属性 =====
 const categories = computed(() => notesStore.categories)
 const totalViews = computed(() => notesStore.totalViews)
+const totalCharacters = computed(() => notesStore.totalCharacters)
 const filteredNotes = computed(() => notesStore.filteredNotes)
 const paginatedNotes = computed(() => notesStore.paginatedNotes)
 const totalNotes = computed(() => notesStore.totalNotes)
@@ -475,6 +496,43 @@ const viewDetail = (note) => {
 const closeDetail = () => {
   selectedNote.value = null
   document.body.style.overflow = ''
+  // 重置滑动状态
+  slideX.value = 0
+  isSliding.value = false
+}
+
+// 滑动返回处理
+const handleTouchStart = (e) => {
+  startX.value = e.touches[0].clientX
+  startY.value = e.touches[0].clientY
+  isSliding.value = false
+}
+
+const handleTouchMove = (e) => {
+  const currentX = e.touches[0].clientX
+  const currentY = e.touches[0].clientY
+  const diffX = currentX - startX.value
+  const diffY = currentY - startY.value
+  
+  // 只有从左侧边缘开始滑动才生效，且主要是水平滑动
+  if (startX.value < 50 && diffX > 0 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
+    isSliding.value = true
+    // 限制最大滑动距离，添加阻尼效果
+    slideX.value = Math.min(diffX * 0.5, window.innerWidth * 0.6)
+  }
+}
+
+const handleTouchEnd = () => {
+  if (!isSliding.value) return
+  
+  // 判断是否超过阈值（屏幕宽度的30%）
+  if (slideX.value > window.innerWidth * 0.3) {
+    closeDetail()
+  } else {
+    // 回弹
+    isSliding.value = false
+    slideX.value = 0
+  }
 }
 
 const markUseful = (note) => {
@@ -1245,33 +1303,41 @@ header {
   box-sizing: border-box;
 }
 
-/* 关闭按钮 - 悬浮固定在顶部 */
-.modal-close {
-  position: sticky;
+.modal-back {
+  position: absolute;
   top: 12px;
-  float: right;
-  background: rgba(102, 126, 234, 0.12);
+  left: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: none;
-  font-size: 14px;
-  font-weight: 500;
   cursor: pointer;
-  color: #667eea;
-  padding: 8px 18px;
-  border-radius: 20px;
+  color: #2563EB;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  transition: all 0.15s ease;
   z-index: 10;
-  margin-bottom: 8px;
-  backdrop-filter: blur(4px);
-  transition: background 0.2s;
 }
 
-.modal-close:hover {
-  background: rgba(102, 126, 234, 0.25);
+.modal-back:hover,
+.modal-back:active {
+  color: #1d4ed8;
+  transform: translateX(-2px);
+}
+
+.back-icon {
+  width: 24px;
+  height: 24px;
 }
 
 /* 详情内容样式 */
 .detail-header {
   margin-bottom: 24px;
   padding-top: 4px;
+  padding-left: 54px;
 }
 
 .detail-category {
@@ -1427,7 +1493,80 @@ header {
   padding: 16px;
   border-radius: 6px;
   color: var(--text-secondary);
-  line-height: 1.8;
+  line-height: 1.9;
+  font-size: 15px;
+}
+
+.case-content :deep(h1) {
+  font-size: 22px;
+  margin: 16px 0 8px;
+  color: var(--text-primary);
+}
+
+.case-content :deep(h2) {
+  font-size: 19px;
+  margin: 14px 0 6px;
+  color: var(--text-primary);
+}
+
+.case-content :deep(h3) {
+  font-size: 17px;
+  margin: 12px 0 6px;
+  color: var(--text-primary);
+}
+
+.case-content :deep(ul),
+.case-content :deep(ol) {
+  padding-left: 20px;
+}
+
+.case-content :deep(li) {
+  margin-bottom: 6px;
+}
+
+.case-content :deep(pre) {
+  background: var(--bg-code);
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+}
+
+.case-content :deep(code) {
+  background: var(--bg-code);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.case-content :deep(blockquote) {
+  border-left: 4px solid #f97316;
+  padding-left: 16px;
+  margin: 8px 0;
+  color: var(--text-muted);
+}
+
+.case-content :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.case-content :deep(th),
+.case-content :deep(td) {
+  border: 1px solid var(--border-color);
+  padding: 6px 12px;
+}
+
+.case-content :deep(th) {
+  background: var(--accent-light);
+}
+
+.case-content :deep(a) {
+  color: #667eea;
+  text-decoration: none;
+}
+
+.case-content :deep(a:hover) {
+  text-decoration: underline;
 }
 
 .detail-attachments ul {
