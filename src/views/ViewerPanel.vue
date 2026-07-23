@@ -1337,7 +1337,7 @@ header {
 .detail-header {
   margin-bottom: 24px;
   padding-top: 4px;
-  padding-left: 54px;
+  padding-left: 10px;
 }
 
 .detail-category {
@@ -1423,7 +1423,7 @@ header {
   line-height: 1.9;
   color: var(--text-secondary);
   margin-bottom: 24px;
-  font-size: 15px;
+  padding: 0;
 }
 
 .detail-content :deep(h1) {
@@ -1446,6 +1446,10 @@ header {
 
 .detail-content :deep(ul) {
   padding-left: 20px;
+}
+
+.detail-content :deep(ol) {
+  padding-left: 13px;
 }
 
 .detail-content :deep(li) {
@@ -1490,7 +1494,7 @@ header {
 
 .case-content {
   background: var(--bg-primary);
-  padding: 16px;
+  padding: 0;
   border-radius: 6px;
   color: var(--text-secondary);
   line-height: 1.9;
@@ -1515,9 +1519,12 @@ header {
   color: var(--text-primary);
 }
 
-.case-content :deep(ul),
-.case-content :deep(ol) {
+.case-content :deep(ul) {
   padding-left: 20px;
+}
+
+.case-content :deep(ol) {
+  padding-left: 13px;
 }
 
 .case-content :deep(li) {
