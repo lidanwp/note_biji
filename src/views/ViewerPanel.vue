@@ -594,12 +594,12 @@ onMounted(async () => {
 
 const loadBotWidget = () => {
   // 避免重复加载
-  if (botScript || document.querySelector('script[src="https://bdxxg.asia/widget-bot.js"]')) {
+  if (botScript || document.querySelector('script[src="/widget-bot.js"]')) {
     return
   }
   
   botScript = document.createElement('script')
-  botScript.src = 'https://bdxxg.asia/widget-bot.js'
+  botScript.src = '/widget-bot.js'
   botScript.async = true
   botScript.onload = () => {
     console.log('PandaWiki 问答机器人挂件加载成功')
