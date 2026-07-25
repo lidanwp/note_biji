@@ -80,13 +80,13 @@
   windowEl.className = 'panda-bot-window';
   windowEl.style.display = 'none';
   windowEl.style.position = 'fixed';
-  windowEl.style.bottom = '80px';
-  windowEl.style.right = '30px';
-  windowEl.style.width = '420px';
-  windowEl.style.height = '700px';
+  windowEl.style.top = '0';
+  windowEl.style.left = '0';
+  windowEl.style.width = '100%';
+  windowEl.style.height = '100%';
   windowEl.style.background = BG_WINDOW;
-  windowEl.style.borderRadius = '28px';
-  windowEl.style.boxShadow = '0 20px 50px ' + SHADOW;
+  windowEl.style.borderRadius = '0';
+  windowEl.style.boxShadow = 'none';
   windowEl.style.overflow = 'hidden';
   windowEl.style.flexDirection = 'column';
   windowEl.style.zIndex = '99998';
@@ -207,48 +207,14 @@
   emptyState.appendChild(emptyTitle);
 
   const emptyDesc = document.createElement('p');
-  emptyDesc.textContent = '有什么可以帮助你的吗？试试点击下方按钮';
-  emptyDesc.style.margin = '0 0 24px 0';
+  emptyDesc.textContent = '有什么可以帮助你的吗？';
+  emptyDesc.style.margin = '0';
   emptyDesc.style.fontSize = '14px';
   emptyDesc.style.color = TEXT_SECONDARY;
   emptyDesc.style.lineHeight = '1.6';
   emptyState.appendChild(emptyDesc);
 
-  const quickActions = document.createElement('div');
-  quickActions.className = 'panda-bot-quick-actions';
-  quickActions.style.display = 'flex';
-  quickActions.style.flexDirection = 'column';
-  quickActions.style.gap = '10px';
-  quickActions.style.width = '100%';
-  emptyState.appendChild(quickActions);
-
-  const quickBtnsData = [
-    { action: '帮我总结要点', icon: icons.summary },
-    { action: '提取关键信息', icon: icons.points },
-    { action: '这篇文章适合谁', icon: icons.audience }
-  ];
-
   const quickBtns = [];
-  quickBtnsData.forEach(item => {
-    const btnEl = document.createElement('button');
-    btnEl.className = 'panda-bot-quick-btn';
-    btnEl.dataset.action = item.action;
-    btnEl.style.padding = '12px 16px';
-    btnEl.style.border = '1.5px solid ' + BORDER;
-    btnEl.style.background = BG_WINDOW;
-    btnEl.style.borderRadius = '16px';
-    btnEl.style.cursor = 'pointer';
-    btnEl.style.fontSize = '14px';
-    btnEl.style.color = TEXT_PRIMARY;
-    btnEl.style.transition = 'all 0.2s';
-    btnEl.style.textAlign = 'left';
-    btnEl.style.display = 'flex';
-    btnEl.style.alignItems = 'center';
-    btnEl.style.gap = '10px';
-    btnEl.innerHTML = item.icon + ' ' + item.action;
-    quickActions.appendChild(btnEl);
-    quickBtns.push(btnEl);
-  });
 
   const inputArea = document.createElement('div');
   inputArea.className = 'panda-bot-input-area';
@@ -473,30 +439,6 @@
     }
   });
 
-  quickBtns.forEach(btnEl => {
-    btnEl.addEventListener('click', () => {
-      textarea.value = btnEl.dataset.action;
-      autoResizeTextarea();
-      textarea.focus();
-    });
-    btnEl.addEventListener('mouseenter', () => {
-      btnEl.style.background = BRAND;
-      btnEl.style.color = 'white';
-      btnEl.style.borderColor = BRAND;
-    });
-    btnEl.addEventListener('mouseleave', () => {
-      btnEl.style.background = BG_WINDOW;
-      btnEl.style.color = TEXT_PRIMARY;
-      btnEl.style.borderColor = BORDER;
-    });
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!widget.contains(e.target) && windowEl.style.display === 'flex') {
-      toggleWindow();
-    }
-  });
-
   const styleSheet = document.createElement('style');
   styleSheet.textContent = `
     @keyframes botPulse {
@@ -518,11 +460,6 @@
     .panda-bot-messages::-webkit-scrollbar-track { background: transparent; }
     .panda-bot-messages::-webkit-scrollbar-thumb { background: ${ACCENT}; border-radius: 3px; }
     .panda-bot-messages::-webkit-scrollbar-thumb:hover { background: ${ACCENT_DARK}; }
-    @media (max-width: 480px) {
-      .panda-bot-widget { bottom: 20px !important; right: 20px !important; }
-      .panda-bot-btn { width: 52px !important; height: 52px !important; }
-      .panda-bot-window { width: calc(100vw - 40px) !important; height: calc(100vh - 110px) !important; right: 10px !important; border-radius: 24px !important; }
-    }
   `;
   document.head.appendChild(styleSheet);
 

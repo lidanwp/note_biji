@@ -22,6 +22,12 @@ const routes = [
     path: '/login',
     name: 'login',
     component: () => import('@/views/Login.vue')
+  },
+  // ⭐ 新增注册路由
+  {
+    path: '/register',
+    name: 'register',
+    component: () => import('@/views/Register.vue')
   }
 ]
 
@@ -52,7 +58,8 @@ router.beforeEach(async (to, from, next) => {
     }
   }
   
-  if (to.path === '/login' && authStore.isLoggedIn) {
+  // ⭐ 已登录用户访问登录页或注册页 → 根据角色跳转
+  if ((to.path === '/login' || to.path === '/register') && authStore.isLoggedIn) {
     if (authStore.user?.role === 'admin') {
       next('/admin')
     } else {

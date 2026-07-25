@@ -18,12 +18,12 @@
     </div>
 
     <div class="login-card">
-      <div class="card-top-emoji">🌸</div>
+      <div class="card-top-emoji">🚀</div>
 
-      <h1>Hi，欢迎回来 <span class="wave-hand">👋</span></h1>
-      <p class="subtitle">今天也想和你一起记录美好 ✨</p>
+      <h1>加入我们 <span class="wave-hand">✨</span></h1>
+      <p class="subtitle">开启你的知识分享之旅 🌟</p>
 
-      <form @submit.prevent="handleLogin">
+      <form @submit.prevent="handleRegister">
         <div class="form-group" :class="{ shake: shakeUsername }">
           <label class="input-label" for="username">账号</label>
           <div class="input-wrapper">
@@ -32,9 +32,9 @@
               id="username"
               type="text" 
               v-model="username" 
-              placeholder="请输入账号"
+              placeholder="请输入账号（至少3个字符）"
               required
-              class="login-input"
+              class="register-input"
               aria-required="true"
               autocomplete="username"
               @input="handleInput"
@@ -50,18 +50,16 @@
               id="password"
               :type="showPassword ? 'text' : 'password'" 
               v-model="password" 
-              placeholder="请输入密码"
+              placeholder="请输入密码（至少6位）"
               required
-              class="login-input"
+              class="register-input"
               aria-required="true"
-              autocomplete="current-password"
+              autocomplete="new-password"
               @input="handleInput"
             >
             <span 
               class="toggle-pwd" 
               @click="showPassword = !showPassword"
-              @keydown.enter.prevent="showPassword = !showPassword"
-              @keydown.space.prevent="showPassword = !showPassword"
               role="button"
               tabindex="0"
               aria-label="切换密码可见性"
@@ -69,38 +67,61 @@
           </div>
         </div>
 
+        <div class="form-group" :class="{ shake: shakeConfirm }">
+          <label class="input-label" for="confirmPassword">确认密码</label>
+          <div class="input-wrapper">
+            <span class="input-icon">🔑</span>
+            <input 
+              id="confirmPassword"
+              :type="showConfirmPassword ? 'text' : 'password'" 
+              v-model="confirmPassword" 
+              placeholder="请再次输入密码"
+              required
+              class="register-input"
+              aria-required="true"
+              autocomplete="new-password"
+              @input="handleInput"
+            >
+            <span 
+              class="toggle-pwd" 
+              @click="showConfirmPassword = !showConfirmPassword"
+              role="button"
+              tabindex="0"
+              aria-label="切换密码可见性"
+            >{{ showConfirmPassword ? '🙈' : '👁️' }}</span>
+          </div>
+        </div>
+
         <div class="btn-wrapper">
           <button 
             type="submit" 
-            :disabled="!username || !password || loading || loginSuccess" 
-            class="login-btn" 
+            :disabled="!username || !password || !confirmPassword || loading || registerSuccess" 
+            class="register-btn" 
             :class="{
               'loading': loading,
-              'success': loginSuccess
+              'success': registerSuccess
             }"
           >
-            <span v-if="!loading && !loginSuccess" class="btn-content">
-              <span class="btn-text">登录</span>
+            <span v-if="!loading && !registerSuccess" class="btn-content">
+              <span class="btn-text">注册</span>
             </span>
             
-            <span v-if="loading && !loginSuccess" class="btn-content loading-content">
+            <span v-if="loading && !registerSuccess" class="btn-content loading-content">
               <span class="spinner-ring">
                 <span class="spinner"></span>
               </span>
-              <span class="loading-text">正在登录...</span>
+              <span class="loading-text">正在注册...</span>
             </span>
             
-            <span v-if="loginSuccess" class="btn-content success-content">
+            <span v-if="registerSuccess" class="btn-content success-content">
               <span class="success-icon">✅</span>
-              <span class="success-text">登录成功</span>
+              <span class="success-text">注册成功</span>
             </span>
           </button>
         </div>
 
         <div class="helper-links">
-          <a href="#" class="helper-link">忘记密码？</a>
-          <span class="dot-divider">·</span>
-          <router-link to="/register" class="helper-link register-link">注册新账号</router-link>
+          <router-link to="/login" class="helper-link">已有账号？立即登录</router-link>
         </div>
       </form>
     </div>
@@ -132,19 +153,20 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
-const authStore = useAuthStore()
 
 const username = ref('')
 const password = ref('')
+const confirmPassword = ref('')
 const showPassword = ref(false)
+const showConfirmPassword = ref(false)
 const loading = ref(false)
-const loginSuccess = ref(false)
+const registerSuccess = ref(false)
 
 const shakeUsername = ref(false)
 const shakePassword = ref(false)
+const shakeConfirm = ref(false)
 
 const showToast = ref(false)
 const toastMessage = ref('')
@@ -164,15 +186,6 @@ const floatingEmojis = ref([
 
 const starEmojis = ['⭐', '🌟', '✨', '🎉', '💫', '🌈']
 
-const roleRouteMap = {
-  'admin': '/admin',
-  'administrator': '/admin',
-  'manager': '/admin',
-  'viewer': '/viewer',
-  'user': '/viewer',
-  'guest': '/viewer'
-}
-
 const showErrorToast = (message) => {
   toastMessage.value = message
   showToast.value = true
@@ -186,24 +199,43 @@ const showErrorToast = (message) => {
   }, 2200)
 }
 
+const showSuccessToast = (message) => {
+  toastMessage.value = message
+  showToast.value = true
+  toastLeaving.value = false
+  toastContainerClass.value = 'success'
+  
+  setTimeout(() => {
+    toastLeaving.value = true
+    setTimeout(() => {
+      showToast.value = false
+      toastContainerClass.value = ''
+    }, 400)
+  }, 2500)
+}
+
+const toastContainerClass = ref('')
+
 const triggerShake = () => {
   shakeUsername.value = true
   shakePassword.value = true
+  shakeConfirm.value = true
   setTimeout(() => {
     shakeUsername.value = false
     shakePassword.value = false
+    shakeConfirm.value = false
   }, 600)
 }
 
 const createStarsRain = () => {
   showStars.value = true
-  fallingStars.value = Array.from({ length: 7 }, (_, i) => ({
+  fallingStars.value = Array.from({ length: 15 }, (_, i) => ({
     id: i,
     char: starEmojis[Math.floor(Math.random() * starEmojis.length)],
     x: 5 + Math.random() * 90,
-    duration: 2 + Math.random(),
-    delay: Math.random() * 0.5,
-    size: 24 + Math.random() * 16
+    duration: 2 + Math.random() * 2,
+    delay: Math.random() * 0.8,
+    size: 20 + Math.random() * 20
   }))
   
   setTimeout(() => {
@@ -212,74 +244,82 @@ const createStarsRain = () => {
 }
 
 const handleInput = () => {
-  if (loginSuccess.value) {
-    loginSuccess.value = false
+  if (registerSuccess.value) {
+    registerSuccess.value = false
   }
 }
 
-const navigateByRole = (role) => {
-  const route = roleRouteMap[role]
-  if (route) {
-    router.push(route)
+const handleRegister = async () => {
+  registerSuccess.value = false
+  
+  if (!username.value || username.value.length < 3) {
+    shakeUsername.value = true
+    setTimeout(() => { shakeUsername.value = false }, 600)
+    showErrorToast('账号至少需要3个字符')
     return
   }
-  
-  if (role && typeof role === 'string') {
-    const lowerRole = role.toLowerCase()
-    if (lowerRole.includes('admin') || lowerRole.includes('manager')) {
-      router.push('/admin')
-      return
-    }
-    if (lowerRole.includes('viewer') || lowerRole.includes('user') || lowerRole.includes('guest')) {
-      router.push('/viewer')
-      return
-    }
-  }
-  
-  console.warn('未知角色:', role, '，使用默认跳转')
-  router.push('/viewer')
-}
 
-const handleLogin = async () => {
-  if (!username.value || !password.value) {
-    triggerShake()
-    showErrorToast('请输入账号和密码')
+  if (password.value.length < 6) {
+    shakePassword.value = true
+    setTimeout(() => { shakePassword.value = false }, 600)
+    showErrorToast('密码至少需要6位')
+    return
+  }
+
+  if (password.value !== confirmPassword.value) {
+    shakeConfirm.value = true
+    setTimeout(() => { shakeConfirm.value = false }, 600)
+    showErrorToast('两次输入的密码不一致')
     return
   }
 
   loading.value = true
-  loginSuccess.value = false
 
   try {
-    const result = await authStore.login(username.value, password.value)
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: username.value,
+        password: password.value
+      })
+    })
 
-    if (result.success) {
-      loading.value = false
-      loginSuccess.value = true
-      
-      createStarsRain()
-      
-      setTimeout(() => {
-        navigateByRole(result.role)
-      }, 1500)
-    } else {
-      loading.value = false
-      triggerShake()
-      showErrorToast(result.message)
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.error || '注册失败')
     }
-  } catch (e) {
+
+    loading.value = false
+    registerSuccess.value = true
+    
+    createStarsRain()
+    showSuccessToast('🎉 注册成功！即将跳转到登录页')
+    
+    username.value = ''
+    password.value = ''
+    confirmPassword.value = ''
+    
+    setTimeout(() => {
+      router.push('/login')
+    }, 2500)
+
+  } catch (error) {
     loading.value = false
     triggerShake()
-    showErrorToast('登录过程中发生错误，请重试')
+    showErrorToast(error.message || '注册失败，请重试')
   }
 }
 
 onMounted(() => {
-  loginSuccess.value = false
+  registerSuccess.value = false
   loading.value = false
   username.value = ''
   password.value = ''
+  confirmPassword.value = ''
   showPassword.value = false
+  showConfirmPassword.value = false
   showToast.value = false
   showStars.value = false
 })
@@ -424,6 +464,10 @@ h1 {
   animation-delay: 0.35s;
 }
 
+.form-group:nth-child(3) .input-wrapper {
+  animation-delay: 0.5s;
+}
+
 @keyframes inputSlideIn {
   to {
     opacity: 1;
@@ -431,7 +475,7 @@ h1 {
   }
 }
 
-.login-input {
+.register-input {
   width: 100%;
   height: 56px;
   padding: 0 48px 0 48px;
@@ -444,12 +488,12 @@ h1 {
   font-family: inherit;
 }
 
-.login-input::placeholder {
+.register-input::placeholder {
   color: rgba(45, 27, 61, 0.3);
   font-weight: 400;
 }
 
-.login-input:focus {
+.register-input:focus {
   outline: none;
   border-color: #7C3AED;
   background: rgba(255, 255, 255, 0.9);
@@ -519,7 +563,7 @@ h1 {
   position: relative;
 }
 
-.login-btn {
+.register-btn {
   width: 100%;
   height: 56px;
   background: linear-gradient(135deg, #8B5CF6, #6D28D9);
@@ -534,7 +578,7 @@ h1 {
   animation: btnSlideIn 0.6s ease-out forwards;
   opacity: 0;
   transform: translateY(20px);
-  animation-delay: 0.5s;
+  animation-delay: 0.65s;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -543,7 +587,6 @@ h1 {
   top: 0;
   left: 0;
   overflow: hidden;
-  will-change: background, box-shadow, opacity;
 }
 
 @keyframes btnSlideIn {
@@ -553,88 +596,38 @@ h1 {
   }
 }
 
-.login-btn::before {
-  content: '';
-  position: absolute;
-  top: -50%;
-  left: -50%;
-  width: 200%;
-  height: 200%;
-  background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-  opacity: 0;
-  transition: opacity 0.6s ease;
-}
-
-.login-btn:hover:not(:disabled)::before {
-  opacity: 1;
-}
-
-.login-btn:disabled::before {
-  display: none;
-}
-
-.login-btn:hover:not(:disabled) {
+.register-btn:hover:not(:disabled) {
   box-shadow: 0 12px 40px rgba(124, 58, 237, 0.45);
-  transform: translateY(0);
 }
 
-.login-btn:active:not(:disabled) {
-  transform: scale(1);
+.register-btn:active:not(:disabled) {
+  transform: scale(0.98);
   box-shadow: 0 4px 15px rgba(124, 58, 237, 0.25);
 }
 
-.login-btn:disabled {
+.register-btn:disabled {
   background: linear-gradient(135deg, #C4B5D4, #A78BFA);
   box-shadow: none;
   cursor: not-allowed;
   opacity: 0.6;
-  transform: translateY(0) scale(1);
 }
 
-.login-btn.loading {
+.register-btn.loading {
   background: linear-gradient(135deg, #7C3AED, #5B21B6);
   box-shadow: 0 8px 30px rgba(124, 58, 237, 0.5);
-  animation: loadingPulse 1.8s ease-in-out infinite;
-  cursor: default;
-  transform: translateY(0) scale(1);
 }
 
-@keyframes loadingPulse {
-  0%, 100% {
-    box-shadow: 0 8px 30px rgba(124, 58, 237, 0.5);
-    transform: translateY(0) scale(1);
-  }
-  50% {
-    box-shadow: 0 8px 50px rgba(124, 58, 237, 0.7), 0 0 80px rgba(124, 58, 237, 0.2);
-    transform: translateY(0) scale(1);
-  }
+.register-btn.success {
+  background: linear-gradient(135deg, #34D399, #059669);
+  box-shadow: 0 8px 30px rgba(52, 211, 153, 0.4);
+  animation: successPulse 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.login-btn.loading::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #A78BFA, #EC4899, #A78BFA);
-  background-size: 200% 100%;
-  border-radius: 0 0 100px 100px;
-  animation: progressBar 2s ease-in-out infinite;
-}
-
-@keyframes progressBar {
-  0% {
-    width: 0%;
-    background-position: 0% 0%;
-  }
-  50% {
-    width: 70%;
-    background-position: 50% 0%;
-  }
-  100% {
-    width: 100%;
-    background-position: 100% 0%;
-  }
+@keyframes successPulse {
+  0% { transform: scale(1); }
+  30% { transform: scale(1.05); }
+  60% { transform: scale(0.95); }
+  100% { transform: scale(1); }
 }
 
 .btn-content {
@@ -644,7 +637,6 @@ h1 {
   gap: 10px;
   position: relative;
   z-index: 2;
-  white-space: nowrap;
 }
 
 .loading-content {
@@ -657,7 +649,6 @@ h1 {
   justify-content: center;
   width: 24px;
   height: 24px;
-  flex-shrink: 0;
 }
 
 .spinner {
@@ -677,39 +668,6 @@ h1 {
 .loading-text {
   font-size: 16px;
   font-weight: 600;
-  letter-spacing: 0.5px;
-  animation: loadingTextPulse 1.2s ease-in-out infinite;
-}
-
-@keyframes loadingTextPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-
-.login-btn.success {
-  background: linear-gradient(135deg, #34D399, #059669);
-  box-shadow: 0 8px 30px rgba(52, 211, 153, 0.4);
-  cursor: default;
-  transform: translateY(0) scale(1);
-  animation: successPulse 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes successPulse {
-  0% { transform: scale(1); }
-  30% { transform: scale(1.05); }
-  60% { transform: scale(0.95); }
-  100% { transform: scale(1); }
-}
-
-.login-btn.success::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  background: linear-gradient(90deg, #34D399, #6EE7B7, #34D399);
-  border-radius: 0 0 100px 100px;
 }
 
 .success-content {
@@ -719,7 +677,6 @@ h1 {
 .success-icon {
   font-size: 22px;
   animation: successIconBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-  flex-shrink: 0;
 }
 
 @keyframes successIconBounce {
@@ -731,7 +688,6 @@ h1 {
 .success-text {
   font-size: 16px;
   font-weight: 600;
-  letter-spacing: 0.5px;
 }
 
 .helper-links {
@@ -743,7 +699,7 @@ h1 {
   animation: linksSlideIn 0.6s ease-out forwards;
   opacity: 0;
   transform: translateY(20px);
-  animation-delay: 0.7s;
+  animation-delay: 0.8s;
 }
 
 @keyframes linksSlideIn {
@@ -765,34 +721,17 @@ h1 {
   color: #6D28D9;
 }
 
-.register-link {
-  color: #7C3AED;
-  font-weight: 700;
-  background: linear-gradient(135deg, #7C3AED, #6D28D9);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.register-link:hover {
-  transform: scale(1.05);
-  background: linear-gradient(135deg, #8B5CF6, #EC4899);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.dot-divider {
-  font-size: 4px;
-  color: rgba(45, 27, 61, 0.15);
-}
-
 .toast-container {
   position: fixed;
   top: 60px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
+}
+
+.toast-container.success .toast {
+  background: rgba(52, 211, 153, 0.92);
+  box-shadow: 0 8px 24px rgba(52, 211, 153, 0.3);
 }
 
 .toast {
@@ -872,7 +811,7 @@ h1 {
     font-size: 44px;
   }
 
-  .login-input {
+  .register-input {
     height: 50px;
     padding: 0 44px 0 44px;
     font-size: 14px;
@@ -892,7 +831,7 @@ h1 {
     height: 50px;
   }
 
-  .login-btn {
+  .register-btn {
     height: 50px;
     font-size: 16px;
   }

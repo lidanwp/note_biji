@@ -42,7 +42,6 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const logout = () => {
-    // 通知后端删除 session（不阻塞登出）
     const stored = localStorage.getItem('auth')
     if (stored) {
       try {
@@ -73,7 +72,6 @@ export const useAuthStore = defineStore('auth', () => {
         throw new Error('无 token')
       }
 
-      // 向后端验证 token 是否仍然有效
       const response = await fetch('/api/auth/verify', {
         headers: {
           'Authorization': `Bearer ${data.token}`
@@ -88,7 +86,6 @@ export const useAuthStore = defineStore('auth', () => {
         return true
       }
 
-      // token 过期或无效，清除登录状态
       throw new Error('token 无效')
     } catch (e) {
       console.warn('登录状态已过期，请重新登录')
