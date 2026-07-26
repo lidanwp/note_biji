@@ -4,7 +4,7 @@
  */
 
 const supabaseUrl = process.env.SUPABASE_URL
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
 
 /**
  * 使用 JWT token 验证用户身份
@@ -12,7 +12,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
  * @returns {Object} - { user, error } 
  */
 export async function verifyJwtToken(token) {
-  if (!token || !supabaseUrl || !supabaseServiceKey) {
+  if (!token || !supabaseUrl || !supabaseKey) {
     return { error: '服务器配置错误', status: 500 }
   }
 
@@ -21,7 +21,7 @@ export async function verifyJwtToken(token) {
       `${supabaseUrl}/auth/v1/user`,
       {
         headers: {
-          'apikey': supabaseServiceKey,
+          'apikey': supabaseKey,
           'Authorization': `Bearer ${token}`
         }
       }
@@ -42,23 +42,43 @@ export async function verifyJwtToken(token) {
 /**
  * 获取用户的扩展信息（从 users 表查询 role 等）
  * @param {string} userId - auth.users.id
+ * @param {string} userToken - 用户的 JWT token（用于 RLS 认证）
  * @returns {Object} - 用户扩展信息
  */
-export async function getUserProfile(userId) {
+export async function getUserProfile(userId, userToken) {
   if (!userId) return null
 
   try {
+    // 使用用户自己的 token 查询，避免 RLS 拒绝
+    const authHeader = userToken ? `Bearer ${userToken}` : `Bearer ${supabaseKey}`
+    
     const response = await fetch(
       `${supabaseUrl}/rest/v1/users?user_id=eq.${encodeURIComponent(userId)}&select=id,user_id,display_name,role,created_at`,
       {
         headers: {
-          'apikey': supabaseServiceKey || process.env.SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${supabaseServiceKey || process.env.SUPABASE_ANON_KEY}`
+          'apikey': supabaseKey,
+          'Authorization': authHeader
         }
       }
     )
 
     if (!response.ok) {
+      // 如果用用户 token 失败，尝试用 service role key（如果有的话）
+      if (process.env.SUPABASE_SERVICE_ROLE_KEY && userToken) {
+        const fallbackRes = await fetch(
+          `${supabaseUrl}/rest/v1/users?user_id=eq.${encodeURIComponent(userId)}&select=id,user_id,display_name,role,created_at`,
+          {
+            headers: {
+              'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
+              'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+            }
+          }
+        )
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json()
+          return fallbackData.length > 0 ? fallbackData[0] : null
+        }
+      }
       return null
     }
 

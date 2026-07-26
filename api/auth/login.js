@@ -48,19 +48,25 @@ export default async function handler(req, res) {
 
     const session = await authResponse.json()
 
-    // 获取用户扩展信息
-    const profileResponse = await fetch(
-      `${supabaseUrl}/rest/v1/users?user_id=eq.${encodeURIComponent(session.user.id)}&select=*`,
-      {
-        headers: {
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${session.access_token}`
+    // 获取用户扩展信息（使用用户自己的 token）
+    let profile = null
+    try {
+      const profileResponse = await fetch(
+        `${supabaseUrl}/rest/v1/users?user_id=eq.${encodeURIComponent(session.user.id)}&select=*`,
+        {
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${session.access_token}`
+          }
         }
+      )
+      if (profileResponse.ok) {
+        const profiles = await profileResponse.json()
+        profile = profiles.length > 0 ? profiles[0] : null
       }
-    )
-
-    const profiles = await profileResponse.json()
-    const profile = profiles.length > 0 ? profiles[0] : null
+    } catch (err) {
+      console.error('获取用户扩展信息失败:', err)
+    }
 
     res.status(200).json({
       user: {
