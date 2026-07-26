@@ -1,10 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
+import { supabase, getSiteUrl } from '../services/supabase'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref(null)
   const isLoggedIn = ref(false)
   const token = ref(null)
+  const authProvider = ref(null)
 
   const login = async (username, password) => {
     try {
@@ -30,7 +32,8 @@ export const useAuthStore = defineStore('auth', () => {
         user.value = data.user
         token.value = data.token
         isLoggedIn.value = true
-        localStorage.setItem('auth', JSON.stringify({ user: data.user, token: data.token }))
+        authProvider.value = 'custom'
+        localStorage.setItem('auth', JSON.stringify({ user: data.user, token: data.token, provider: 'custom' }))
         return { success: true, role: data.user.role }
       }
 
@@ -41,12 +44,119 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  const logout = () => {
+  const loginWithGitHub = async () => {
+    try {
+      const siteUrl = getSiteUrl()
+      const redirectUrl = `${siteUrl}/#/auth/callback`
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'github',
+        options: {
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline'
+          }
+        }
+      })
+
+      if (error) {
+        console.error('GitHub OAuth 启动失败:', error)
+        return { success: false, message: 'GitHub 登录启动失败，请稍后重试' }
+      }
+
+      if (data?.url) {
+        window.location.href = data.url
+        return { success: true }
+      }
+
+      return { success: false, message: '无法获取 GitHub 登录链接' }
+    } catch (e) {
+      console.error('GitHub OAuth 异常:', e)
+      return { success: false, message: 'GitHub 登录异常，请稍后重试' }
+    }
+  }
+
+  const handleOAuthCallback = async () => {
+    try {
+      const hashParams = new URLSearchParams(window.location.hash.split('?')[1] || window.location.search)
+      const code = hashParams.get('code')
+
+      if (!code) {
+        const params = new URLSearchParams(window.location.search)
+        const authCode = params.get('code')
+        if (authCode) {
+          return await exchangeCodeForSession(authCode)
+        }
+        return { success: false, message: '无效的 OAuth 回调' }
+      }
+
+      return await exchangeCodeForSession(code)
+    } catch (e) {
+      console.error('OAuth 回调处理失败:', e)
+      return { success: false, message: 'OAuth 登录失败' }
+    }
+  }
+
+  const exchangeCodeForSession = async (code) => {
+    try {
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+
+      if (error) {
+        console.error('Exchange code 失败:', error)
+        return { success: false, message: 'OAuth 会话建立失败' }
+      }
+
+      if (data?.session) {
+        const session = data.session
+        const supabaseUser = session.user
+
+        const userData = {
+          id: supabaseUser.id,
+          username: supabaseUser.user_metadata?.user_name || 
+                   supabaseUser.user_metadata?.full_name || 
+                   supabaseUser.email?.split('@')[0] || 
+                   'GitHub用户',
+          role: 'viewer',
+          provider: 'github',
+          avatar: supabaseUser.user_metadata?.avatar_url || null
+        }
+
+        user.value = userData
+        token.value = session.access_token
+        isLoggedIn.value = true
+        authProvider.value = 'github'
+
+        localStorage.setItem('auth', JSON.stringify({
+          user: userData,
+          token: session.access_token,
+          refreshToken: session.refresh_token,
+          provider: 'github'
+        }))
+
+        return { success: true, role: 'viewer', user: userData }
+      }
+
+      return { success: false, message: '无法获取用户信息' }
+    } catch (e) {
+      console.error('Exchange code 异常:', e)
+      return { success: false, message: 'OAuth 登录异常' }
+    }
+  }
+
+  const logout = async () => {
+    if (authProvider.value === 'github') {
+      try {
+        await supabase.auth.signOut()
+      } catch (e) {
+        console.warn('Supabase signOut 失败:', e)
+      }
+    }
+
     const stored = localStorage.getItem('auth')
     if (stored) {
       try {
-        const { token: savedToken } = JSON.parse(stored)
-        if (savedToken) {
+        const { token: savedToken, provider } = JSON.parse(stored)
+        if (savedToken && provider !== 'github') {
           fetch('/api/auth/logout', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -59,6 +169,7 @@ export const useAuthStore = defineStore('auth', () => {
     user.value = null
     token.value = null
     isLoggedIn.value = false
+    authProvider.value = null
     localStorage.removeItem('auth')
   }
 
@@ -72,6 +183,22 @@ export const useAuthStore = defineStore('auth', () => {
         throw new Error('无 token')
       }
 
+      if (data.provider === 'github') {
+        try {
+          const { data: sessionData, error } = await supabase.auth.getSession()
+          if (error || !sessionData?.session) {
+            throw new Error('Supabase session 无效')
+          }
+          token.value = sessionData.session.access_token
+          user.value = data.user
+          isLoggedIn.value = true
+          authProvider.value = 'github'
+          return true
+        } catch (supabaseErr) {
+          throw new Error('Supabase session 已过期')
+        }
+      }
+
       const response = await fetch('/api/auth/verify', {
         headers: {
           'Authorization': `Bearer ${data.token}`
@@ -83,6 +210,7 @@ export const useAuthStore = defineStore('auth', () => {
         user.value = result.user
         token.value = data.token
         isLoggedIn.value = true
+        authProvider.value = 'custom'
         return true
       }
 
@@ -92,10 +220,11 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = null
       token.value = null
       isLoggedIn.value = false
+      authProvider.value = null
       localStorage.removeItem('auth')
       return false
     }
   }
 
-  return { user, isLoggedIn, token, login, logout, checkAuth }
+  return { user, isLoggedIn, token, authProvider, login, loginWithGitHub, handleOAuthCallback, logout, checkAuth }
 })

@@ -1,17 +1,23 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://oobyperdpjzktzlbph.supabase.co'
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_KacaVTayTEo0hWOyyMfw1Q_WSMdGKxQ'
 
-// 检查环境变量是否存在
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('⚠️ Supabase 环境变量未配置，请检查 .env.local 文件')
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    flowType: 'pkce',
+    detectSessionInUrl: true,
+    persistSession: true,
+    autoRefreshToken: true
+  }
+})
+
+export const getSiteUrl = () => {
+  if (typeof window !== 'undefined') {
+    return window.location.origin
+  }
+  return 'https://bdxxg.asia'
 }
-
-// 只在环境变量存在时创建客户端
-export const supabase = (supabaseUrl && supabaseAnonKey) 
-  ? createClient(supabaseUrl, supabaseAnonKey) 
-  : null
 
 // ===== 通过 Vercel API 代理 =====
 

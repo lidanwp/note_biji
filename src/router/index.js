@@ -23,7 +23,13 @@ const routes = [
     name: 'login',
     component: () => import('@/views/Login.vue')
   },
-  // ⭐ 新增注册路由
+  // OAuth 回调路由（不需要认证保护）
+  {
+    path: '/auth/callback',
+    name: 'oauth-callback',
+    component: () => import('@/views/OAuthCallback.vue'),
+    meta: { skipAuth: true }
+  },
   {
     path: '/register',
     name: 'register',
@@ -38,6 +44,11 @@ const router = createRouter({
 
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
+
+  if (to.meta.skipAuth) {
+    next()
+    return
+  }
 
   await authStore.checkAuth()
 
