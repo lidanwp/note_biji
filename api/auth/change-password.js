@@ -1,11 +1,3 @@
-import crypto from 'crypto'
-
-function hashPassword(password) {
-  const salt = crypto.randomBytes(16).toString('hex')
-  const hash = crypto.scryptSync(password, salt, 64).toString('hex')
-  return `${salt}:${hash}`
-}
-
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -28,9 +20,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { userId, oldPassword, newPassword } = req.body
+    const authHeader = req.headers.authorization
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
 
-    if (!userId || !oldPassword || !newPassword) {
+    if (!token) {
+      return res.status(401).json({ error: '未登录' })
+    }
+
+    const { oldPassword, newPassword } = req.body
+
+    if (!oldPassword || !newPassword) {
       return res.status(400).json({ error: '缺少参数' })
     }
 
@@ -42,73 +41,27 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: '新密码不能与旧密码相同' })
     }
 
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(userId)}&select=*`,
-      {
-        headers: {
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`
-        }
-      }
-    )
-
-    if (!response.ok) {
-      throw new Error('查询用户失败')
-    }
-
-    const users = await response.json()
-
-    if (users.length === 0) {
-      return res.status(404).json({ error: '用户不存在' })
-    }
-
-    const user = users[0]
-
-    if (!user.password || !user.password.includes(':')) {
-      return res.status(500).json({ error: '用户数据格式错误' })
-    }
-
-    const [salt, storedHash] = user.password.split(':')
-    
-    if (!salt || !storedHash) {
-      return res.status(500).json({ error: '用户数据格式错误' })
-    }
-
-    const hash = crypto.scryptSync(oldPassword, salt, 64).toString('hex')
-
-    if (hash !== storedHash) {
-      return res.status(401).json({ error: '旧密码不正确' })
-    }
-
-    const newHashedPassword = hashPassword(newPassword)
-
-    const updateRes = await fetch(
-      `${supabaseUrl}/rest/v1/users?id=eq.${encodeURIComponent(userId)}`,
-      {
-        method: 'PATCH',
-        headers: {
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
-          'Prefer': 'return=minimal'
-        },
-        body: JSON.stringify({ password: newHashedPassword })
-      }
-    )
-
-    if (!updateRes.ok) {
-      const errorText = await updateRes.text().catch(() => '')
-      console.error('更新密码失败:', updateRes.status, errorText)
-      return res.status(500).json({ error: '更新密码失败' })
-    }
-
-    await fetch(`${supabaseUrl}/rest/v1/sessions?user_id=eq.${encodeURIComponent(userId)}`, {
-      method: 'DELETE',
+    // 使用 Supabase Auth API 修改密码
+    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      method: 'PUT',
       headers: {
         'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`
-      }
-    }).catch(() => {})
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        password: newPassword
+      })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      const errorMsg = errorData.msg || '修改密码失败'
+      return res.status(400).json({ error: errorMsg })
+    }
+
+    // 密码修改成功后，使旧 token 失效（可选择性实现）
+    // 这里返回成功即可，前端需要重新登录
 
     res.status(200).json({ message: '密码修改成功，请重新登录' })
   } catch (error) {

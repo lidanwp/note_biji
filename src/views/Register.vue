@@ -24,19 +24,19 @@
       <p class="subtitle">开启你的知识分享之旅 🌟</p>
 
       <form @submit.prevent="handleRegister">
-        <div class="form-group" :class="{ shake: shakeUsername }">
-          <label class="input-label" for="username">账号</label>
+        <div class="form-group" :class="{ shake: shakeEmail }">
+          <label class="input-label" for="email">邮箱</label>
           <div class="input-wrapper">
-            <span class="input-icon">👤</span>
+            <span class="input-icon">📧</span>
             <input 
-              id="username"
-              type="text" 
-              v-model="username" 
-              placeholder="请输入账号（至少3个字符）"
+              id="email"
+              type="email" 
+              v-model="email" 
+              placeholder="请输入邮箱地址"
               required
               class="register-input"
               aria-required="true"
-              autocomplete="username"
+              autocomplete="email"
               @input="handleInput"
             >
           </div>
@@ -95,7 +95,7 @@
         <div class="btn-wrapper">
           <button 
             type="submit" 
-            :disabled="!username || !password || !confirmPassword || loading || registerSuccess" 
+            :disabled="!email || !password || !confirmPassword || loading || registerSuccess" 
             class="register-btn" 
             :class="{
               'loading': loading,
@@ -156,7 +156,7 @@ import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
-const username = ref('')
+const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
 const showPassword = ref(false)
@@ -164,7 +164,7 @@ const showConfirmPassword = ref(false)
 const loading = ref(false)
 const registerSuccess = ref(false)
 
-const shakeUsername = ref(false)
+const shakeEmail = ref(false)
 const shakePassword = ref(false)
 const shakeConfirm = ref(false)
 
@@ -217,11 +217,11 @@ const showSuccessToast = (message) => {
 const toastContainerClass = ref('')
 
 const triggerShake = () => {
-  shakeUsername.value = true
+  shakeEmail.value = true
   shakePassword.value = true
   shakeConfirm.value = true
   setTimeout(() => {
-    shakeUsername.value = false
+    shakeEmail.value = false
     shakePassword.value = false
     shakeConfirm.value = false
   }, 600)
@@ -249,13 +249,22 @@ const handleInput = () => {
   }
 }
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 const handleRegister = async () => {
   registerSuccess.value = false
   
-  if (!username.value || username.value.length < 3) {
-    shakeUsername.value = true
-    setTimeout(() => { shakeUsername.value = false }, 600)
-    showErrorToast('账号至少需要3个字符')
+  if (!email.value) {
+    shakeEmail.value = true
+    setTimeout(() => { shakeEmail.value = false }, 600)
+    showErrorToast('请输入邮箱地址')
+    return
+  }
+
+  if (!emailRegex.test(email.value)) {
+    shakeEmail.value = true
+    setTimeout(() => { shakeEmail.value = false }, 600)
+    showErrorToast('请输入有效的邮箱地址')
     return
   }
 
@@ -280,7 +289,7 @@ const handleRegister = async () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: username.value,
+        email: email.value,
         password: password.value
       })
     })
@@ -297,7 +306,7 @@ const handleRegister = async () => {
     createStarsRain()
     showSuccessToast('🎉 注册成功！即将跳转到登录页')
     
-    username.value = ''
+    email.value = ''
     password.value = ''
     confirmPassword.value = ''
     
@@ -315,7 +324,7 @@ const handleRegister = async () => {
 onMounted(() => {
   registerSuccess.value = false
   loading.value = false
-  username.value = ''
+  email.value = ''
   password.value = ''
   confirmPassword.value = ''
   showPassword.value = false

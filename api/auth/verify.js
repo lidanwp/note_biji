@@ -1,3 +1,5 @@
+import { requireAuth } from '../_lib/supabase-auth.js'
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
@@ -8,43 +10,19 @@ export default async function handler(req, res) {
     return
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_ANON_KEY
-
-  if (!supabaseUrl || !supabaseKey) {
-    return res.status(500).json({ error: 'Supabase 环境变量未配置' })
-  }
-
-  const authHeader = req.headers.authorization
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
-
-  if (!token) {
-    return res.status(401).json({ error: '未登录' })
+  if (req.method !== 'GET') {
+    return res.status(405).json({ error: '方法不允许' })
   }
 
   try {
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/sessions?token=eq.${token}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=*`,
-      {
-        headers: {
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`
-        }
-      }
-    )
+    const authResult = await requireAuth(req)
 
-    const sessions = await response.json()
-
-    if (sessions.length === 0) {
-      return res.status(401).json({ error: '登录已过期，请重新登录' })
+    if (authResult.error) {
+      return res.status(authResult.status).json({ error: authResult.error })
     }
 
     res.json({
-      user: {
-        id: sessions[0].user_id,
-        username: sessions[0].username,
-        role: sessions[0].role
-      }
+      user: authResult.user
     })
   } catch (error) {
     console.error('验证 token 失败:', error)

@@ -36,7 +36,7 @@ export default async function handler(req, res) {
       res.status(200).json(data)
     } else if (req.method === 'POST') {
       // 鉴权：需登录才可评论
-      const auth = await requireAuth(req, supabaseUrl, supabaseKey)
+      const auth = await requireAuth(req)
       if (auth.error) {
         return res.status(auth.status).json({ error: auth.error })
       }
@@ -44,8 +44,8 @@ export default async function handler(req, res) {
       const body = req.body
       const commentData = {
         note_id: Number(body.note_id),
-        user_id: auth.session.user_id,
-        username: auth.session.username,
+        user_id: auth.user.id,
+        username: auth.user.displayName,
         content: body.content,
         parent_id: body.parent_id || null,
         created_at: new Date().toISOString()

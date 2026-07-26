@@ -21,7 +21,7 @@ export const getSiteUrl = () => {
 
 // ===== 通过 Vercel API 代理 =====
 
-/** 从 localStorage 获取认证 token */
+/** 从 localStorage 获取认证 token（Supabase JWT） */
 function getAuthHeaders() {
   const headers = { 'Content-Type': 'application/json' }
   try {

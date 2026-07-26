@@ -24,19 +24,19 @@
       <p class="subtitle">今天也想和你一起记录美好 ✨</p>
 
       <form @submit.prevent="handleLogin">
-        <div class="form-group" :class="{ shake: shakeUsername }">
-          <label class="input-label" for="username">账号</label>
+        <div class="form-group" :class="{ shake: shakeEmail }">
+          <label class="input-label" for="email">邮箱</label>
           <div class="input-wrapper">
-            <span class="input-icon">👤</span>
+            <span class="input-icon">📧</span>
             <input 
-              id="username"
-              type="text" 
-              v-model="username" 
-              placeholder="请输入账号"
+              id="email"
+              type="email" 
+              v-model="email" 
+              placeholder="请输入邮箱"
               required
               class="login-input"
               aria-required="true"
-              autocomplete="username"
+              autocomplete="email"
               @input="handleInput"
             >
           </div>
@@ -72,7 +72,7 @@
         <div class="btn-wrapper">
           <button 
             type="submit" 
-            :disabled="!username || !password || loading || loginSuccess" 
+            :disabled="!email || !password || loading || loginSuccess" 
             class="login-btn" 
             :class="{
               'loading': loading,
@@ -103,33 +103,7 @@
           <router-link to="/register" class="helper-link register-link">注册新账号</router-link>
         </div>
 
-        <div class="divider">
-          <span class="divider-line"></span>
-          <span class="divider-text">或使用 GitHub 登录</span>
-          <span class="divider-line"></span>
-        </div>
 
-        <button 
-          type="button" 
-          class="github-btn"
-          :disabled="githubLoading"
-          @click="handleGitHubLogin"
-        >
-          <svg 
-            v-if="!githubLoading" 
-            class="github-icon" 
-            viewBox="0 0 24 24" 
-            fill="currentColor"
-          >
-            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-          </svg>
-          <span v-if="githubLoading" class="github-loading">
-            <span class="spinner-ring">
-              <span class="spinner"></span>
-            </span>
-          </span>
-          <span class="github-btn-text">{{ githubLoading ? '正在跳转...' : 'GitHub 登录' }}</span>
-        </button>
       </form>
     </div>
 
@@ -165,13 +139,13 @@ import { useAuthStore } from '../stores/auth'
 const router = useRouter()
 const authStore = useAuthStore()
 
-const username = ref('')
+const email = ref('')
 const password = ref('')
 const showPassword = ref(false)
 const loading = ref(false)
 const loginSuccess = ref(false)
 
-const shakeUsername = ref(false)
+const shakeEmail = ref(false)
 const shakePassword = ref(false)
 
 const showToast = ref(false)
@@ -180,7 +154,6 @@ const toastLeaving = ref(false)
 
 const showStars = ref(false)
 const fallingStars = ref([])
-const githubLoading = ref(false)
 
 const floatingEmojis = ref([
   { char: '☁️', x: 8, y: 12, size: 36, duration: 7, delay: 0 },
@@ -216,10 +189,10 @@ const showErrorToast = (message) => {
 }
 
 const triggerShake = () => {
-  shakeUsername.value = true
+  shakeEmail.value = true
   shakePassword.value = true
   setTimeout(() => {
-    shakeUsername.value = false
+    shakeEmail.value = false
     shakePassword.value = false
   }, 600)
 }
@@ -269,10 +242,19 @@ const navigateByRole = (role) => {
   router.push('/viewer')
 }
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
 const handleLogin = async () => {
-  if (!username.value || !password.value) {
+  if (!email.value || !password.value) {
     triggerShake()
-    showErrorToast('请输入账号和密码')
+    showErrorToast('请输入邮箱和密码')
+    return
+  }
+
+  if (!emailRegex.test(email.value)) {
+    shakeEmail.value = true
+    setTimeout(() => { shakeEmail.value = false }, 600)
+    showErrorToast('请输入有效的邮箱地址')
     return
   }
 
@@ -280,7 +262,7 @@ const handleLogin = async () => {
   loginSuccess.value = false
 
   try {
-    const result = await authStore.login(username.value, password.value)
+    const result = await authStore.login(email.value, password.value)
 
     if (result.success) {
       loading.value = false
@@ -303,25 +285,10 @@ const handleLogin = async () => {
   }
 }
 
-const handleGitHubLogin = async () => {
-  githubLoading.value = true
-  try {
-    const result = await authStore.loginWithGitHub()
-    if (!result.success) {
-      githubLoading.value = false
-      showErrorToast(result.message || 'GitHub 登录失败')
-    }
-  } catch (e) {
-    githubLoading.value = false
-    showErrorToast('GitHub 登录异常，请重试')
-  }
-}
-
 onMounted(() => {
   loginSuccess.value = false
   loading.value = false
-  githubLoading.value = false
-  username.value = ''
+  email.value = ''
   password.value = ''
   showPassword.value = false
   showToast.value = false
@@ -944,89 +911,5 @@ h1 {
   .subtitle {
     font-size: 14px;
   }
-
-  .github-btn {
-    width: 100%;
-    height: 48px;
-    font-size: 14px;
-  }
-}
-
-.divider {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin: 24px 0 20px;
-}
-
-.divider-line {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(45, 27, 61, 0.15), transparent);
-}
-
-.divider-text {
-  font-size: 13px;
-  color: rgba(45, 27, 61, 0.4);
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.github-btn {
-  width: 100%;
-  height: 52px;
-  background: #24292e;
-  border: none;
-  border-radius: 20px;
-  font-size: 15px;
-  font-weight: 600;
-  color: #fff;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  transition: all 0.3s ease;
-  margin-top: 4px;
-}
-
-.github-btn:hover:not(:disabled) {
-  background: #2f363d;
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(36, 41, 46, 0.3);
-}
-
-.github-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.github-icon {
-  width: 22px;
-  height: 22px;
-  flex-shrink: 0;
-}
-
-.github-btn-text {
-  letter-spacing: 0.5px;
-}
-
-.github-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.github-loading .spinner-ring {
-  width: 18px;
-  height: 18px;
-}
-
-.github-loading .spinner {
-  width: 16px;
-  height: 16px;
-  border-width: 2px;
-  border-top-color: #fff;
 }
 </style>

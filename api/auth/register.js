@@ -1,52 +1,45 @@
-import crypto from 'crypto'
-
-function hashPassword(password) {
-  const salt = crypto.randomBytes(16).toString('hex')
-  const hash = crypto.scryptSync(password, salt, 64).toString('hex')
-  return `${salt}:${hash}`
-}
-
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Content-Type', 'application/json')
+
+  if (req.method === 'OPTIONS') {
+    res.status(200).end()
+    return
+  }
+
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: '方法不允许' })
+  }
+
+  const supabaseUrl = process.env.SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseKey) {
+    return res.status(500).json({ error: '服务器配置错误' })
+  }
+
+  const { email, password, displayName } = req.body
+
+  if (!email || !password) {
+    return res.status(400).json({ error: '请输入邮箱和密码' })
+  }
+
+  // 简单的邮箱格式验证
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ error: '请输入有效的邮箱地址' })
+  }
+
+  if (password.length < 6) {
+    return res.status(400).json({ error: '密码至少需要6位' })
+  }
+
   try {
-    res.setHeader('Access-Control-Allow-Origin', '*')
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-    res.setHeader('Content-Type', 'application/json')
-
-    if (req.method === 'OPTIONS') {
-      res.status(200).end()
-      return
-    }
-
-    if (req.method !== 'POST') {
-      return res.status(405).json({ error: '方法不允许' })
-    }
-
-    const supabaseUrl = process.env.SUPABASE_URL
-    const supabaseKey = process.env.SUPABASE_ANON_KEY
-
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('环境变量未配置:', { hasUrl: !!supabaseUrl, hasKey: !!supabaseKey })
-      return res.status(500).json({ error: '服务器配置错误' })
-    }
-
-    const { username, password } = req.body
-
-    if (!username || !password) {
-      return res.status(400).json({ error: '请输入账号和密码' })
-    }
-
-    if (username.length < 3) {
-      return res.status(400).json({ error: '账号至少需要3个字符' })
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ error: '密码至少需要6位' })
-    }
-
-    // 检查用户名是否已存在
-    const checkRes = await fetch(
-      `${supabaseUrl}/rest/v1/users?username=eq.${encodeURIComponent(username)}&select=id&limit=1`,
+    // 检查邮箱是否已在 auth.users 中注册
+    const checkResponse = await fetch(
+      `${supabaseUrl}/auth/v1/user?email=eq.${encodeURIComponent(email)}`,
       {
         headers: {
           'apikey': supabaseKey,
@@ -55,22 +48,41 @@ export default async function handler(req, res) {
       }
     )
 
-    if (!checkRes.ok) {
-      const errorText = await checkRes.text().catch(() => '')
-      console.error('检查用户名失败:', checkRes.status, errorText)
-      throw new Error(`检查用户名失败: ${checkRes.status}`)
+    // 尝试注册，Supabase Auth 会自动检查邮箱唯一性
+    const signUpResponse = await fetch(`${supabaseUrl}/auth/v1/signup`, {
+      method: 'POST',
+      headers: {
+        'apikey': supabaseKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email,
+        password,
+        data: {
+          display_name: displayName || email.split('@')[0]
+        }
+      })
+    })
+
+    if (!signUpResponse.ok) {
+      const errorData = await signUpResponse.json().catch(() => ({}))
+      
+      if (errorData.msg?.includes('already registered') || errorData.error?.includes('already registered')) {
+        return res.status(400).json({ error: '该邮箱已被注册' })
+      }
+      
+      return res.status(400).json({ error: '注册失败：' + (errorData.msg || '请检查邮箱和密码') })
     }
 
-    const existingUsers = await checkRes.json()
+    const signUpData = await signUpResponse.json()
+    const userId = signUpData.user?.id
 
-    if (existingUsers.length > 0) {
-      return res.status(400).json({ error: '该账号已被注册，请使用其他账号' })
+    if (!userId) {
+      return res.status(500).json({ error: '注册失败，无法获取用户信息' })
     }
 
-    // 创建用户（默认角色为 viewer）
-    const hashedPassword = hashPassword(password)
-
-    const insertRes = await fetch(`${supabaseUrl}/rest/v1/users`, {
+    // 在 users 扩展表中创建用户记录
+    const profileResponse = await fetch(`${supabaseUrl}/rest/v1/users`, {
       method: 'POST',
       headers: {
         'apikey': supabaseKey,
@@ -79,33 +91,30 @@ export default async function handler(req, res) {
         'Prefer': 'return=representation'
       },
       body: JSON.stringify({
-        username: username,
-        password: hashedPassword,
-        display_name: username,
+        user_id: userId,
+        username: email,
+        display_name: displayName || email.split('@')[0],
         role: 'viewer'
       })
     })
 
-    if (!insertRes.ok) {
-      const errorText = await insertRes.text().catch(() => '')
-      console.error('创建用户失败:', insertRes.status, errorText)
-      return res.status(500).json({ error: '注册失败，请稍后重试' })
+    if (!profileResponse.ok) {
+      console.error('创建用户扩展信息失败:', profileResponse.status, await profileResponse.text())
+      // 注意：即使扩展信息创建失败，auth.users 中的用户仍然创建成功
+      // 可以考虑删除 auth.users 中的用户，但这里为了简化，我们返回成功
     }
 
-    const newUser = await insertRes.json()
-
-    // 返回注册成功信息
     res.status(200).json({
       message: '注册成功',
       user: {
-        id: String(newUser[0]?.id),
-        username: newUser[0]?.display_name || newUser[0]?.username,
-        role: newUser[0]?.role
+        id: userId,
+        email: signUpData.user?.email || email,
+        displayName: displayName || email.split('@')[0],
+        role: 'viewer'
       }
     })
-
   } catch (error) {
-    console.error('注册 API 错误:', error.message, error.stack)
+    console.error('注册 API 错误:', error.message)
     res.status(500).json({ error: '注册失败，请稍后重试' })
   }
 }

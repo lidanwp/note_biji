@@ -25,11 +25,11 @@ export default async function handler(req, res) {
   }
 
   // 鉴权：仅 admin 可删除笔记
-  const auth = await requireAuth(req, supabaseUrl, supabaseKey)
+  const auth = await requireAuth(req)
   if (auth.error) {
     return res.status(auth.status).json({ error: auth.error })
   }
-  if (auth.session.role !== 'admin') {
+  if (auth.user.role !== 'admin') {
     return res.status(403).json({ error: '无权限，仅管理员可删除笔记' })
   }
 

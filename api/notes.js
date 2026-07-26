@@ -91,11 +91,11 @@ export default async function handler(req, res) {
         } else {
           // ===== 完整保存 → 用 POST (upsert) =====
           // 鉴权：仅管理员可创建/编辑笔记
-          const auth = await requireAuth(req, supabaseUrl, supabaseKey)
+          const auth = await requireAuth(req)
           if (auth.error) {
             return res.status(auth.status).json({ error: auth.error })
           }
-          if (auth.session.role !== 'admin') {
+          if (auth.user.role !== 'admin') {
             return res.status(403).json({ error: '无权限，仅管理员可编辑笔记' })
           }
 
