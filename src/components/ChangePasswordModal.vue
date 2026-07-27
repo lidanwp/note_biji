@@ -121,14 +121,25 @@ const handleSubmit = async () => {
     return
   }
   
+  // 获取 token
+  const authData = localStorage.getItem('auth')
+  const token = authData ? JSON.parse(authData).token : null
+  
+  if (!token) {
+    errorMessage.value = '请先登录'
+    return
+  }
+  
   isSubmitting.value = true
   
   try {
     const response = await fetch('/api/auth/change-password', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
       body: JSON.stringify({
-        userId: props.userId,
         oldPassword: oldPassword.value,
         newPassword: newPassword.value
       })

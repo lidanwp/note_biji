@@ -14,9 +14,10 @@ export default async function handler(req, res) {
   }
 
   const supabaseUrl = process.env.SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_ANON_KEY
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
+  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-  if (!supabaseUrl || !supabaseKey) {
+  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
     return res.status(500).json({ error: '服务器配置错误' })
   }
 
@@ -52,7 +53,7 @@ export default async function handler(req, res) {
     const signUpResponse = await fetch(`${supabaseUrl}/auth/v1/signup`, {
       method: 'POST',
       headers: {
-        'apikey': supabaseKey,
+        'apikey': supabaseAnonKey,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
@@ -81,12 +82,12 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: '注册失败，无法获取用户信息' })
     }
 
-    // 在 users 扩展表中创建用户记录
+    // 在 users 扩展表中创建用户记录（使用 Service Role Key 以绕过 RLS）
     const profileResponse = await fetch(`${supabaseUrl}/rest/v1/users`, {
       method: 'POST',
       headers: {
-        'apikey': supabaseKey,
-        'Authorization': `Bearer ${supabaseKey}`,
+        'apikey': supabaseServiceRoleKey,
+        'Authorization': `Bearer ${supabaseServiceRoleKey}`,
         'Content-Type': 'application/json',
         'Prefer': 'return=representation'
       },
@@ -94,24 +95,26 @@ export default async function handler(req, res) {
         user_id: userId,
         username: email,
         display_name: displayName || email.split('@')[0],
-        role: 'viewer'
+        role: 'viewer',
+        email: email
       })
     })
 
     if (!profileResponse.ok) {
       console.error('创建用户扩展信息失败:', profileResponse.status, await profileResponse.text())
-      // 注意：即使扩展信息创建失败，auth.users 中的用户仍然创建成功
-      // 可以考虑删除 auth.users 中的用户，但这里为了简化，我们返回成功
+      // 即使扩展信息创建失败，auth.users 中的用户仍然创建成功
+      // 返回成功，但提示用户需要验证邮箱
     }
 
     res.status(200).json({
-      message: '注册成功',
+      message: '注册成功，请检查邮箱完成验证',
       user: {
         id: userId,
         email: signUpData.user?.email || email,
         displayName: displayName || email.split('@')[0],
         role: 'viewer'
-      }
+      },
+      needsVerification: true
     })
   } catch (error) {
     console.error('注册 API 错误:', error.message)

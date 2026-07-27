@@ -13,9 +13,9 @@ export default async function handler(req, res) {
   }
 
   const supabaseUrl = process.env.SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_ANON_KEY
+  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
 
-  if (!supabaseUrl || !supabaseKey) {
+  if (!supabaseUrl || !supabaseAnonKey) {
     return res.status(500).json({ error: '服务器配置错误' })
   }
 
@@ -41,11 +41,45 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: '新密码不能与旧密码相同' })
     }
 
-    // 使用 Supabase Auth API 修改密码
-    const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    // 先获取当前用户信息，获取邮箱
+    const userResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      method: 'GET',
+      headers: {
+        'apikey': supabaseAnonKey,
+        'Authorization': `Bearer ${token}`
+      }
+    })
+
+    if (!userResponse.ok) {
+      return res.status(401).json({ error: '登录已失效，请重新登录' })
+    }
+
+    const userData = await userResponse.json()
+    const email = userData.email
+
+    // 使用旧密码重新登录来验证旧密码
+    const verifyResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+      method: 'POST',
+      headers: {
+        'apikey': supabaseAnonKey,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        email: email,
+        password: oldPassword
+      })
+    })
+
+    if (!verifyResponse.ok) {
+      const errorData = await verifyResponse.json().catch(() => ({}))
+      return res.status(400).json({ error: '旧密码不正确' })
+    }
+
+    // 验证通过，修改密码
+    const updateResponse = await fetch(`${supabaseUrl}/auth/v1/user`, {
       method: 'PUT',
       headers: {
-        'apikey': supabaseKey,
+        'apikey': supabaseAnonKey,
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       },
@@ -54,14 +88,11 @@ export default async function handler(req, res) {
       })
     })
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
+    if (!updateResponse.ok) {
+      const errorData = await updateResponse.json().catch(() => ({}))
       const errorMsg = errorData.msg || '修改密码失败'
       return res.status(400).json({ error: errorMsg })
     }
-
-    // 密码修改成功后，使旧 token 失效（可选择性实现）
-    // 这里返回成功即可，前端需要重新登录
 
     res.status(200).json({ message: '密码修改成功，请重新登录' })
   } catch (error) {
