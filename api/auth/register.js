@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
   const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-  if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
+  if (!supabaseUrl || !supabaseAnonKey) {
     return res.status(500).json({ error: '服务器配置错误' })
   }
 
@@ -82,28 +82,31 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: '注册失败，无法获取用户信息' })
     }
 
-    // 在 users 扩展表中创建用户记录（使用 Service Role Key 以绕过 RLS）
-    const profileResponse = await fetch(`${supabaseUrl}/rest/v1/users`, {
-      method: 'POST',
-      headers: {
-        'apikey': supabaseServiceRoleKey,
-        'Authorization': `Bearer ${supabaseServiceRoleKey}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=representation'
-      },
-      body: JSON.stringify({
-        user_id: userId,
-        username: email,
-        display_name: displayName || email.split('@')[0],
-        role: 'viewer',
-        email: email
+    // 在 users 扩展表中创建用户记录
+    if (supabaseServiceRoleKey) {
+      // 使用 Service Role Key 绕过 RLS
+      const profileResponse = await fetch(`${supabaseUrl}/rest/v1/users`, {
+        method: 'POST',
+        headers: {
+          'apikey': supabaseServiceRoleKey,
+          'Authorization': `Bearer ${supabaseServiceRoleKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          username: email,
+          display_name: displayName || email.split('@')[0],
+          role: 'viewer',
+          email: email
+        })
       })
-    })
 
-    if (!profileResponse.ok) {
-      console.error('创建用户扩展信息失败:', profileResponse.status, await profileResponse.text())
-      // 即使扩展信息创建失败，auth.users 中的用户仍然创建成功
-      // 返回成功，但提示用户需要验证邮箱
+      if (!profileResponse.ok) {
+        console.error('创建用户扩展信息失败:', profileResponse.status, await profileResponse.text())
+      }
+    } else {
+      console.warn('Service Role Key 未配置，跳过创建用户扩展信息')
     }
 
     res.status(200).json({
