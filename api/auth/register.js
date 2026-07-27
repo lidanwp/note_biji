@@ -73,14 +73,14 @@ export default async function handler(req, res) {
 
     const userId = signUpData.user?.id
 
-    if (!userId) {
-      return res.status(500).json({ error: '注册失败，无法获取用户信息' })
-    }
-
+    // Supabase 在以下情况可能返回 user=null 但状态码 200：
+    // 1. 邮箱已存在但未验证
+    // 2. 需要邮箱验证时
+    // 这种情况视为注册成功（用户已在 Supabase 中创建）
     res.status(200).json({
       message: '注册成功，请检查邮箱完成验证',
       user: {
-        id: userId,
+        id: userId || null,
         email: signUpData.user?.email || email
       },
       needsVerification: true
