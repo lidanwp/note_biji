@@ -38,16 +38,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 检查邮箱是否已在 auth.users 中注册
-    const checkResponse = await fetch(
-      `${supabaseUrl}/auth/v1/user?email=eq.${encodeURIComponent(email)}`,
-      {
-        headers: {
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`
-        }
-      }
-    )
+    // 检查邮箱是否已在 auth.users 中注册（可选步骤，Supabase Auth 会自动检查）
+    // 这里省略检查，直接尝试注册
 
     // 尝试注册，Supabase Auth 会自动检查邮箱唯一性
     const signUpResponse = await fetch(`${supabaseUrl}/auth/v1/signup`, {
