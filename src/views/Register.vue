@@ -304,7 +304,7 @@ const handleRegister = async () => {
     registerSuccess.value = true
     
     createStarsRain()
-    showSuccessToast('🎉 注册成功！即将跳转到登录页')
+    showSuccessToast('✅ 注册成功！请检查邮箱完成验证后登录')
     
     email.value = ''
     password.value = ''
@@ -346,7 +346,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #FFE8F0 0%, #E8D5F5 40%, #D5E8F5 100%);
+  background: linear-gradient(135deg, #E8F5E9 0%, #DCEDC8 40%, #C8E6C9 100%);
   position: relative;
   overflow: hidden;
   font-family: 'PingFang SC', -apple-system, sans-serif;
@@ -390,8 +390,8 @@ onMounted(() => {
   border-radius: 40px;
   border: 2px solid rgba(255, 255, 255, 0.9);
   box-shadow: 
-    0 20px 60px rgba(124, 58, 237, 0.15),
-    0 8px 20px rgba(124, 58, 237, 0.08),
+    0 20px 60px rgba(76, 175, 80, 0.15),
+    0 8px 20px rgba(76, 175, 80, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.8);
   animation: cardEntrance 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
   opacity: 0;
@@ -504,9 +504,9 @@ h1 {
 
 .register-input:focus {
   outline: none;
-  border-color: #7C3AED;
+  border-color: #4CAF50;
   background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 0 0 8px rgba(124, 58, 237, 0.08);
+  box-shadow: 0 0 0 8px rgba(76, 175, 80, 0.08);
   transform: scale(1.02);
 }
 
@@ -523,7 +523,7 @@ h1 {
 }
 
 .input-wrapper:focus-within .input-icon {
-  color: #7C3AED;
+  color: #4CAF50;
   transform: translateY(-50%) rotate(-5deg) scale(1.1);
 }
 
@@ -544,8 +544,8 @@ h1 {
 }
 
 .toggle-pwd:hover {
-  color: #7C3AED;
-  background: rgba(124, 58, 237, 0.08);
+  color: #4CAF50;
+  background: rgba(76, 175, 80, 0.08);
   transform: translateY(-50%) scale(1.15);
 }
 
@@ -575,14 +575,14 @@ h1 {
 .register-btn {
   width: 100%;
   height: 56px;
-  background: linear-gradient(135deg, #8B5CF6, #6D28D9);
+  background: linear-gradient(135deg, #66BB6A, #43A047);
   border: none;
   border-radius: 100px;
   font-size: 17px;
   font-weight: 700;
   color: #fff;
   cursor: pointer;
-  box-shadow: 0 8px 30px rgba(124, 58, 237, 0.35);
+  box-shadow: 0 8px 30px rgba(76, 175, 80, 0.35);
   transition: background 0.4s ease, box-shadow 0.4s ease, opacity 0.4s ease;
   animation: btnSlideIn 0.6s ease-out forwards;
   opacity: 0;
@@ -606,24 +606,24 @@ h1 {
 }
 
 .register-btn:hover:not(:disabled) {
-  box-shadow: 0 12px 40px rgba(124, 58, 237, 0.45);
+  box-shadow: 0 12px 40px rgba(76, 175, 80, 0.45);
 }
 
 .register-btn:active:not(:disabled) {
   transform: scale(0.98);
-  box-shadow: 0 4px 15px rgba(124, 58, 237, 0.25);
+  box-shadow: 0 4px 15px rgba(76, 175, 80, 0.25);
 }
 
 .register-btn:disabled {
-  background: linear-gradient(135deg, #C4B5D4, #A78BFA);
+  background: linear-gradient(135deg, #C8E6C9, #A5D6A7);
   box-shadow: none;
   cursor: not-allowed;
   opacity: 0.6;
 }
 
 .register-btn.loading {
-  background: linear-gradient(135deg, #7C3AED, #5B21B6);
-  box-shadow: 0 8px 30px rgba(124, 58, 237, 0.5);
+  background: linear-gradient(135deg, #4CAF50, #388E3C);
+  box-shadow: 0 8px 30px rgba(76, 175, 80, 0.5);
 }
 
 .register-btn.success {

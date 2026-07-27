@@ -78,7 +78,7 @@ export default async function handler(req, res) {
     // 2. 需要邮箱验证时
     // 这种情况视为注册成功（用户已在 Supabase 中创建）
     res.status(200).json({
-      message: '注册成功，请检查邮箱完成验证',
+      message: '注册成功，请检查邮箱点击验证链接完成验证',
       user: {
         id: userId || null,
         email: signUpData.user?.email || email
