@@ -3,6 +3,10 @@
     {
       "source": "/api/chat",
       "destination": "http://129.204.21.82:5050/api/v1/search"
+    },
+    {
+      "source": "/((?!api/).*)",
+      "destination": "/index.html"
     }
   ]
 }
