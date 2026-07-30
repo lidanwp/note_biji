@@ -28,7 +28,7 @@
 import { ref } from 'vue'
 
 // 知识库 ID
-const DATASET_ID = '3b9ceef2-f214-402d-95f1-e40ba887bacf'
+const DATASET_ID = 'b2f803ac-26e9-447a-83ee-2718fab202ad'
 // 通过 Vercel rewrite 代理到 PandaWiki API，避免 CORS 问题
 const API_URL = '/api/chat'
 
