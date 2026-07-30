@@ -65,9 +65,10 @@ const sendQuestion = async () => {
     const data = await response.json()
     console.log('API 返回数据：', data)
 
-    // 处理返回结果（根据实际返回结构调整）
-    if (data && data.results && data.results.length > 0) {
-      const answer = data.results.map(r => r.text || r.content || JSON.stringify(r)).join('\n')
+    // PandaWiki 响应结构: { success: true, data: { results: [{ content, score, ... }] } }
+    const results = data?.data?.results || data?.results
+    if (results && results.length > 0) {
+      const answer = results.map(r => r.content || r.text || '').join('\n\n')
       messages.value.push({ role: 'bot', content: answer })
     } else if (data && data.answer) {
       messages.value.push({ role: 'bot', content: data.answer })
