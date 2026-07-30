@@ -55,14 +55,14 @@ function buildQueryVariants(originalQuery) {
   return [...new Set(variants.map(v => v.trim()).filter(Boolean))]
 }
 
-// 搜索结果去重 + 合并 + 过滤低质量（score < 0.05 直接丢弃）
+// 搜索结果去重 + 合并 + 过滤低质量
 function mergeAndRankResults(groups) {
   const seen = new Map() // key -> { item, totalScore, hits }
   for (const group of groups) {
     for (const r of group) {
       if (!r || !r.content) continue
       const s = r.score || 0
-      if (s < 0.05) continue // 扔掉噪声
+      if (s < 0.015) continue // 阈值放宽到 0.015（PandaWiki embedding 分数普遍偏低）
       const key = r.content.slice(0, 40).replace(/\s+/g, '')
       if (!key) continue
       if (seen.has(key)) {
@@ -135,14 +135,14 @@ export default async function handler(req, res) {
     console.log('原始查询:', query)
     console.log('查询变体:', variants)
 
-    // ---- 策略 1: 先尝试 QA 接口（原文查询，保留自然语言 + 精准关键词分别尝试 2 次） ----
-    const qaAttempts = [query, variants[1] || variants[0]]
+    // ---- 策略 1: 先尝试 QA 接口（对前 4 个查询变体依次尝试，首个成功即返回） ----
+    const qaAttempts = [...new Set([query, ...variants.slice(0, 4)])].slice(0, 4)
     let qaFinalAnswer = null
-    for (const qaQuery of [...new Set(qaAttempts)]) {
+    for (const qaQuery of qaAttempts) {
       try {
-        // 注意：QA 接口响应较慢，给 25 秒超时（Vercel serverless 默认最多60s）
+        // 注意：QA 接口响应较慢，给 30 秒超时
         const ctrl = new AbortController()
-        const to = setTimeout(() => ctrl.abort(), 25000)
+        const to = setTimeout(() => ctrl.abort(), 30000)
         const qaResponse = await fetch('http://129.204.21.82:5050/api/v1/qa', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json; charset=utf-8' },
