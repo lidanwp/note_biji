@@ -40,49 +40,52 @@ const messages = ref([
   { role: 'bot', content: '你好！我是 PandaWiki AI 助手，有什么可以帮助你的？', display: '你好！我是 <b>PandaWiki AI 助手</b>，有什么可以帮助你的？' }
 ])
 
-// 将 PandaWiki 返回的 Markdown 内容转为可读的 HTML
-function formatResults(results) {
-  if (!results || results.length === 0) return ''
+// 将 PandaWiki 返回的内容转为可读的 HTML
+function formatAnswer(data) {
+  // 如果是 QA 接口返回的 AI 答案
+  if (data.source === 'qa' && data.answer) {
+    let text = data.answer
+    // 简单格式化
+    text = text
+      .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+      .replace(/`([^`]+)`/g, '<code style="background:#f5f5f5;padding:1px 4px;border-radius:3px;font-size:12px;">$1</code>')
+      .replace(/\r?\n/g, '<br>')
+    return `<div style="line-height:1.7;">${text}</div>`
+  }
 
-  const maxResults = 3
+  // 回退到搜索结果
+  const results = data.results || []
+  if (results.length === 0) return '<div>' + (data.answer || '抱歉，没有找到相关内容。') + '</div>'
+
   const parts = []
+  const maxResults = 3
 
   for (let i = 0; i < Math.min(results.length, maxResults); i++) {
     const r = results[i]
     let text = r.content || ''
+    if (text.length > 500) text = text.slice(0, 500) + '...'
 
-    // 截断过长内容
-    if (text.length > 600) text = text.slice(0, 600) + '...'
-
-    // 简单 Markdown 转 HTML
     text = text
-      // 标题: # 标题
-      .replace(/^### (.*$)/gm, '<h4 style="margin:8px 0 4px;color:#333;">$1</h4>')
-      .replace(/^## (.*$)/gm, '<h3 style="margin:10px 0 4px;color:#222;">$1</h3>')
-      .replace(/^# (.*$)/gm, '<h2 style="margin:12px 0 6px;color:#1a1a1a;">$1</h2>')
-      // 表格行: | a | b | c |
+      .replace(/^###? (.*$)/gm, '<h4 style="margin:6px 0 3px;color:#444;font-size:13px;">$1</h4>')
+      .replace(/^## (.*$)/gm, '<h3 style="margin:8px 0 4px;color:#333;">$1</h3>')
+      .replace(/^# (.*$)/gm, '<h2 style="margin:10px 0 5px;color:#222;">$1</h2>')
       .replace(/^\|(.+)\|$/gm, (m) => {
         const cells = m.slice(1, -1).split('|').map(c => c.trim()).filter(c => c)
-        return '<div style="display:flex;gap:4px;margin:2px 0;">' +
-               cells.map(c => `<span style="background:#f0f4ff;padding:2px 6px;border-radius:4px;font-size:12px;">${c}</span>`).join('') +
+        return '<div style="display:flex;gap:4px;margin:2px 0;flex-wrap:wrap;">' +
+               cells.map(c => `<span style="background:#eef2ff;padding:2px 6px;border-radius:4px;font-size:11px;">${c}</span>`).join('') +
                '</div>'
       })
-      // 列表项
       .replace(/^- (.*$)/gm, '• $1')
       .replace(/^\d+\. (.*$)/gm, '• $1')
-      // 加粗 **text**
       .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
-      // 代码块 `text`
-      .replace(/`([^`]+)`/g, '<code style="background:#f5f5f5;padding:1px 4px;border-radius:3px;font-size:12px;">$1</code>')
-      // 换行
+      .replace(/`([^`]+)`/g, '<code style="background:#f5f5f5;padding:1px 4px;border-radius:3px;font-size:11px;">$1</code>')
       .replace(/\r?\n/g, '<br>')
 
-    // 添加来源分数
-    const score = r.score ? ` <span style="color:#999;font-size:11px;">(相关度 ${(r.score * 100).toFixed(1)}%)</span>` : ''
-    parts.push(`<div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px dashed #eee;">${text}${score}</div>`)
+    const score = r.score ? ` <span style="color:#999;font-size:11px;">(${Math.round(r.score * 100)}%)</span>` : ''
+    parts.push(`<div style="margin-bottom:8px;padding-bottom:6px;border-bottom:1px dashed #eee;">${text}${score}</div>`)
   }
 
-  return parts.join('')
+  return '<div>' + parts.join('') + '</div>'
 }
 
 const toggleChat = () => {
@@ -111,27 +114,12 @@ const sendQuestion = async () => {
     const data = await response.json()
     console.log('API 返回数据：', data)
 
-    const results = data?.data?.results || data?.results
-    if (results && results.length > 0) {
-      const formatted = formatResults(results)
-      messages.value.push({
-        role: 'bot',
-        content: formatted,
-        display: formatted
-      })
-    } else if (data && data.answer) {
-      messages.value.push({
-        role: 'bot',
-        content: data.answer,
-        display: data.answer
-      })
-    } else {
-      messages.value.push({
-        role: 'bot',
-        content: '抱歉，没有找到相关内容。',
-        display: '抱歉，没有找到相关内容。'
-      })
-    }
+    const formatted = formatAnswer(data)
+    messages.value.push({
+      role: 'bot',
+      content: formatted,
+      display: formatted
+    })
   } catch (error) {
     console.error('请求失败：', error)
     messages.value.push({
