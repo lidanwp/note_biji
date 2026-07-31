@@ -89,7 +89,7 @@
 <script setup>
 import { ref, nextTick, watch, onBeforeUnmount } from 'vue'
 
-const DATASET_ID = '8cbc6517-ca4f-462e-a9e7-dc9b2129f474'
+const DATASET_ID = '4560b15d-1fee-4428-bf53-0f34b78dd35d'
 const API_URL = '/api/chat'
 
 const isOpen = ref(false)
