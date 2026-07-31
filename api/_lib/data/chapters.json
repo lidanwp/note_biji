@@ -1,0 +1,171 @@
+{
+  "version": "1.0",
+  "description": "软考中级系统集成项目管理工程师 - 章节学习顺序配置。供检索服务做章节定向检索与阶段上下文感知。",
+  "phases": ["启动", "规划", "执行", "监控", "收尾"],
+  "phaseOrder": {
+    "启动": 1,
+    "规划": 2,
+    "执行": 3,
+    "监控": 4,
+    "收尾": 5
+  },
+  "chapters": [
+    {
+      "id": "informatization",
+      "order": 1,
+      "title": "信息化与信息系统",
+      "aliases": ["信息化", "信息系统基础", "信息系统"],
+      "primaryPhase": "启动",
+      "involvedPhases": ["启动"],
+      "keywords": ["信息化", "信息系统", "电子政务", "企业信息化", "两化融合", "信息系统生命周期", "国家信息化体系"],
+      "summary": "信息化基础概念、信息系统生命周期、企业信息化与电子政务"
+    },
+    {
+      "id": "integration_tech",
+      "order": 2,
+      "title": "信息系统集成技术",
+      "aliases": ["集成技术", "系统集成技术"],
+      "primaryPhase": "启动",
+      "involvedPhases": ["启动"],
+      "keywords": ["系统集成", "中间件", "SOA", "微服务", "数据交换", "应用集成", "数据仓库"],
+      "summary": "系统集成技术体系、中间件、SOA/微服务、数据集成与交换"
+    },
+    {
+      "id": "project_initiation",
+      "order": 3,
+      "title": "项目立项管理",
+      "aliases": ["立项管理", "立项", "可行性研究"],
+      "primaryPhase": "启动",
+      "involvedPhases": ["启动"],
+      "keywords": ["立项", "可行性研究", "项目建议书", "项目章程", "立项报告", "初步可研", "详细可研", "评估论证"],
+      "summary": "项目立项流程：项目建议书→可行性研究→评估论证→立项决策，输出项目章程"
+    },
+    {
+      "id": "integration_management",
+      "order": 4,
+      "title": "项目整体管理",
+      "aliases": ["整合管理", "整体管理", "项目整合管理", "项目整体管理"],
+      "primaryPhase": "规划",
+      "involvedPhases": ["启动", "规划", "执行", "监控", "收尾"],
+      "keywords": ["整体管理", "整合管理", "项目章程", "项目管理计划", "指导与管理项目工作", "监控项目工作", "整体变更控制", "结束项目", "变更控制委员会", "CCB"],
+      "summary": "整体管理贯穿全生命周期：制定章程→制定项目管理计划→执行→监控→变更控制→收尾"
+    },
+    {
+      "id": "scope_management",
+      "order": 5,
+      "title": "项目范围管理",
+      "aliases": ["范围管理", "项目范围管理", "范围基准"],
+      "primaryPhase": "规划",
+      "involvedPhases": ["规划", "监控"],
+      "keywords": ["范围管理", "需求收集", "范围定义", "WBS", "工作分解结构", "范围基准", "范围确认", "范围控制", "需求文件"],
+      "summary": "范围管理：需求收集→范围定义→创建WBS→范围确认→范围控制，输出WBS与范围基准"
+    },
+    {
+      "id": "schedule_management",
+      "order": 6,
+      "title": "项目进度管理",
+      "aliases": ["进度管理", "时间管理", "项目进度计划"],
+      "primaryPhase": "规划",
+      "involvedPhases": ["规划", "监控"],
+      "keywords": ["进度管理", "时间管理", "活动定义", "活动排序", "关键路径", "CPM", "PERT", "三点估算", "进度计划", "甘特图", "进度基准", "总工期", "浮动时间"],
+      "summary": "进度管理：活动定义→排序→估算→制定进度计划，依赖范围WBS，输出进度基准"
+    },
+    {
+      "id": "cost_management",
+      "order": 7,
+      "title": "项目成本管理",
+      "aliases": ["成本管理", "项目成本", "预算管理"],
+      "primaryPhase": "规划",
+      "involvedPhases": ["规划", "监控"],
+      "keywords": ["成本管理", "成本估算", "成本预算", "成本控制", "挣值管理", "EVM", "PV", "EV", "AC", "SV", "CV", "SPI", "CPI", "成本基准", "应急储备", "管理储备"],
+      "summary": "成本管理：成本估算→制定预算→成本控制，依赖进度工期估算，输出成本基准，用挣值法监控"
+    },
+    {
+      "id": "quality_management",
+      "order": 8,
+      "title": "项目质量管理",
+      "aliases": ["质量管理", "项目质量"],
+      "primaryPhase": "规划",
+      "involvedPhases": ["规划", "执行", "监控"],
+      "keywords": ["质量管理", "质量规划", "质量保证", "质量控制", "QA", "QC", "PDCA", "七种基本质量工具", "因果图", "帕累托图", "直方图", "质量基准"],
+      "summary": "质量管理：规划质量→实施质量保证(QA)→实施质量控制(QC)，PDCA循环与质量工具"
+    },
+    {
+      "id": "resource_management",
+      "order": 9,
+      "title": "项目资源管理",
+      "aliases": ["资源管理", "人力资源管理", "团队管理"],
+      "primaryPhase": "执行",
+      "involvedPhases": ["规划", "执行", "监控"],
+      "keywords": ["资源管理", "人力资源管理", "团队建设", "组建团队", "建设项目团队", "管理项目团队", "RACI", "责任分配矩阵", "RAM", "冲突管理", "激励理论", "马斯洛", "赫茨伯格", "塔克曼团队发展"],
+      "summary": "资源管理：规划资源→组建→建设→管理团队，RACI矩阵与激励理论、冲突管理"
+    },
+    {
+      "id": "communication_management",
+      "order": 10,
+      "title": "项目沟通管理",
+      "aliases": ["沟通管理", "项目沟通"],
+      "primaryPhase": "执行",
+      "involvedPhases": ["规划", "执行", "监控"],
+      "keywords": ["沟通管理", "沟通渠道", "沟通方式", "绩效报告", "信息管理", "沟通模型", "n(n-1)/2", "沟通需求分析", "沟通技术"],
+      "summary": "沟通管理：规划沟通→管理沟通→控制沟通，沟通渠道数 n(n-1)/2，绩效报告"
+    },
+    {
+      "id": "risk_management",
+      "order": 11,
+      "title": "项目风险管理",
+      "aliases": ["风险管理", "项目风险"],
+      "primaryPhase": "规划",
+      "involvedPhases": ["规划", "监控"],
+      "keywords": ["风险管理", "风险识别", "风险分析", "定性风险分析", "定量风险分析", "风险应对", "风险监控", "风险登记册", "概率影响矩阵", "风险类别", "消极风险应对", "积极风险应对", "EMV", "决策树"],
+      "summary": "风险管理：识别→定性分析→定量分析→应对规划→监控，风险登记册与概率影响矩阵"
+    },
+    {
+      "id": "procurement_management",
+      "order": 12,
+      "title": "项目采购管理",
+      "aliases": ["采购管理", "合同管理", "项目采购"],
+      "primaryPhase": "执行",
+      "involvedPhases": ["规划", "执行", "监控"],
+      "keywords": ["采购管理", "采购计划", "合同管理", "招投标", "自制外购分析", "采购文件", "工作说明书", "SOW", "合同类型", "总价合同", "成本补偿合同", "工料合同", "供方选择"],
+      "summary": "采购管理：规划采购→实施采购→控制采购→结束采购，合同类型与招投标流程"
+    },
+    {
+      "id": "stakeholder_management",
+      "order": 13,
+      "title": "项目相关方管理",
+      "aliases": ["相关方管理", "干系人管理", "干系人"],
+      "primaryPhase": "启动",
+      "involvedPhases": ["启动", "规划", "执行", "监控"],
+      "keywords": ["相关方管理", "干系人管理", "识别相关方", "相关方参与", "相关方分析", "权力利益方格", "凸显模型", "参与度评估矩阵", "相关方登记册"],
+      "summary": "相关方管理：识别→规划参与→管理参与→控制参与，权力利益方格与参与度评估"
+    },
+    {
+      "id": "project_closing",
+      "order": 14,
+      "title": "项目收尾管理",
+      "aliases": ["收尾管理", "项目收尾", "结束项目"],
+      "primaryPhase": "收尾",
+      "involvedPhases": ["收尾"],
+      "keywords": ["收尾", "项目收尾", "结束项目", "行政收尾", "合同收尾", "项目总结", "经验教训", "组织过程资产", "成果验收", "移交"],
+      "summary": "收尾管理：成果验收→行政收尾→合同收尾→经验教训总结→移交，沉淀组织过程资产"
+    },
+    {
+      "id": "laws_and_ethics",
+      "order": 15,
+      "title": "法律法规与职业道德",
+      "aliases": ["法律法规", "标准规范", "职业道德"],
+      "primaryPhase": "收尾",
+      "involvedPhases": ["收尾"],
+      "keywords": ["法律法规", "标准规范", "著作权", "招标投标法", "合同法", "政府采购法", "职业道德", "信息系统服务"],
+      "summary": "相关法律法规、标准规范与信息系统服务管理人员职业道德"
+    }
+  ],
+  "phaseToChapters": {
+    "启动": ["informatization", "integration_tech", "project_initiation", "stakeholder_management"],
+    "规划": ["integration_management", "scope_management", "schedule_management", "cost_management", "quality_management", "risk_management"],
+    "执行": ["resource_management", "communication_management", "procurement_management"],
+    "监控": ["integration_management", "scope_management", "schedule_management", "cost_management", "quality_management", "resource_management", "communication_management", "risk_management", "procurement_management"],
+    "收尾": ["project_closing", "laws_and_ethics"]
+  }
+}

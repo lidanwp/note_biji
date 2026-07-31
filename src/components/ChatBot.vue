@@ -156,7 +156,81 @@ watch(isOpen, (open) => {
   if (open) nextTick(() => textareaRef.value?.focus())
 })
 
-// 将内容转为可读的 HTML
+// ============ HTML 转义与 Markdown 渲染 ============
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+// 行内 markdown：**加粗** `代码`
+function mdInline(text) {
+  return esc(text)
+    .replace(/\*\*(.+?)\*\*/g, '<b style="color:#3D3533;">$1</b>')
+    .replace(/`([^`]+)`/g, '<code style="background:#EEEAE7;color:#C48E96;padding:1px 4px;border-radius:3px;font-size:12px;">$1</code>')
+}
+// 块级 markdown：标题/列表/换行 + 行内
+function mdBlock(text) {
+  return mdInline(text)
+    .replace(/^###? (.*$)/gm, '<div style="margin:6px 0 3px;font-weight:600;color:#3D3533;font-size:13px;">$1</div>')
+    .replace(/^## (.*$)/gm, '<div style="margin:8px 0 4px;font-weight:600;color:#3D3533;font-size:14px;">$1</div>')
+    .replace(/^- (.*$)/gm, '<div style="padding-left:12px;text-indent:-10px;">• $1</div>')
+    .replace(/^\d+\. (.*$)/gm, '<div style="padding-left:12px;text-indent:-10px;">• $1</div>')
+    .replace(/\r?\n/g, '<br>')
+}
+
+// 口诀卡片（口诀优先：涉及精确数字/概念对比时置顶高亮）
+function renderMemoryAids(aids) {
+  if (!aids || !aids.length) return ''
+  const items = aids.map(a => `<div style="padding:3px 0;line-height:1.6;">🧠 ${mdInline(a)}</div>`).join('')
+  return '<div style="margin:8px 0;padding:10px 12px;background:#FDF6E3;border:1px solid #E8D9A8;border-radius:8px;">' +
+         '<div style="font-size:11px;color:#B8860B;font-weight:600;margin-bottom:4px;">记忆口诀</div>' +
+         items + '</div>'
+}
+
+// 对比表格（对比类问题复用）
+function renderComparisonTable(table) {
+  if (!table || !table.enabled || !table.cols || !table.cols.length) return ''
+  const head = '<tr>' + table.cols.map(c =>
+    `<th style="padding:6px 10px;background:#EEEAE7;color:#3D3533;font-size:12px;text-align:left;border:1px solid #E8E2DE;">${esc(c)}</th>`
+  ).join('') + '</tr>'
+  const body = (table.rows || []).map(row =>
+    '<tr>' + table.cols.map(c =>
+      `<td style="padding:6px 10px;font-size:12px;color:#3D3533;border:1px solid #E8E2DE;">${esc(row[c] != null ? row[c] : '')}</td>`
+    ).join('') + '</tr>'
+  ).join('')
+  const title = table.title ? `<div style="font-size:12px;color:#8A7E7A;margin-bottom:6px;">📊 ${esc(table.title)}</div>` : ''
+  return `<div style="margin:8px 0;">${title}<table style="border-collapse:collapse;width:100%;display:block;overflow-x:auto;">${head}${body}</table></div>`
+}
+
+// 知识承接关系卡片（图谱推理：前置依赖 + 后续产出）
+function renderGraph(g) {
+  if (!g) return ''
+  const up = (g.upstream || []).map(u =>
+    `<div style="padding:3px 0;font-size:12px;line-height:1.5;">⬆️ 前置：<b style="color:#3D3533;">${esc(u.title)}</b> 产出 <code style="background:#EEEAE7;color:#C48E96;padding:1px 4px;border-radius:3px;font-size:11px;">${esc(u.output)}</code></div>`
+  ).join('')
+  const down = (g.downstream || []).map(d =>
+    `<div style="padding:3px 0;font-size:12px;line-height:1.5;">⬇️ 后续：<b style="color:#3D3533;">${esc(d.title)}</b> 依赖 <code style="background:#EEEAE7;color:#C48E96;padding:1px 4px;border-radius:3px;font-size:11px;">${esc(d.output)}</code></div>`
+  ).join('')
+  if (!up && !down) return ''
+  return '<div style="margin:8px 0;padding:10px 12px;background:#F0F4F0;border:1px solid #C8D8C8;border-radius:8px;">' +
+         '<div style="font-size:11px;color:#5A7A5A;font-weight:600;margin-bottom:4px;">🔗 知识承接关系</div>' +
+         up + down + '</div>'
+}
+
+// 阶段上下文（该阶段相邻章节关键要点）
+function renderPhaseContext(ctx, phase) {
+  if (!ctx || !ctx.length) return ''
+  const items = ctx.map(c => {
+    const kps = (c.keyPoints || []).slice(0, 2).map(k =>
+      `<span style="background:#EEEAE7;color:#8A7E7A;padding:1px 6px;border-radius:8px;font-size:11px;margin-right:4px;">${esc(k)}</span>`
+    ).join('')
+    return `<div style="padding:3px 0;font-size:12px;line-height:1.5;">• <b style="color:#3D3533;">${esc(c.title)}</b> ${kps}</div>`
+  }).join('')
+  return `<div style="margin:8px 0;padding:10px 12px;background:#F7F4F2;border:1px solid #E8E2DE;border-radius:8px;">` +
+         `<div style="font-size:11px;color:#8A7E7A;font-weight:600;margin-bottom:4px;">📍 阶段上下文：${esc(phase)}</div>` +
+         items + '</div>'
+}
+
+// 将内容转为可读的 HTML（分层输出渲染：口诀优先 → 对比表格 → 主答案 → 承接关系 → 阶段上下文）
 function formatAnswer(data) {
   // null / undefined 防护
   if (!data || typeof data !== 'object') {
@@ -174,57 +248,35 @@ function formatAnswer(data) {
       ? '<div style="color:#C48E96;font-size:11px;margin-bottom:6px;">⚠️ 服务异常</div>'
       : '<div style="color:#8A7E7A;font-size:11px;margin-bottom:6px;">ℹ️ 未命中相关内容</div>'
 
-  // 闲聊/能力询问/错误提示 - 直接渲染换行
-  if ((data.source === 'chat' || data.source === 'error' || data.source === 'empty') && data.answer) {
-    const text = data.answer
-      .replace(/\*\*(.+?)\*\*/g, '<b style="color:#3D3533;">$1</b>')
-      .replace(/\r?\n/g, '<br>')
+  // 闲聊/能力询问/错误/未命中 - 纯文本渲染
+  if (['chat', 'error', 'empty'].includes(data.source)) {
+    const text = mdInline(data.answer || '').replace(/\r?\n/g, '<br>')
     return sourceTag + `<div style="line-height:1.75;color:#3D3533;">${text}</div>`
   }
 
-  if (data.source === 'qa' && data.answer) {
-    let text = data.answer
-    text = text
-      .replace(/\*\*(.+?)\*\*/g, '<b style="color:#3D3533;">$1</b>')
-      .replace(/`([^`]+)`/g, '<code style="background:#EEEAE7;color:#C48E96;padding:1px 4px;border-radius:3px;font-size:12px;">$1</code>')
-      .replace(/\r?\n/g, '<br>')
-    return sourceTag + `<div style="line-height:1.75;color:#3D3533;">${text}</div>`
+  const ctx = data.context || {}
+  // 有结构化 context → 分层渲染；否则降级为纯文本 answer
+  const hasContext = ctx.primaryAnswer !== undefined || ctx.graphReasoning || ctx.memoryAids || ctx.comparisonTable
+  if (!hasContext) {
+    return sourceTag + `<div style="line-height:1.75;color:#3D3533;">${mdBlock(data.answer || '')}</div>`
   }
 
-  const results = data.results || []
-  if (results.length === 0) {
-    return sourceTag + '<div style="line-height:1.7;color:#3D3533;">' + (data.answer || '抱歉，没有找到相关内容。') + '</div>'
-  }
+  // 分层渲染
+  const intentLabel = { definition: '定义类', comparison: '对比类', scenario: '场景类', general: '综合' }[data.intent] || '综合'
+  const metaTag = (data.phase || data.chapter || data.intent)
+    ? `<div style="font-size:11px;color:#8A7E7A;margin-bottom:6px;">📍 ${data.phase ? esc(data.phase) : ''}${data.chapter ? ' · ' + esc(data.chapter.title) : ''} · ${intentLabel}</div>`
+    : ''
 
-  const parts = []
-  const maxResults = 2  // 与后端一致：只展示前 2 条
-  for (let i = 0; i < Math.min(results.length, maxResults); i++) {
-    const r = results[i]
-    let text = r.content || ''
-    if (text.length > 400) text = text.slice(0, 400) + '...'
+  const html = [
+    metaTag,
+    renderMemoryAids(ctx.memoryAids),
+    renderComparisonTable(ctx.comparisonTable),
+    `<div style="line-height:1.75;color:#3D3533;">${mdBlock(ctx.primaryAnswer || data.answer || '')}</div>`,
+    renderGraph(ctx.graphReasoning),
+    renderPhaseContext(ctx.phaseContext, data.phase)
+  ].join('')
 
-    text = text
-      .replace(/^###? (.*$)/gm, '<h4 style="margin:6px 0 3px;color:#3D3533;font-size:13px;">$1</h4>')
-      .replace(/^## (.*$)/gm, '<h3 style="margin:8px 0 4px;color:#3D3533;">$1</h3>')
-      .replace(/^# (.*$)/gm, '<h2 style="margin:10px 0 5px;color:#3D3533;">$1</h2>')
-      .replace(/^\|(.+)\|$/gm, (m) => {
-        const cells = m.slice(1, -1).split('|').map(c => c.trim()).filter(c => c)
-        if (cells.every(c => /^-+$/.test(c))) return ''
-        return '<div style="display:flex;gap:4px;margin:2px 0;flex-wrap:wrap;">' +
-               cells.map(c => `<span style="background:#EEEAE7;color:#C48E96;padding:2px 6px;border-radius:4px;font-size:11px;">${c}</span>`).join('') +
-               '</div>'
-      })
-      .replace(/^- (.*$)/gm, '• $1')
-      .replace(/^\d+\. (.*$)/gm, '• $1')
-      .replace(/\*\*(.+?)\*\*/g, '<b style="color:#3D3533;">$1</b>')
-      .replace(/`([^`]+)`/g, '<code style="background:#EEEAE7;color:#C48E96;padding:1px 4px;border-radius:3px;font-size:11px;">$1</code>')
-      .replace(/\r?\n/g, '<br>')
-
-    const score = r.score ? ` <span style="color:#8A7E7A;font-size:11px;">(${Math.round(r.score * 100)}%)</span>` : ''
-    parts.push(`<div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px dashed #E8E2DE;">${text}${score}</div>`)
-  }
-
-  return sourceTag + '<div>' + parts.join('') + '</div>'
+  return sourceTag + html
 }
 
 const toggleChat = () => {

@@ -116,7 +116,10 @@ export default async function handler(req, res) {
             exam_mapping: note.examMapping || { relatedProcesses: [], typicalQuestions: [], commonPitfalls: [] },
             comparison_table: note.comparisonTable || { enabled: false, title: '', cols: [], rows: [] },
             memory_aids: note.memoryAids || [],
-            exam_score: note.examScore || 0
+            exam_score: note.examScore || 0,
+            // 阶段上下文感知 + 知识图谱依赖推理（检索服务使用）
+            phase: note.phase || null,
+            related_notes: note.relatedNotes || []
           }
 
           const response = await fetch(`${supabaseUrl}/rest/v1/notes?on_conflict=id&select=*`, {

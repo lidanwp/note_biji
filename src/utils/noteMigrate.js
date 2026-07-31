@@ -37,5 +37,12 @@ export function migrateNote(note) {
   if (!note.usefulCount) {
     note.usefulCount = 0
   }
+  // 阶段上下文感知 + 知识图谱依赖推理（检索服务使用）
+  if (note.phase === undefined || note.phase === null) {
+    note.phase = null
+  }
+  if (!note.relatedNotes) {
+    note.relatedNotes = []
+  }
   return note
 }

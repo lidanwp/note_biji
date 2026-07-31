@@ -67,7 +67,10 @@ export const loadNotesFromCloud = async () => {
     examMapping: row.exam_mapping || { relatedProcesses: [], typicalQuestions: [], commonPitfalls: [] },
     comparisonTable: row.comparison_table || { enabled: false, title: '', cols: [], rows: [] },
     memoryAids: row.memory_aids || [],
-    examScore: row.exam_score || 0
+    examScore: row.exam_score || 0,
+    // 阶段上下文感知 + 知识图谱依赖推理（检索服务使用）
+    phase: row.phase || null,
+    relatedNotes: row.related_notes || []
   }))
 }
 
