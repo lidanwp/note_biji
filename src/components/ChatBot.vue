@@ -170,10 +170,12 @@ function formatAnswer(data) {
       ? '<div style="color:#C48E96;font-size:11px;margin-bottom:6px;">📖 知识库检索结果</div>'
       : data.source === 'chat'
       ? '<div style="color:#A8B8A8;font-size:11px;margin-bottom:6px;">💬 智能助手</div>'
+      : data.source === 'error'
+      ? '<div style="color:#C48E96;font-size:11px;margin-bottom:6px;">⚠️ 服务异常</div>'
       : '<div style="color:#8A7E7A;font-size:11px;margin-bottom:6px;">ℹ️ 未命中相关内容</div>'
 
-  // 闲聊/能力询问 - 直接渲染换行
-  if (data.source === 'chat' && data.answer) {
+  // 闲聊/能力询问/错误提示 - 直接渲染换行
+  if ((data.source === 'chat' || data.source === 'error' || data.source === 'empty') && data.answer) {
     const text = data.answer
       .replace(/\*\*(.+?)\*\*/g, '<b style="color:#3D3533;">$1</b>')
       .replace(/\r?\n/g, '<br>')

@@ -188,6 +188,7 @@ export default async function handler(req, res) {
     // ---- 策略 1: 先尝试 QA 接口（对前 4 个查询变体依次尝试，首个成功即返回） ----
     const qaAttempts = [...new Set([query, ...variants.slice(0, 4)])].slice(0, 4)
     let qaFinalAnswer = null
+    let embeddingDown = false // 标记 embedding 服务是否不可用（余额不足等）
     for (const qaQuery of qaAttempts) {
       try {
         // 注意：QA 接口响应较慢，给 30 秒超时
@@ -204,6 +205,14 @@ export default async function handler(req, res) {
         const txt = Buffer.from(buf).toString('utf-8')
         let data
         try { data = JSON.parse(txt) } catch (_) { continue }
+
+        // 检测 embedding 服务不可用（余额不足/超限等）
+        if (data?.error && /余额不足|embed error|quota|insufficient/i.test(data.error)) {
+          embeddingDown = true
+          console.log('[Embedding 不可用]:', data.error)
+          break
+        }
+
         const ans = data?.data?.answer
         if (isGoodQaAnswer(ans)) {
           qaFinalAnswer = ans
@@ -219,6 +228,16 @@ export default async function handler(req, res) {
         success: true,
         answer: qaFinalAnswer,
         source: 'qa',
+        results: []
+      })
+    }
+
+    // 如果 embedding 服务不可用，直接返回友好提示，不再尝试搜索
+    if (embeddingDown) {
+      return res.status(200).json({
+        success: true,
+        answer: '抱歉，AI 知识库服务暂时不可用（向量检索服务余额不足）。\n\n管理员请前往 PandaWiki 后台检查 Embedding 模型的 API 余额。\n\n你可以先浏览笔记内容，待服务恢复后再提问。',
+        source: 'error',
         results: []
       })
     }
