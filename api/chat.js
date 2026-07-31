@@ -26,6 +26,32 @@ const TERM_MAP = {
   '项目管理计划': ['综合计划 基准 管理计划']
 }
 
+// ============ 意图识别：判断是否为闲聊/问候/能力询问 ============
+// 这类问题不应走知识库搜索，直接返回预设回复
+const SMALL_TALK = [
+  { pattern: /^(你好|您好|hi|hello|hey|嗨|哈喽|在吗|在不在|有人吗)\s*[!！。.?？]?$/i, reply: '你好！我是系统集成项目管理中级 AI 助手 🐼，可以问我 PMBOK、五大过程组、十大知识领域、WBS、挣值管理等问题。' },
+  { pattern: /^(谢谢|多谢|thanks|thank you|3q|谢了|辛苦了)\s*[!！。.?？]?$/i, reply: '不客气！如果还有其他项目管理的问题，随时问我 🐼' },
+  { pattern: /^(再见|拜拜|bye|good ?bye|88|晚安)\s*[!！。.?？]?$/i, reply: '再见！祝你学习顺利 🐼' },
+  { pattern: /^(你是谁|你叫什么|你是啥|介绍一下你自己|你是什么|你是机器人吗|你是ai吗)/i, reply: '我是「系统集成项目管理中级」AI 助手，专门帮你解答项目管理相关的知识点，如 PMBOK、五大过程组、十大知识领域、WBS、挣值管理等。' },
+  { pattern: /^(你能做什么|你会什么|你能帮我什么|有什么功能|怎么用你)/i, reply: '我可以帮你查找和解释系统集成项目管理的知识点。试试问我：\n• 十大知识领域有哪些\n• 五大过程组是什么\n• WBS 工作分解结构\n• 挣值管理 EVM\n• 三点估算 PERT' },
+  { pattern: /^(好的|嗯|ok|okay|收到|了解|明白了|知道了)\s*[!！。.?？]?$/i, reply: '嗯嗯，有其他问题随时问我 🐼' },
+  { pattern: /^(测试|test|测试一下|试一下)/i, reply: '收到测试请求 ✅ 我运行正常。可以试着问我：「什么是 WBS」「五大过程组有哪些」等真实问题。' }
+]
+
+function detectSmallTalk(query) {
+  const q = query.trim()
+  for (const item of SMALL_TALK) {
+    if (item.pattern.test(q)) return item.reply
+  }
+  return null
+}
+
+// 判断查询是否过于宽泛/无意义（比如单个字、纯标点）
+function isTooVague(query) {
+  const q = query.trim().replace(/[\s!！。.?？，,、]/g, '')
+  return q.length < 2
+}
+
 // 生成一系列精准查询（而不是把所有同义词塞进一个 query）
 function buildQueryVariants(originalQuery) {
   const variants = [originalQuery]
@@ -56,13 +82,14 @@ function buildQueryVariants(originalQuery) {
 }
 
 // 搜索结果去重 + 合并 + 过滤低质量
+// 注意：阈值从 0.015 提到 0.3，避免"你好"也能匹配到一堆无关笔记
 function mergeAndRankResults(groups) {
   const seen = new Map() // key -> { item, totalScore, hits }
   for (const group of groups) {
     for (const r of group) {
       if (!r || !r.content) continue
       const s = r.score || 0
-      if (s < 0.015) continue // 阈值放宽到 0.015（PandaWiki embedding 分数普遍偏低）
+      if (s < 0.3) continue // 提高阈值到 0.3，过滤真正不相关的结果
       const key = r.content.slice(0, 40).replace(/\s+/g, '')
       if (!key) continue
       if (seen.has(key)) {
@@ -82,16 +109,17 @@ function mergeAndRankResults(groups) {
   return ranked.map(x => x.item)
 }
 
-// 最终答案渲染：把结果格式化
+// 最终答案渲染：把结果格式化（限制总长度，避免输出整个笔记）
 function composeAnswer(results, originalQuery) {
   if (!results || results.length === 0) {
     return '抱歉，没有在知识库中找到相关内容。可以尝试更简短的关键词，如：整合管理、WBS、挣值管理、可行性研究、五大过程组、PMBOK 等。'
   }
-  const pick = results.slice(0, 4)
+  // 只取最相关的前 2 条，且每条限制 400 字以内
+  const pick = results.slice(0, 2)
   const parts = []
   for (const r of pick) {
-    let text = r.content || ''
-    if (text.length > 800) text = text.slice(0, 800) + '...'
+    let text = (r.content || '').trim()
+    if (text.length > 400) text = text.slice(0, 400) + '...'
     parts.push(text)
   }
   return parts.join('\n\n---\n\n')
@@ -128,6 +156,28 @@ export default async function handler(req, res) {
 
     if (!dataset_id || !query) {
       return res.status(400).json({ error: '缺少必要参数: dataset_id, query' })
+    }
+
+    // ============ 第 0 层：意图识别 - 闲聊/问候/能力询问直接回复 ============
+    const smallTalkReply = detectSmallTalk(query)
+    if (smallTalkReply) {
+      console.log('[意图识别] 命中闲聊:', query)
+      return res.status(200).json({
+        success: true,
+        answer: smallTalkReply,
+        source: 'chat',
+        results: []
+      })
+    }
+
+    // ============ 第 0.5 层：过于宽泛的查询直接拒绝 ============
+    if (isTooVague(query)) {
+      return res.status(200).json({
+        success: true,
+        answer: '你的问题有点太简短了，能再说得具体一点吗？比如：「什么是 WBS」「五大过程组有哪些」。',
+        source: 'chat',
+        results: []
+      })
     }
 
     originalQueryInCheck = query

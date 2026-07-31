@@ -168,7 +168,17 @@ function formatAnswer(data) {
       ? '<div style="color:#94A694;font-size:11px;margin-bottom:6px;">✨ AI 智能回答</div>'
       : data.source === 'search'
       ? '<div style="color:#C48E96;font-size:11px;margin-bottom:6px;">📖 知识库检索结果</div>'
+      : data.source === 'chat'
+      ? '<div style="color:#A8B8A8;font-size:11px;margin-bottom:6px;">💬 智能助手</div>'
       : '<div style="color:#8A7E7A;font-size:11px;margin-bottom:6px;">ℹ️ 未命中相关内容</div>'
+
+  // 闲聊/能力询问 - 直接渲染换行
+  if (data.source === 'chat' && data.answer) {
+    const text = data.answer
+      .replace(/\*\*(.+?)\*\*/g, '<b style="color:#3D3533;">$1</b>')
+      .replace(/\r?\n/g, '<br>')
+    return sourceTag + `<div style="line-height:1.75;color:#3D3533;">${text}</div>`
+  }
 
   if (data.source === 'qa' && data.answer) {
     let text = data.answer
@@ -185,11 +195,11 @@ function formatAnswer(data) {
   }
 
   const parts = []
-  const maxResults = 4
+  const maxResults = 2  // 与后端一致：只展示前 2 条
   for (let i = 0; i < Math.min(results.length, maxResults); i++) {
     const r = results[i]
     let text = r.content || ''
-    if (text.length > 600) text = text.slice(0, 600) + '...'
+    if (text.length > 400) text = text.slice(0, 400) + '...'
 
     text = text
       .replace(/^###? (.*$)/gm, '<h4 style="margin:6px 0 3px;color:#3D3533;font-size:13px;">$1</h4>')
