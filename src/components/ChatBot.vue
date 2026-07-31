@@ -1,39 +1,85 @@
 <template>
-  <div class="chat-bot">
-    <div class="chat-header" @click="toggleChat">
-      <span>🤖 系统集成 AI 助手</span>
-      <span>{{ isOpen ? '▼' : '▲' }}</span>
+  <!-- 浮动按钮 -->
+  <button
+    v-if="!isOpen"
+    class="panda-bot-btn"
+    @click="toggleChat"
+    aria-label="打开 AI 助手"
+  >
+    <img src="/bot-logo.svg" alt="AI" class="panda-bot-btn-img" />
+  </button>
+
+  <!-- 聊天窗口 - 与 panda-bot-window 结构一致 -->
+  <div v-if="isOpen" class="chat-bot">
+    <!-- Header -->
+    <div class="chat-header">
+      <div class="header-left">
+        <img src="/bot-logo.svg" alt="Logo" class="header-logo" />
+        <div class="header-info">
+          <h3 class="header-title">问答机器人</h3>
+          <div class="header-status">
+            <span class="status-dot"></span>
+            <span class="status-text">在线</span>
+          </div>
+        </div>
+      </div>
+      <button class="close-btn" @click="toggleChat" aria-label="关闭">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+          <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+        </svg>
+      </button>
     </div>
-    <div v-if="isOpen" class="chat-body">
-      <!-- 快捷提问建议（仅在消息列表为空时显示） -->
-      <div v-if="messages.length <= 1" class="quick-tips">
-        <div class="tips-title">📚 试试这些问题：</div>
-        <div class="tips-chips">
-          <span
-            v-for="t in quickTips"
-            :key="t"
-            class="chip"
-            @click="quickAsk(t)"
-          >{{ t }}</span>
-        </div>
+
+    <!-- 快捷提问（仅首次） -->
+    <div v-if="messages.length <= 1" class="quick-tips">
+      <div class="tips-title">试试这些问题：</div>
+      <div class="tips-chips">
+        <span
+          v-for="t in quickTips"
+          :key="t"
+          class="chip"
+          @click="quickAsk(t)"
+        >{{ t }}</span>
       </div>
-      <div class="messages" ref="messagesRef">
-        <div v-for="(msg, idx) in messages" :key="idx" :class="['message', msg.role]">
-          <strong class="msg-label">{{ msg.role === 'user' ? '我' : '🤖' }}：</strong>
-          <div v-if="msg.role === 'bot'" class="msg-content" v-html="msg.display"></div>
-          <span v-else>{{ msg.content }}</span>
-        </div>
-        <div v-if="loading" class="message bot">
-          <span class="typing-dots"><span></span><span></span><span></span></span> 正在检索知识库...
-        </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages" ref="messagesRef">
+      <div
+        v-for="(msg, idx) in messages"
+        :key="idx"
+        :class="['message', msg.role]"
+      >
+        <div v-if="msg.role === 'bot'" class="msg-content" v-html="msg.display"></div>
+        <span v-else>{{ msg.content }}</span>
       </div>
-      <div class="input-area">
-        <input
+      <div v-if="loading" class="message bot">
+        <span class="typing-dots"><span></span><span></span><span></span></span> 正在思考...
+      </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="input-area">
+      <div class="textarea-wrapper">
+        <textarea
+          ref="textareaRef"
           v-model="question"
-          placeholder="如：整合管理、挣值管理、WBS..."
-          @keyup.enter="sendQuestion"
-        />
-        <button @click="sendQuestion" :disabled="loading">发送</button>
+          class="panda-bot-textarea"
+          placeholder="输入你的问题..."
+          rows="1"
+          @input="autoResize"
+          @keydown.enter.prevent="sendQuestion"
+        ></textarea>
+        <button
+          class="send-btn"
+          :disabled="loading || !question.trim()"
+          @click="sendQuestion"
+          aria-label="发送"
+        >
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
+        </button>
       </div>
     </div>
   </div>
@@ -45,24 +91,26 @@ import { ref, nextTick, watch } from 'vue'
 const DATASET_ID = '8cbc6517-ca4f-462e-a9e7-dc9b2129f474'
 const API_URL = '/api/chat'
 
+const BRAND = '#D4A0A8'
+const BRAND_DARK = '#C48E96'
+
 const isOpen = ref(false)
 const question = ref('')
 const loading = ref(false)
 const messagesRef = ref(null)
+const textareaRef = ref(null)
 
 const messages = ref([
   {
     role: 'bot',
     content: '',
     display: '<div style="line-height:1.7;color:#3D3533;">' +
-      '你好！我是 <b>系统集成项目管理中级 AI 助手</b> 🐼<br>' +
-      '覆盖：PMBOK 十大知识领域 · 五大过程组 · 整合/范围/进度/成本/质量/资源/沟通/风险/采购/相关方管理 · EVM 挣值 · WBS · PERT 三点估算 · RACI 等<br>' +
-      '<span style="color:#8A7E7A;font-size:12px;">点击下方快捷标签直接提问</span>' +
+      '你好！我是问答机器人 🐼<br>' +
+      '你可以问我系统集成项目管理的知识，如：<b>十大知识领域、五大过程组、挣值管理、WBS</b> 等。' +
       '</div>'
   }
 ])
 
-// 快捷提问建议
 const quickTips = [
   '十大知识领域有哪些',
   '五大过程组是什么',
@@ -79,6 +127,14 @@ const quickAsk = (t) => {
   sendQuestion()
 }
 
+// textarea 自动高度
+const autoResize = () => {
+  const el = textareaRef.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = Math.min(el.scrollHeight, 140) + 'px'
+}
+
 // 自动滚动到底部
 watch(
   () => messages.value.length,
@@ -89,9 +145,13 @@ watch(
   }
 )
 
+// 打开时聚焦
+watch(isOpen, (open) => {
+  if (open) nextTick(() => textareaRef.value?.focus())
+})
+
 // 将内容转为可读的 HTML
 function formatAnswer(data) {
-  // 回答来源标签 - Panda 莫兰迪色系
   const sourceTag =
     data.source === 'qa'
       ? '<div style="color:#94A694;font-size:11px;margin-bottom:6px;">✨ AI 智能回答</div>'
@@ -99,7 +159,6 @@ function formatAnswer(data) {
       ? '<div style="color:#C48E96;font-size:11px;margin-bottom:6px;">📖 知识库检索结果</div>'
       : '<div style="color:#8A7E7A;font-size:11px;margin-bottom:6px;">ℹ️ 未命中相关内容</div>'
 
-  // QA 接口的 AI 答案（优先展示）
   if (data.source === 'qa' && data.answer) {
     let text = data.answer
     text = text
@@ -109,7 +168,6 @@ function formatAnswer(data) {
     return sourceTag + `<div style="line-height:1.75;color:#3D3533;">${text}</div>`
   }
 
-  // 搜索回退结果
   const results = data.results || []
   if (results.length === 0) {
     return sourceTag + '<div style="line-height:1.7;color:#3D3533;">' + (data.answer || '抱歉，没有找到相关内容。') + '</div>'
@@ -139,7 +197,7 @@ function formatAnswer(data) {
       .replace(/`([^`]+)`/g, '<code style="background:#EEEAE7;color:#C48E96;padding:1px 4px;border-radius:3px;font-size:11px;">$1</code>')
       .replace(/\r?\n/g, '<br>')
 
-    const score = r.score ? ` <span style="color:#8A7E7A;font-size:11px;">相关度 ${Math.round(r.score * 100)}%</span>` : ''
+    const score = r.score ? ` <span style="color:#8A7E7A;font-size:11px;">(${Math.round(r.score * 100)}%)</span>` : ''
     parts.push(`<div style="margin-bottom:10px;padding-bottom:8px;border-bottom:1px dashed #E8E2DE;">${text}${score}</div>`)
   }
 
@@ -148,6 +206,10 @@ function formatAnswer(data) {
 
 const toggleChat = () => {
   isOpen.value = !isOpen.value
+  if (!isOpen.value) {
+    question.value = ''
+    loading.value = false
+  }
 }
 
 const sendQuestion = async () => {
@@ -187,217 +249,205 @@ const sendQuestion = async () => {
     })
   } finally {
     loading.value = false
+    nextTick(() => autoResize())
   }
 }
 </script>
 
 <style scoped>
-/* Panda 莫兰迪色系 - 与 widget-bot.js 保持一致 */
-.chat-bot {
+/* ============ 浮动按钮 (panda-bot-btn 风格) ============ */
+.panda-bot-btn {
   position: fixed;
-  bottom: 20px;
-  right: 20px;
-  width: 400px;
-  max-height: 560px;
-  border-radius: 18px;
-  box-shadow: 0 12px 40px rgba(61, 53, 51, 0.14), 0 3px 10px rgba(61, 53, 51, 0.06);
-  background: #FFFFFF;
-  border: 1px solid #E8E2DE;
-  overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  z-index: 9999;
-  display: flex;
-  flex-direction: column;
-}
-
-.chat-header {
-  background: #F7F4F2;
-  border-bottom: 1px solid #E8E2DE;
-  color: #3D3533;
-  padding: 14px 18px;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  background: linear-gradient(135deg, #D4A0A8, #C48E96);
+  border-radius: 50%;
+  border: none;
   cursor: pointer;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  font-weight: 500;
-  font-size: 15px;
-  flex-shrink: 0;
-  gap: 14px;
+  justify-content: center;
+  box-shadow: 0 4px 20px rgba(61, 53, 51, 0.08);
+  transition: all 0.3s ease;
+  padding: 0;
+  z-index: 9999;
+  animation: botPulse 2.5s ease-in-out infinite;
+}
+.panda-bot-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 6px 28px rgba(61, 53, 51, 0.12);
+}
+.panda-bot-btn-img {
+  width: 30px;
+  height: 30px;
+}
+@keyframes botPulse {
+  0%, 100% { box-shadow: 0 4px 20px rgba(61, 53, 51, 0.08); transform: scale(1); }
+  50% { box-shadow: 0 6px 28px rgba(61, 53, 51, 0.12); transform: scale(1.04); }
 }
 
-.chat-header span:first-child {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.chat-header span:first-child::before {
-  content: '🐼';
-  font-size: 22px;
-}
-
-.chat-body {
+/* ============ 主窗口 (panda-bot-window 风格) ============ */
+.chat-bot {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  width: 440px;
+  height: 600px;
+  background: #FFFFFF;
+  border-radius: 18px;
+  box-shadow: 0 12px 40px rgba(61, 53, 51, 0.18), 0 4px 14px rgba(61, 53, 51, 0.08);
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  height: 500px;
-  background: #F7F4F2;
+  z-index: 9999;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
-.quick-tips {
-  padding: 14px 18px 12px;
+/* ============ Header ============ */
+.chat-header {
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   background: #F7F4F2;
   border-bottom: 1px solid #E8E2DE;
+  flex-shrink: 0;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.header-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+}
+.header-info {
+  display: flex;
+  flex-direction: column;
+}
+.header-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 500;
+  color: #3D3533;
+  line-height: 1.3;
+}
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+.status-dot {
+  width: 8px;
+  height: 8px;
+  background: #A8B8A8;
+  border-radius: 50%;
+}
+.status-text {
+  font-size: 12px;
+  color: #8A7E7A;
+}
+.close-btn {
+  background: transparent;
+  border: none;
+  color: #8A7E7A;
+  cursor: pointer;
+  padding: 6px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.2s;
+}
+.close-btn:hover {
+  background: #EEEAE7;
+  color: #3D3533;
+}
+.close-btn svg {
+  width: 20px;
+  height: 20px;
 }
 
+/* ============ 快捷提问 ============ */
+.quick-tips {
+  padding: 12px 22px 10px;
+  background: #F7F4F2;
+  border-bottom: 1px solid #E8E2DE;
+  flex-shrink: 0;
+}
 .tips-title {
   font-size: 12px;
   color: #8A7E7A;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   font-weight: 500;
 }
-
 .tips-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
 }
-
 .chip {
-  padding: 5px 14px;
+  padding: 4px 12px;
   background: #FFFFFF;
   border: 1px solid #E8E2DE;
   color: #3D3533;
-  border-radius: 20px;
+  border-radius: 16px;
   font-size: 12px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s;
   white-space: nowrap;
 }
-
 .chip:hover {
   background: #D4A0A8;
   color: #FFFFFF;
   border-color: #D4A0A8;
 }
 
+/* ============ Messages ============ */
 .messages {
   flex: 1;
   padding: 20px;
   overflow-y: auto;
   background: #F7F4F2;
 }
-
 .message {
   margin-bottom: 12px;
-  padding: 11px 15px;
+  padding: 10px 14px;
   border-radius: 14px;
   word-wrap: break-word;
   font-size: 13px;
   line-height: 1.65;
-  max-width: 85%;
+  max-width: 82%;
 }
-
-.msg-label {
-  font-size: 12px;
-  color: #8A7E7A;
-  margin-right: 4px;
-}
-
 .msg-content {
   display: inline;
-  max-height: 280px;
-  overflow-y: auto;
 }
-
 .message.user {
   background: #D4A0A8;
   color: #3D3533;
   margin-left: auto;
-  margin-right: 4px;
   text-align: left;
   border-bottom-right-radius: 4px;
 }
-
-.message.user .msg-label {
-  color: rgba(61, 53, 51, 0.6);
-}
-
 .message.bot {
   background: #EEEAE7;
   border: 1px solid #E8E2DE;
   color: #3D3533;
   margin-right: auto;
-  margin-left: 4px;
   border-bottom-left-radius: 4px;
 }
-
-.input-area {
-  display: flex;
-  padding: 12px 14px;
-  border-top: 1px solid #E8E2DE;
-  background: #FFFFFF;
-  gap: 10px;
-  flex-shrink: 0;
-  align-items: center;
-}
-
-.input-area input {
-  flex: 1;
-  padding: 10px 16px;
-  border: 1px solid #E8E2DE;
-  border-radius: 22px;
-  outline: none;
-  font-size: 13px;
-  color: #3D3533;
-  background: #FFFFFF;
-  transition: all 0.2s ease;
-}
-
-.input-area input::placeholder {
-  color: #8A7E7A;
-}
-
-.input-area input:focus {
-  border-color: #D4A0A8;
-  box-shadow: 0 0 0 3px rgba(212, 160, 168, 0.18);
-  background: #FFFFFF;
-}
-
-.input-area button {
-  padding: 10px 20px;
-  background: linear-gradient(135deg, #D4A0A8, #C48E96);
-  color: #FFFFFF;
-  border: none;
-  border-radius: 22px;
-  cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.input-area button:hover:not(:disabled) {
-  transform: scale(1.06);
-  box-shadow: 0 4px 14px rgba(212, 160, 168, 0.35);
-}
-
-.input-area button:active:not(:disabled) {
-  transform: scale(0.96);
-}
-
-.input-area button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
 .typing-dots {
   display: inline-flex;
   gap: 4px;
   margin-right: 6px;
 }
-
 .typing-dots span {
   width: 6px;
   height: 6px;
@@ -405,16 +455,81 @@ const sendQuestion = async () => {
   border-radius: 50%;
   animation: bounce 1.4s infinite ease-in-out;
 }
-
 .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
 .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
-
 @keyframes bounce {
   0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
   40% { transform: scale(1); opacity: 1; }
 }
 
-/* 自定义滚动条 - 与 Panda 风格一致 */
+/* ============ Input Area ============ */
+.input-area {
+  padding: 14px 20px;
+  background: #FFFFFF;
+  border-top: 1px solid #E8E2DE;
+  flex-shrink: 0;
+}
+.textarea-wrapper {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.panda-bot-textarea {
+  flex: 1;
+  padding: 12px 16px;
+  border: 1.5px solid #E8E2DE;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  outline: none;
+  resize: none;
+  transition: all 0.2s;
+  max-height: 140px;
+  min-height: 44px;
+  font-family: inherit;
+  background: #F7F4F2;
+  color: #3D3533;
+}
+.panda-bot-textarea::placeholder {
+  color: #8A7E7A;
+}
+.panda-bot-textarea:focus {
+  border-color: #D4A0A8;
+  background: #FFFFFF;
+}
+.send-btn {
+  width: 42px;
+  height: 42px;
+  background: #D4A0A8;
+  border: none;
+  border-radius: 50%;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  padding: 0;
+}
+.send-btn svg {
+  width: 22px;
+  height: 22px;
+  margin-left: -2px;
+}
+.send-btn:hover:not(:disabled) {
+  transform: scale(1.08);
+  box-shadow: 0 4px 14px rgba(212, 160, 168, 0.35);
+}
+.send-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.send-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ============ 滚动条 ============ */
 .messages::-webkit-scrollbar {
   width: 5px;
 }
