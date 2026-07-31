@@ -568,9 +568,6 @@ const logout = () => {
   router.push('/login')
 }
 
-// 挂件脚本引用
-let botScript = null
-
 onMounted(async () => {
   if (authStore.user?.role !== 'viewer') {
     router.push('/admin')
@@ -587,29 +584,7 @@ onMounted(async () => {
   }
   
   document.addEventListener('click', handleClickOutside)
-  
-  // 动态加载 PandaWiki 问答机器人挂件
-  loadBotWidget()
 })
-
-const loadBotWidget = () => {
-  // 避免重复加载
-  if (botScript || document.querySelector('script[src="/widget-bot.js"]')) {
-    return
-  }
-  
-  botScript = document.createElement('script')
-  botScript.src = '/widget-bot.js'
-  botScript.async = true
-  botScript.onload = () => {
-    console.log('PandaWiki 问答机器人挂件加载成功')
-  }
-  botScript.onerror = () => {
-    console.error('PandaWiki 问答机器人挂件加载失败')
-    botScript = null
-  }
-  document.body.appendChild(botScript)
-}
 
 watch(() => route.query.noteId, (newNoteId) => {
   if (newNoteId && notesStore.notes.length > 0) {
@@ -620,13 +595,7 @@ watch(() => route.query.noteId, (newNoteId) => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
-  // 组件卸载时恢复滚动
   document.body.style.overflow = ''
-  // 清理挂件脚本
-  if (botScript && botScript.parentNode) {
-    botScript.parentNode.removeChild(botScript)
-    botScript = null
-  }
 })
 </script>
 

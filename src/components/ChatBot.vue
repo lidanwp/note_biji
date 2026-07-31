@@ -87,7 +87,7 @@
 </template>
 
 <script setup>
-import { ref, nextTick, watch } from 'vue'
+import { ref, nextTick, watch, onBeforeUnmount } from 'vue'
 
 const DATASET_ID = '8cbc6517-ca4f-462e-a9e7-dc9b2129f474'
 const API_URL = '/api/chat'
@@ -217,11 +217,21 @@ function formatAnswer(data) {
 
 const toggleChat = () => {
   isOpen.value = !isOpen.value
-  if (!isOpen.value) {
+  if (isOpen.value) {
+    // 打开时锁定滚动（防穿透）
+    document.body.style.overflow = 'hidden'
+  } else {
+    // 关闭时恢复
+    document.body.style.overflow = ''
     question.value = ''
     loading.value = false
   }
 }
+
+// 组件卸载时清理
+onBeforeUnmount(() => {
+  document.body.style.overflow = ''
+})
 
 const sendQuestion = async () => {
   if (!question.value.trim() || loading.value) return
@@ -563,5 +573,99 @@ const sendQuestion = async () => {
 }
 .messages::-webkit-scrollbar-thumb:hover {
   background: #94A694;
+}
+
+/* ============ 移动端适配 (≤768px) ============ */
+@media (max-width: 768px) {
+  /* 浮动按钮 - 移动端缩小 + 偏右下 */
+  .panda-bot-btn {
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+  }
+  .panda-bot-btn-img {
+    width: 26px;
+    height: 26px;
+  }
+  @keyframes botPulse {
+    0%, 100% { box-shadow: 0 4px 16px rgba(61, 53, 51, 0.08); transform: scale(1); }
+    50% { box-shadow: 0 6px 24px rgba(61, 53, 51, 0.12); transform: scale(1.05); }
+  }
+
+  /* 主窗口 - 移动端全屏 */
+  .chat-bot {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+    box-shadow: none;
+    z-index: 9999;
+  }
+
+  /* Header - 调整 padding */
+  .chat-header {
+    padding: 14px 16px;
+  }
+  .header-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+  .header-title {
+    font-size: 15px;
+  }
+
+  /* 快捷提问 */
+  .quick-tips {
+    padding: 10px 16px 8px;
+  }
+
+  /* Messages - 移动端更紧凑 */
+  .messages {
+    padding: 14px 16px;
+  }
+  .message {
+    padding: 9px 12px;
+    font-size: 14px;
+    max-width: 88%;
+  }
+
+  /* 输入区 - 全屏更宽 */
+  .input-area {
+    padding: 12px 14px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+  .panda-bot-textarea {
+    font-size: 15px;
+    padding: 10px 14px;
+    min-height: 42px;
+  }
+  .send-btn {
+    width: 40px;
+    height: 40px;
+  }
+  .send-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* 小屏手机适配 (≤380px) */
+@media (max-width: 380px) {
+  .header-title {
+    font-size: 14px;
+  }
+  .header-status {
+    display: none;
+  }
+  .chip {
+    padding: 3px 10px;
+    font-size: 11px;
+  }
 }
 </style>
