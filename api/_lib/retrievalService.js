@@ -284,7 +284,7 @@ function matchNoteMeta(content, notesMeta) {
 // ============================================================================
 const PANDAWIKI_BASE = process.env.PANDAWIKI_BASE || 'http://129.204.21.82:5050'
 
-async function callPandaQA(datasetId, query, timeoutMs = 8000) {
+async function callPandaQA(datasetId, query, timeoutMs = 5000) {
   const ctrl = new AbortController()
   const to = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
@@ -626,19 +626,19 @@ export async function retrieve({ dataset_id, query, history }) {
 
   const variants = buildQueryVariants(resolvedQuery)
 
-  // ---- 策略 1 + 2 并发：QA 与 search 同时跑（避免串行等待导致 Vercel 函数超时）----
-  const qaVariants = [...new Set([resolvedQuery, ...variants.slice(0, 3)])].slice(0, 2)
-  const qaTask = (async () => {
-    for (const qaQuery of qaVariants) {
-      const res = await callPandaQA(dataset_id, qaQuery, 8000)
+  // ---- QA 与 search 并发：QA 只做 1 次快速尝试（5s 超时），失败立即用 search 结果 ----
+  // 注：PandaWiki QA 接口常返回"无法回答"，仅作为可选增强，不阻塞主流程
+  const qaTask = callPandaQA(dataset_id, resolvedQuery, 5000)
+    .then(res => {
       if (res.embeddingDown) return { qaFinalAnswer: null, embeddingDown: true }
       if (res.ok && isGoodQaAnswer(res.answer, resolvedQuery)) return { qaFinalAnswer: res.answer, embeddingDown: false }
-    }
-    return { qaFinalAnswer: null, embeddingDown: false }
-  })()
+      return { qaFinalAnswer: null, embeddingDown: false }
+    })
+    .catch(() => ({ qaFinalAnswer: null, embeddingDown: false }))
 
+  // search 变体数从 6 减到 4，降低并发量，确保 Hobby 10s 限制内完成
   const searchTask = Promise.all(
-    variants.slice(0, 6).map(q => callPandaSearch(dataset_id, q, 10))
+    variants.slice(0, 4).map(q => callPandaSearch(dataset_id, q, 8))
   )
 
   const [{ qaFinalAnswer, embeddingDown }, searchGroupsRaw] = await Promise.all([qaTask, searchTask])
