@@ -67,8 +67,9 @@
           class="panda-bot-textarea"
           placeholder="输入你的问题..."
           rows="1"
+          :disabled="loading"
           @input="autoResize"
-          @keydown.enter.prevent="sendQuestion"
+          @keydown="handleKeydown"
         ></textarea>
         <button
           class="send-btn"
@@ -90,9 +91,6 @@ import { ref, nextTick, watch } from 'vue'
 
 const DATASET_ID = '8cbc6517-ca4f-462e-a9e7-dc9b2129f474'
 const API_URL = '/api/chat'
-
-const BRAND = '#D4A0A8'
-const BRAND_DARK = '#C48E96'
 
 const isOpen = ref(false)
 const question = ref('')
@@ -127,6 +125,14 @@ const quickAsk = (t) => {
   sendQuestion()
 }
 
+// 键盘处理：Enter 发送，Shift+Enter 换行
+const handleKeydown = (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && !loading.value) {
+    e.preventDefault()
+    sendQuestion()
+  }
+}
+
 // textarea 自动高度
 const autoResize = () => {
   const el = textareaRef.value
@@ -135,9 +141,9 @@ const autoResize = () => {
   el.style.height = Math.min(el.scrollHeight, 140) + 'px'
 }
 
-// 自动滚动到底部
+// 自动滚动到底部（消息变化 + loading 变化）
 watch(
-  () => messages.value.length,
+  () => [messages.value.length, loading.value],
   () => {
     nextTick(() => {
       if (messagesRef.value) messagesRef.value.scrollTop = messagesRef.value.scrollHeight
@@ -152,6 +158,11 @@ watch(isOpen, (open) => {
 
 // 将内容转为可读的 HTML
 function formatAnswer(data) {
+  // null / undefined 防护
+  if (!data || typeof data !== 'object') {
+    return '<div style="line-height:1.7;color:#3D3533;">抱歉，服务暂时不可用，请稍后重试。</div>'
+  }
+
   const sourceTag =
     data.source === 'qa'
       ? '<div style="color:#94A694;font-size:11px;margin-bottom:6px;">✨ AI 智能回答</div>'
@@ -218,6 +229,7 @@ const sendQuestion = async () => {
   const userQuestion = question.value.trim()
   messages.value.push({ role: 'user', content: userQuestion })
   question.value = ''
+  autoResize()
   loading.value = true
 
   try {
@@ -231,25 +243,34 @@ const sendQuestion = async () => {
       })
     })
 
-    const data = await response.json()
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const data = await response.json().catch(() => null)
     console.log('AI 返回：', data)
 
     const formatted = formatAnswer(data)
     messages.value.push({
       role: 'bot',
-      content: data.answer || '',
+      content: data?.answer || '',
       display: formatted
     })
   } catch (error) {
     console.error('请求失败：', error)
     messages.value.push({
       role: 'bot',
-      content: '网络错误，请稍后重试。',
-      display: '<div style="color:#C48E96;">❌ 网络错误，请稍后重试。</div>'
+      content: '抱歉，服务暂时不可用，请稍后重试。',
+      display: '<div style="color:#C48E96;">❌ 抱歉，服务暂时不可用，请稍后重试。</div>'
     })
   } finally {
     loading.value = false
-    nextTick(() => autoResize())
+    nextTick(() => {
+      autoResize()
+      if (messagesRef.value) {
+        messagesRef.value.scrollTop = messagesRef.value.scrollHeight
+      }
+    })
   }
 }
 </script>
