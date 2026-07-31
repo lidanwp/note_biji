@@ -82,14 +82,14 @@ function buildQueryVariants(originalQuery) {
 }
 
 // 搜索结果去重 + 合并 + 过滤低质量
-// 注意：阈值从 0.015 提到 0.3，避免"你好"也能匹配到一堆无关笔记
+// 阈值策略：0.05 绝对阈值过滤明显不相关的（比原来的0.015高，避免"你好"也匹配到笔记）
 function mergeAndRankResults(groups) {
   const seen = new Map() // key -> { item, totalScore, hits }
   for (const group of groups) {
     for (const r of group) {
       if (!r || !r.content) continue
       const s = r.score || 0
-      if (s < 0.3) continue // 提高阈值到 0.3，过滤真正不相关的结果
+      if (s < 0.05) continue // 绝对阈值 0.05
       const key = r.content.slice(0, 40).replace(/\s+/g, '')
       if (!key) continue
       if (seen.has(key)) {
@@ -246,12 +246,23 @@ export default async function handler(req, res) {
       })
     )
     const merged = mergeAndRankResults(searchGroups)
+
+    // 质量检查：如果最高分结果低于 0.1，认为没有真正相关的内容
+    if (merged.length === 0 || (merged[0].score || 0) < 0.1) {
+      return res.status(200).json({
+        success: true,
+        answer: '抱歉，没有在知识库中找到与「' + query + '」直接相关的内容。\n\n可以尝试更精准的关键词，如：\n• 整合管理\n• WBS\n• 挣值管理\n• 五大过程组\n• PMBOK',
+        source: 'empty',
+        results: []
+      })
+    }
+
     const answer = composeAnswer(merged, query)
 
     return res.status(200).json({
       success: true,
       answer,
-      source: merged.length > 0 ? 'search' : 'empty',
+      source: 'search',
       results: merged.slice(0, 6)
     })
   } catch (error) {
