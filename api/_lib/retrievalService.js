@@ -284,7 +284,7 @@ function matchNoteMeta(content, notesMeta) {
 // ============================================================================
 const PANDAWIKI_BASE = process.env.PANDAWIKI_BASE || 'http://129.204.21.82:5050'
 
-async function callPandaQA(datasetId, query, timeoutMs = 30000) {
+async function callPandaQA(datasetId, query, timeoutMs = 8000) {
   const ctrl = new AbortController()
   const to = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
@@ -626,15 +626,22 @@ export async function retrieve({ dataset_id, query, history }) {
 
   const variants = buildQueryVariants(resolvedQuery)
 
-  // ---- 策略 1：QA 接口（智能回答），前 4 个变体依次尝试 ----
-  const qaAttempts = [...new Set([resolvedQuery, ...variants.slice(0, 4)])].slice(0, 4)
-  let qaFinalAnswer = null
-  let embeddingDown = false
-  for (const qaQuery of qaAttempts) {
-    const res = await callPandaQA(dataset_id, qaQuery)
-    if (res.embeddingDown) { embeddingDown = true; break }
-    if (res.ok && isGoodQaAnswer(res.answer, resolvedQuery)) { qaFinalAnswer = res.answer; break }
-  }
+  // ---- 策略 1 + 2 并发：QA 与 search 同时跑（避免串行等待导致 Vercel 函数超时）----
+  const qaVariants = [...new Set([resolvedQuery, ...variants.slice(0, 3)])].slice(0, 2)
+  const qaTask = (async () => {
+    for (const qaQuery of qaVariants) {
+      const res = await callPandaQA(dataset_id, qaQuery, 8000)
+      if (res.embeddingDown) return { qaFinalAnswer: null, embeddingDown: true }
+      if (res.ok && isGoodQaAnswer(res.answer, resolvedQuery)) return { qaFinalAnswer: res.answer, embeddingDown: false }
+    }
+    return { qaFinalAnswer: null, embeddingDown: false }
+  })()
+
+  const searchTask = Promise.all(
+    variants.slice(0, 6).map(q => callPandaSearch(dataset_id, q, 10))
+  )
+
+  const [{ qaFinalAnswer, embeddingDown }, searchGroupsRaw] = await Promise.all([qaTask, searchTask])
 
   if (embeddingDown) {
     return {
@@ -645,11 +652,6 @@ export async function retrieve({ dataset_id, query, history }) {
       results: [], context: {}
     }
   }
-
-  // ---- 策略 2：多变体并发搜索 ----
-  const searchGroupsRaw = await Promise.all(
-    variants.slice(0, 6).map(q => callPandaSearch(dataset_id, q, 10))
-  )
 
   // 对每个 group 做字段权重重排
   const searchGroups = searchGroupsRaw.map(group =>
