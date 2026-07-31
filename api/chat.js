@@ -20,13 +20,13 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { dataset_id, query } = req.body || {}
+    const { dataset_id, query, history } = req.body || {}
 
     if (!dataset_id || !query) {
       return res.status(400).json({ error: '缺少必要参数: dataset_id, query' })
     }
 
-    const result = await retrieve({ dataset_id, query })
+    const result = await retrieve({ dataset_id, query, history })
 
     return res.status(200).json(result)
   } catch (error) {

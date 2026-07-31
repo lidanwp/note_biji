@@ -41,29 +41,67 @@ let _notesMetaAt = 0
 const NOTES_META_TTL = 5 * 60 * 1000 // 5 分钟
 
 // ============================================================================
-// 1. 意图识别：闲聊 / 问候 / 能力询问 —— 不走知识库
+// 1. 意图识别：闲聊 / 问候 / 寒暄 —— 前置于检索，完全不触发知识库
+//    分层判断（轻量级，无 LLM 调用，零延迟）：
+//    a) 强正则匹配（你好/谢谢/再见/身份询问等）
+//    b) 寒暄词 + 无知识领域词 + 短句 → 闲聊
+//    c) 短查询（≤3字）且非强术语 → 太宽泛，提示具体化（避免"沟通"命中整篇笔记）
 // ============================================================================
-const SMALL_TALK = [
-  { pattern: /^(你好|您好|hi|hello|hey|嗨|哈喽|在吗|在不在|有人吗)\s*[!！。.?？]?$/i, reply: '你好！我是系统集成项目管理中级 AI 助手 🐼，可以问我 PMBOK、五大过程组、十大知识领域、WBS、挣值管理等问题。' },
-  { pattern: /^(谢谢|多谢|thanks|thank you|3q|谢了|辛苦了)\s*[!！。.?？]?$/i, reply: '不客气！如果还有其他项目管理的问题，随时问我 🐼' },
-  { pattern: /^(再见|拜拜|bye|good ?bye|88|晚安)\s*[!！。.?？]?$/i, reply: '再见！祝你学习顺利 🐼' },
-  { pattern: /^(你是谁|你叫什么|你是啥|介绍一下你自己|你是什么|你是机器人吗|你是ai吗)/i, reply: '我是「系统集成项目管理中级」AI 助手，专门帮你解答项目管理相关的知识点，如 PMBOK、五大过程组、十大知识领域、WBS、挣值管理等。' },
-  { pattern: /^(你能做什么|你会什么|你能帮我什么|有什么功能|怎么用你)/i, reply: '我可以帮你查找和解释系统集成项目管理的知识点。试试问我：\n• 十大知识领域有哪些\n• 五大过程组是什么\n• WBS 工作分解结构\n• 挣值管理 EVM\n• 三点估算 PERT' },
-  { pattern: /^(好的|嗯|ok|okay|收到|了解|明白了|知道了)\s*[!！。.?？]?$/i, reply: '嗯嗯，有其他问题随时问我 🐼' },
-  { pattern: /^(测试|test|测试一下|试一下)/i, reply: '收到测试请求 ✅ 我运行正常。可以试着问我：「什么是 WBS」「五大过程组有哪些」等真实问题。' }
+
+// 知识领域词：含这些词的查询视为知识查询，不按闲聊处理
+const DOMAIN_TERMS = [
+  '整合','整体','范围','进度','成本','质量','资源','风险','采购','相关方','干系人','立项','收尾',
+  '沟通管理','沟通渠道','WBS','EVM','PMBOK','PERT','CPM','RACI','挣值','章程','基准','变更',
+  '过程组','知识领域','估算','关键路径','三点估算','可行性','合同','招标','团队建设','冲突管理',
+  'PDCA','质量保证','质量控制','SPI','CPI','应急储备','管理储备','项目管理','项目计划','监控'
 ]
 
+// 强术语白名单：即使很短（≤3字）也走检索
+const STRONG_TERMS = ['WBS','EVM','PERT','CPM','RACI','PMBOK','QA','QC','PDCA','SPI','CPI','SV','CV','PV','EV','AC','RAM','SOW','CCB']
+
+function hasDomainTerm(query) {
+  return DOMAIN_TERMS.some(t => query.includes(t))
+}
+
+const SMALL_TALK = [
+  { pattern: /^(你好|您好|你好啊|您好啊|hi|hello|hey|嗨|哈喽|早|早上好|下午好|晚上好|晚安)\s*[!！。.?？~]?\s*$/i, reply: '你好！我是系统集成项目管理中级 AI 助手 🐼，可以问我 PMBOK、五大过程组、十大知识领域、WBS、挣值管理等问题。' },
+  { pattern: /^(谢谢|感谢|多谢|thanks|thank you|3q|谢了|辛苦了|麻烦了)\s*[!！。.?？]?\s*$/i, reply: '不客气！如果还有其他项目管理的问题，随时问我 🐼' },
+  { pattern: /^(再见|拜拜|bye|good ?bye|88|晚安|走了|下线|回见)\s*[!！。.?？]?\s*$/i, reply: '再见！祝你学习顺利 🐼' },
+  { pattern: /^(你是谁|你叫什么|你是啥|介绍一下你自己|你是什么|你是机器人吗|你是ai吗|你是谁呀)/i, reply: '我是「系统集成项目管理中级」AI 助手，专门帮你解答项目管理相关的知识点，如 PMBOK、五大过程组、十大知识领域、WBS、挣值管理等。' },
+  { pattern: /^(你能做什么|你会什么|你能帮我什么|有什么功能|怎么用你|你能回答什么|你能干嘛)/i, reply: '我可以帮你查找和解释系统集成项目管理的知识点。试试问我：\n• 十大知识领域有哪些\n• 五大过程组是什么\n• WBS 工作分解结构\n• 挣值管理 EVM\n• 三点估算 PERT' },
+  { pattern: /^(好的|嗯|嗯嗯|哦|噢|ok|okay|收到|了解|明白了|知道了|行|好滴)\s*[!！。.?？]?\s*$/i, reply: '嗯嗯，有其他问题随时问我 🐼' },
+  { pattern: /^(在吗|在不在|有人吗|你在吗|在么|有人在不|喂)\s*[!！。.?？]?\s*$/i, reply: '在的 🐼 有什么项目管理的问题想问？比如 WBS、挣值管理、五大过程组等。' },
+  { pattern: /^(测试|test|测试一下|试一下|测试测试)\s*$/i, reply: '收到测试请求 ✅ 我运行正常。可以试着问我：「什么是 WBS」「五大过程组有哪些」等真实问题。' }
+]
+
+// 轻量意图分类：判断是否为闲聊/寒暄（前置，不触发检索）
 function detectSmallTalk(query) {
   const q = query.trim()
+
+  // a) 强正则匹配
   for (const item of SMALL_TALK) {
     if (item.pattern.test(q)) return item.reply
   }
+
+  // b) 寒暄词 + 无知识领域词 + 短句 → 闲聊
+  //    例如"你好啊谢谢"、"嗨，在吗"这类纯寒暄组合，不命中知识领域词才拦截
+  const greetingWords = ['你好','您好','嗨','哈喽','hi','hello','谢谢','感谢','再见','拜拜','在吗','辛苦','你好呀']
+  const hasGreeting = greetingWords.some(w => q.toLowerCase().includes(w))
+  if (hasGreeting && !hasDomainTerm(q) && q.length <= 12) {
+    return '你好！我是系统集成项目管理中级 AI 助手 🐼，可以问我 PMBOK、WBS、挣值管理等知识点。'
+  }
+
   return null
 }
 
+// 过短/过宽泛判断：≤3字且非强术语 → 提示具体化
+// 避免单个泛词（如"沟通""范围"）命中整篇笔记被当作答案翻出
 function isTooVague(query) {
   const q = query.trim().replace(/[\s!！。.?？，,、]/g, '')
-  return q.length < 2
+  if (q.length < 2) return true
+  // 2-3字的短查询，若非强术语白名单，视为太宽泛
+  if (q.length <= 3 && !STRONG_TERMS.includes(q.toUpperCase())) return true
+  return false
 }
 
 // ============================================================================
@@ -313,7 +351,17 @@ function isGoodQaAnswer(ans, originalQuery) {
 // ============================================================================
 const FIELD_WEIGHT = { scenario: 1.5, keyPoints: 1.2, title: 1.0, content: 0.7 }
 
-function rerankByWeight(results, query, detection, notesMeta) {
+// 检测片段是否含列表/表格/枚举结构（列举类检索优先命中此类结构）
+function hasListStructure(content) {
+  if (!content) return false
+  if (/^[-*]\s/m.test(content)) return true       // markdown 无序列表
+  if (/^\d+\.\s/m.test(content)) return true      // 数字有序列表
+  if (/^\|.*\|/m.test(content)) return true       // markdown 表格
+  if ((content.match(/、/g) || []).length >= 2) return true  // 顿号枚举
+  return false
+}
+
+function rerankByWeight(results, query, detection, notesMeta, intent) {
   const q = query.toLowerCase()
   const qTokens = q.split(/[\s,，、]+/).filter(t => t.length >= 2)
 
@@ -345,6 +393,12 @@ function rerankByWeight(results, query, detection, notesMeta) {
         const chTitle = detection.chapter.title
         if (note.title?.includes(chTitle) || note.category?.includes(chTitle) || chTitle.includes(note.title || '')) {
           fieldBoost *= 1.4
+        }
+      }
+      // 列举类加成：优先命中含列表/表格/枚举结构的片段，或笔记有 keyPoints 清单
+      if (intent === 'list') {
+        if ((note.keyPoints && note.keyPoints.length) || hasListStructure(r.content)) {
+          fieldBoost *= 1.3
         }
       }
     } else {
@@ -461,8 +515,11 @@ function buildPhaseContext(phase, chapters, notesMeta) {
 function classifyIntent(query) {
   const q = query.toLowerCase()
   if (/(区别|对比|比较|异同|vs|差异|不同)/.test(q)) return 'comparison'
+  // 列举类：几个/哪些/多少/包含/列举/列出/分别是/几种/多少种/有多少/包括哪些
+  // 不应被"定义类→一句话+3要点"压缩，需输出完整清单（总数 + 逐项）
+  if (/(几个|哪些|多少|包含|列举|列出|分别是|都有哪些|几种|多少种|多少个|有多少|包括哪些|都有啥|种类)/.test(q)) return 'list'
   if (/(案例|场景|实际|应用|怎么做|如何处理|遇到)/.test(q)) return 'scenario'
-  if (/(是什么|什么是|含义|定义|概念|指什么|有哪些)/.test(q)) return 'definition'
+  if (/(是什么|什么是|含义|定义|概念|指什么)/.test(q)) return 'definition'
   return 'general'
 }
 
@@ -473,8 +530,19 @@ function classifyIntent(query) {
 function composeLayeredAnswer({ primaryAnswer, intent, detection, graphReasoning, phaseContext, topNote }) {
   const lines = []
 
-  // 主答案
-  if (primaryAnswer) {
+  // 列举类：先总数，再逐项列出名称+一句话说明（不被"定义类"规则压缩）
+  if (intent === 'list' && topNote && topNote.keyPoints && topNote.keyPoints.length) {
+    const kps = topNote.keyPoints
+    lines.push(`共 ${kps.length} 项：`)
+    kps.forEach((kp, i) => {
+      lines.push(`${i + 1}. ${kp}`)
+    })
+    // 若 QA/检索主答案较短且未与清单重复，作为补充说明附后
+    if (primaryAnswer && primaryAnswer.length <= 200 && !kps.some(k => primaryAnswer.includes(String(k)))) {
+      lines.push('')
+      lines.push(primaryAnswer)
+    }
+  } else if (primaryAnswer) {
     lines.push(primaryAnswer)
   }
 
@@ -522,7 +590,7 @@ function buildSystemPrompt() {
 // ============================================================================
 // 11. 主入口
 // ============================================================================
-export async function retrieve({ dataset_id, query }) {
+export async function retrieve({ dataset_id, query, history }) {
   const env = process.env
   const { chapters, graph } = loadConfig()
 
@@ -532,8 +600,15 @@ export async function retrieve({ dataset_id, query }) {
     return { success: true, answer: smallTalkReply, source: 'chat', intent: 'chat', results: [], context: {} }
   }
 
-  // ---- 过短 ----
-  if (isTooVague(query)) {
+  // ---- 多轮上下文：指代消解 ----
+  // 含指代词（它们/这些/分别/其...）时，用上一轮用户问题的实体增强当前查询
+  const resolvedQuery = resolveCoreference(query, history)
+  if (resolvedQuery !== query) {
+    console.log('[retrievalService] 指代消解:', query, '→', resolvedQuery)
+  }
+
+  // ---- 过短 ----（用消解后的 query 判断，避免"它们区别"被误判为太宽泛）
+  if (isTooVague(resolvedQuery)) {
     return {
       success: true,
       answer: '你的问题有点太简短了，能再说得具体一点吗？比如：「什么是 WBS」「五大过程组有哪些」。',
@@ -542,23 +617,23 @@ export async function retrieve({ dataset_id, query }) {
   }
 
   // ---- 阶段 + 章节识别 ----
-  const detection = detectPhaseAndChapter(query, chapters)
-  const intent = classifyIntent(query)
+  const detection = detectPhaseAndChapter(resolvedQuery, chapters)
+  const intent = classifyIntent(resolvedQuery)
   console.log('[retrievalService] 阶段/章节/意图:', detection.phase, detection.chapter?.title, intent)
 
   // ---- 加载 notes 元数据（用于权重重排、图谱推理、阶段上下文）----
   const notesMeta = await loadNotesMeta(env)
 
-  const variants = buildQueryVariants(query)
+  const variants = buildQueryVariants(resolvedQuery)
 
   // ---- 策略 1：QA 接口（智能回答），前 4 个变体依次尝试 ----
-  const qaAttempts = [...new Set([query, ...variants.slice(0, 4)])].slice(0, 4)
+  const qaAttempts = [...new Set([resolvedQuery, ...variants.slice(0, 4)])].slice(0, 4)
   let qaFinalAnswer = null
   let embeddingDown = false
   for (const qaQuery of qaAttempts) {
     const res = await callPandaQA(dataset_id, qaQuery)
     if (res.embeddingDown) { embeddingDown = true; break }
-    if (res.ok && isGoodQaAnswer(res.answer, query)) { qaFinalAnswer = res.answer; break }
+    if (res.ok && isGoodQaAnswer(res.answer, resolvedQuery)) { qaFinalAnswer = res.answer; break }
   }
 
   if (embeddingDown) {
@@ -578,7 +653,7 @@ export async function retrieve({ dataset_id, query }) {
 
   // 对每个 group 做字段权重重排
   const searchGroups = searchGroupsRaw.map(group =>
-    rerankByWeight(group, query, detection, notesMeta)
+    rerankByWeight(group, resolvedQuery, detection, notesMeta, intent)
   )
   const merged = mergeAndRankResults(searchGroups)
 

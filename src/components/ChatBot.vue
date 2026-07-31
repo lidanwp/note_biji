@@ -173,7 +173,7 @@ function mdBlock(text) {
     .replace(/^###? (.*$)/gm, '<div style="margin:6px 0 3px;font-weight:600;color:#3D3533;font-size:13px;">$1</div>')
     .replace(/^## (.*$)/gm, '<div style="margin:8px 0 4px;font-weight:600;color:#3D3533;font-size:14px;">$1</div>')
     .replace(/^- (.*$)/gm, '<div style="padding-left:12px;text-indent:-10px;">• $1</div>')
-    .replace(/^\d+\. (.*$)/gm, '<div style="padding-left:12px;text-indent:-10px;">• $1</div>')
+    .replace(/^(\d+)\. (.*$)/gm, '<div style="padding-left:18px;text-indent:-16px;"><b style="color:#C48E96;">$1.</b> $2</div>')
     .replace(/\r?\n/g, '<br>')
 }
 
@@ -262,7 +262,7 @@ function formatAnswer(data) {
   }
 
   // 分层渲染
-  const intentLabel = { definition: '定义类', comparison: '对比类', scenario: '场景类', general: '综合' }[data.intent] || '综合'
+  const intentLabel = { definition: '定义类', comparison: '对比类', scenario: '场景类', list: '列举类', general: '综合' }[data.intent] || '综合'
   const metaTag = (data.phase || data.chapter || data.intent)
     ? `<div style="font-size:11px;color:#8A7E7A;margin-bottom:6px;">📍 ${data.phase ? esc(data.phase) : ''}${data.chapter ? ' · ' + esc(data.chapter.title) : ''} · ${intentLabel}</div>`
     : ''
@@ -306,6 +306,16 @@ const sendQuestion = async () => {
   autoResize()
   loading.value = true
 
+  // 构造多轮对话历史（最近约3轮，不含当前问题），供后端指代消解
+  const history = messages.value
+    .slice(0, -1) // 去掉刚 push 的本轮 user
+    .filter(m => (m.role === 'user' || m.role === 'bot') && m.content)
+    .slice(-6)
+    .map(m => ({
+      role: m.role === 'bot' ? 'assistant' : 'user',
+      content: String(m.content).slice(0, 200)
+    }))
+
   try {
     const response = await fetch(API_URL, {
       method: 'POST',
@@ -313,6 +323,7 @@ const sendQuestion = async () => {
       body: JSON.stringify({
         dataset_id: DATASET_ID,
         query: userQuestion,
+        history,
         top_k: 8
       })
     })
