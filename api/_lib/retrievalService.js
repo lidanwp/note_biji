@@ -218,18 +218,22 @@ async function loadNotesMeta(env) {
   }
   const supabaseUrl = env.SUPABASE_URL
   const supabaseKey = env.SUPABASE_ANON_KEY
-  if (!supabaseUrl || !supabaseKey) return []
+  if (!supabaseUrl || !supabaseKey) return _notesMeta || []
 
   const select = 'id,title,category,phase,related_notes,key_points,scenario,memory_aids,comparison_table'
   const url = `${supabaseUrl}/rest/v1/notes?select=${encodeURIComponent(select)}&order=date.desc`
   try {
+    const ctrl = new AbortController()
+    const to = setTimeout(() => ctrl.abort(), 3000)  // 3s 超时，避免阻塞主流程
     const r = await fetch(url, {
       headers: {
         'apikey': supabaseKey,
         'Authorization': `Bearer ${supabaseKey}`,
         'Content-Type': 'application/json'
-      }
+      },
+      signal: ctrl.signal
     })
+    clearTimeout(to)
     if (!r.ok) {
       console.error('[retrievalService] loadNotesMeta 失败:', r.status)
       return _notesMeta || []
@@ -311,7 +315,7 @@ async function callPandaQA(datasetId, query, timeoutMs = 5000) {
   }
 }
 
-async function callPandaSearch(datasetId, query, topK = 10, timeoutMs = 20000) {
+async function callPandaSearch(datasetId, query, topK = 10, timeoutMs = 8000) {
   const ctrl = new AbortController()
   const to = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
@@ -616,18 +620,16 @@ export async function retrieve({ dataset_id, query, history }) {
     }
   }
 
-  // ---- 阶段 + 章节识别 ----
+  // ---- 阶段 + 章节识别（本地计算，无 I/O）----
   const detection = detectPhaseAndChapter(resolvedQuery, chapters)
   const intent = classifyIntent(resolvedQuery)
   console.log('[retrievalService] 阶段/章节/意图:', detection.phase, detection.chapter?.title, intent)
 
-  // ---- 加载 notes 元数据（用于权重重排、图谱推理、阶段上下文）----
-  const notesMeta = await loadNotesMeta(env)
-
   const variants = buildQueryVariants(resolvedQuery)
 
-  // ---- QA 与 search 并发：QA 只做 1 次快速尝试（5s 超时），失败立即用 search 结果 ----
-  // 注：PandaWiki QA 接口常返回"无法回答"，仅作为可选增强，不阻塞主流程
+  // ---- 三路并发：notesMeta + QA + search，最大化利用 10s Hobby 限制 ----
+  const notesMetaTask = loadNotesMeta(env).catch(() => [])
+
   const qaTask = callPandaQA(dataset_id, resolvedQuery, 5000)
     .then(res => {
       if (res.embeddingDown) return { qaFinalAnswer: null, embeddingDown: true }
@@ -636,12 +638,13 @@ export async function retrieve({ dataset_id, query, history }) {
     })
     .catch(() => ({ qaFinalAnswer: null, embeddingDown: false }))
 
-  // search 变体数从 6 减到 4，降低并发量，确保 Hobby 10s 限制内完成
   const searchTask = Promise.all(
     variants.slice(0, 4).map(q => callPandaSearch(dataset_id, q, 8))
   )
 
-  const [{ qaFinalAnswer, embeddingDown }, searchGroupsRaw] = await Promise.all([qaTask, searchTask])
+  const [notesMeta, { qaFinalAnswer, embeddingDown }, searchGroupsRaw] = await Promise.all([
+    notesMetaTask, qaTask, searchTask
+  ])
 
   if (embeddingDown) {
     return {
