@@ -311,14 +311,14 @@
         
         <div v-if="selectedNote.attachments?.length" class="detail-attachments">
           <h4>🎵 录音文件</h4>
-          <ul>
-            <li v-for="(file, idx) in selectedNote.attachments" :key="idx">
-              <div class="audio-item">
-                <div class="audio-name">🎵 {{ file.name }}</div>
-                <audio controls preload="metadata" :src="file.url" class="audio-player"></audio>
-              </div>
-            </li>
-          </ul>
+          <div class="audio-list">
+            <AudioPlayer
+              v-for="(file, idx) in selectedNote.attachments"
+              :key="idx"
+              :src="file.url"
+              :name="file.name"
+            />
+          </div>
         </div>
         
         <div v-if="selectedNote.tags?.length" class="detail-tags">
@@ -355,6 +355,7 @@ import Pagination from '../components/Pagination.vue'
 import { useHistoryStore } from '@/stores/history'
 import HistoryPanel from '@/components/HistoryPanel.vue'
 import CommentSection from '../components/CommentSection.vue'
+import AudioPlayer from '../components/AudioPlayer.vue'
 import { toastSuccess, toastError, toastInfo, toastWarning } from '../utils/toast'
 import ChangePasswordModal from '../components/ChangePasswordModal.vue'
 
@@ -1594,24 +1595,10 @@ header {
   text-decoration: underline;
 }
 
-.detail-attachments .audio-item {
-  margin-bottom: 12px;
-  padding: 10px 12px;
-  background: var(--bg-secondary, #f7f8fa);
-  border-radius: 8px;
-}
-
-.detail-attachments .audio-name {
-  font-size: 14px;
-  color: #3D3533;
-  margin-bottom: 6px;
-  font-weight: 500;
-  word-break: break-all;
-}
-
-.detail-attachments .audio-player {
-  width: 100%;
-  height: 36px;
+.detail-attachments .audio-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .detail-tags {
