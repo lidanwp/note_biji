@@ -53,8 +53,8 @@ onMounted(async () => {
       return
     }
 
-    // 调用后端验证接口
-    const response = await fetch('/api/auth/verify-email', {
+    // 调用后端验证接口（POST /api/auth/verify 复用）
+    const response = await fetch('/api/auth/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
