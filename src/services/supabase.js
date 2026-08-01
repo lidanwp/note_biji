@@ -163,53 +163,60 @@ export const updateUsefulCount = async (id, usefulCount) => {
   return await response.json()
 }
 
-// ===== Storage：录音文件上传 / 删除 =====
-// 配合 SQL 脚本 scripts/003_create_audio_storage.sql 使用
+// ===== Storage：录音文件上传 / 删除（经后端 service_role 代理）=====
+// Storage 桶无 INSERT/DELETE RLS 策略，写入必须用 service_role
+// 流程：前端调后端拿签名URL → 直传Storage（绕过Vercel 4.5MB限制）→ 拿publicUrl
 const AUDIO_BUCKET = 'audio-files'
 
 /**
- * 上传录音文件到 Supabase Storage
+ * 上传录音文件
+ * 1) 调后端 /api/upload-audio 用 service_role 生成签名上传 URL
+ * 2) 前端用签名 URL 直传到 Supabase Storage（不经 Vercel，支持大文件）
  * @param {File} file 浏览器 File 对象
- * @param {string} userId 当前登录用户 ID（用作路径前缀，便于隔离）
+ * @param {string} userId 当前登录用户 ID
  * @returns {Promise<{name:string, url:string, path:string}>}
  */
 export const uploadAudioFile = async (file, userId) => {
-  // 文件名安全化：保留中文/字母/数字/点/横杠，其余替换为下划线
-  const safeName = file.name.replace(/[^\w\u4e00-\u9fa5.-]/g, '_')
-  const path = `${userId || 'anonymous'}/${Date.now()}-${safeName}`
+  // 1) 后端用 service_role 生成签名上传 URL
+  const resp = await fetch('/api/upload-audio', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, fileName: file.name, contentType: file.type })
+  })
+  if (!resp.ok) {
+    const e = await resp.json().catch(() => ({}))
+    throw new Error(e.error || `生成上传URL失败: ${resp.status}`)
+  }
+  const { path, token, publicUrl, name } = await resp.json()
 
+  // 2) 前端用签名 URL 直传到 Supabase Storage（不经 Vercel，支持大文件）
   const { error } = await supabase.storage
     .from(AUDIO_BUCKET)
-    .upload(path, file, {
-      contentType: file.type || 'audio/mpeg',
-      cacheControl: '3600',
-      upsert: false
+    .uploadToSignedUrl(path, token, file, {
+      contentType: file.type || 'audio/mpeg'
     })
 
   if (error) throw new Error(`上传失败: ${error.message}`)
 
-  const { data: urlData } = supabase.storage
-    .from(AUDIO_BUCKET)
-    .getPublicUrl(path)
-
-  return {
-    name: file.name,
-    url: urlData.publicUrl,
-    path: path
-  }
+  return { name, url: publicUrl, path }
 }
 
 /**
- * 删除 Storage 中的录音文件
+ * 删除 Storage 中的录音文件（经后端 service_role 代理）
  * @param {string} path Storage 内的文件路径（上传时返回的 path）
  */
 export const deleteAudioFile = async (path) => {
   if (!path) return
   try {
-    const { error } = await supabase.storage
-      .from(AUDIO_BUCKET)
-      .remove([path])
-    if (error) console.error('删除录音文件失败:', error.message)
+    const resp = await fetch('/api/delete-audio', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path })
+    })
+    if (!resp.ok) {
+      const e = await resp.json().catch(() => ({}))
+      console.error('删除录音文件失败:', e.error || resp.status)
+    }
   } catch (e) {
     console.error('删除录音文件异常:', e.message)
   }
