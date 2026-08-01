@@ -39,42 +39,58 @@ const goLogin = () => {
 
 onMounted(async () => {
   try {
-    // 从 URL 获取 Supabase 验证参数
-    // Hash 路由下参数在 route.query 中
+    // 从 URL 获取参数（支持两种模式）
+    // 模式1: 前端直接拿到 token（通过 /auth/callback?token=xxx）
+    // 模式2: Supabase 已在服务端完成验证，重定向回来（URL 只有 type=signup）
     const token = route.query.token || route.query.access_token
     const type = route.query.type
     const email = route.query.email
+    const error = route.query.error
 
-    if (!token) {
-      // 没有 token 参数，可能是直接访问此页面
-      status.value = 'error'
-      title.value = '验证链接无效'
-      message.value = '未检测到有效的验证参数，请点击邮件中的完整链接，或联系管理员。'
+    // Case 1: 有 token → 用 token 交换 session（完整验证流程）
+    if (token) {
+      const response = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, type: type || 'signup', email })
+      })
+
+      const data = await response.json().catch(() => ({}))
+
+      if (response.ok) {
+        status.value = 'success'
+        title.value = '邮箱验证成功！'
+        message.value = data.message || '感谢您的注册，邮箱已验证通过。现在可以使用邮箱和密码登录系统了。'
+      } else {
+        status.value = 'error'
+        title.value = '验证失败'
+        message.value = data.error || '验证链接可能已过期或无效，请重新注册或联系管理员。'
+      }
       return
     }
 
-    // 调用后端验证接口（POST /api/auth/verify 复用）
-    const response = await fetch('/api/auth/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        token, 
-        type: type || 'signup',
-        email 
-      })
-    })
-
-    const data = await response.json().catch(() => ({}))
-
-    if (response.ok) {
+    // Case 2: 没有 token 但有 type=signup → Supabase 已在服务端完成验证
+    // 用户点邮件链接 → Supabase 服务端验证 token → 重定向到 Site URL（不带 token）
+    // 此时说明验证已经成功，只是前端需要展示结果
+    if (type === 'signup' && !error) {
       status.value = 'success'
       title.value = '邮箱验证成功！'
       message.value = '感谢您的注册，邮箱已验证通过。现在可以使用邮箱和密码登录系统了。'
-    } else {
+      return
+    }
+
+    // Case 3: 有 error 参数 → 验证失败
+    if (error) {
       status.value = 'error'
       title.value = '验证失败'
-      message.value = data.error || '验证链接可能已过期或无效，请重新注册或联系管理员。'
+      message.value = '验证链接可能已过期或无效，请重新注册或联系管理员。'
+      return
     }
+
+    // Case 4: 没有任何参数 → 直接访问此页面
+    status.value = 'error'
+    title.value = '验证链接无效'
+    message.value = '未检测到有效的验证参数，请点击邮件中的完整链接，或联系管理员。'
   } catch (e) {
     status.value = 'error'
     title.value = '网络错误'
