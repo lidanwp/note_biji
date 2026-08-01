@@ -333,7 +333,7 @@
               <div class="hint">上传音频文件（mp3/wav/m4a 等），访客可在线播放</div>
               <div class="attachment-list">
                 <div v-for="(file, index) in form.attachments" :key="index" class="attachment-item">
-                  <span>🎵 {{ typeof file === 'string' ? file : file.name }}</span>
+                  <span>🎵 {{ file.name }}</span>
                   <button @click="removeAttachment(index)" class="btn-remove">✕</button>
                 </div>
               </div>

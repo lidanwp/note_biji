@@ -313,13 +313,10 @@
           <h4>🎵 录音文件</h4>
           <ul>
             <li v-for="(file, idx) in selectedNote.attachments" :key="idx">
-              <!-- 新格式：可播放的录音文件 -->
-              <div v-if="typeof file === 'object' && file.url" class="audio-item">
+              <div class="audio-item">
                 <div class="audio-name">🎵 {{ file.name }}</div>
                 <audio controls preload="metadata" :src="file.url" class="audio-player"></audio>
               </div>
-              <!-- 旧格式：纯文件名（兼容历史数据） -->
-              <span v-else>📄 {{ typeof file === 'string' ? file : (file.name || '未知文件') }}</span>
             </li>
           </ul>
         </div>
