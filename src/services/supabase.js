@@ -165,46 +165,35 @@ export const updateUsefulCount = async (id, usefulCount) => {
 
 // ===== Storage：录音文件上传 / 删除（经后端 service_role 代理）=====
 // Storage 桶无 INSERT/DELETE RLS 策略，写入必须用 service_role
-// 流程：前端调后端拿签名URL → 直传Storage（绕过Vercel 4.5MB限制）→ 拿publicUrl
-const AUDIO_BUCKET = 'audio-files'
+// 流程：前端把文件 POST 到后端 → 后端用 service_role 直接上传 → 返回 publicUrl
+// 注意：Vercel Hobby 请求体限制 4.5MB，前端已做大小检查
 
 /**
  * 上传录音文件
- * 1) 调后端 /api/upload-audio 用 service_role 生成签名上传 URL
- * 2) 前端用签名 URL 直传到 Supabase Storage（不经 Vercel，支持大文件）
+ * 前端把文件以 FormData POST 到 /api/upload-audio
+ * 后端用 service_role 直接上传到 Storage，完全绕过 RLS
  * @param {File} file 浏览器 File 对象
  * @param {string} userId 当前登录用户 ID
  * @returns {Promise<{name:string, url:string, path:string}>}
  */
 export const uploadAudioFile = async (file, userId) => {
-  // 1) 后端用 service_role 生成签名上传 URL
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('userId', userId || 'anonymous')
+
   const resp = await fetch('/api/upload-audio', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, fileName: file.name, contentType: file.type })
+    body: formData
+    // 不设 Content-Type，让浏览器自动设 multipart boundary
   })
+
   if (!resp.ok) {
     const e = await resp.json().catch(() => ({}))
-    throw new Error(e.error || `生成上传URL失败: ${resp.status}`)
-  }
-  const { path, token, publicUrl, name } = await resp.json()
-
-  // 2) 用 fetch 直传 Supabase Storage（绕过 SDK 封装，更稳定）
-  const uploadResp = await fetch(signedUrl, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': file.type || 'audio/mpeg'
-    },
-    body: file
-  })
-
-  if (!uploadResp.ok) {
-    const errorText = await uploadResp.text().catch(() => '')
-    console.error('[uploadAudioFile] 直传Storage失败:', uploadResp.status, errorText)
-    throw new Error(`上传失败: ${uploadResp.status} - 可能是CORS未配置或URL已过期`)
+    throw new Error(e.error || `上传失败: ${resp.status}`)
   }
 
-  return { name, url: publicUrl, path }
+  const result = await resp.json()
+  return { name: result.name, url: result.url, path: result.path }
 }
 
 /**
