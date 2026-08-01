@@ -105,6 +105,29 @@ function isTooVague(query) {
 }
 
 // ============================================================================
+// 1.5 多轮上下文：指代消解
+//     当问题含指代词（它们/这些/分别/其/该...）时，从上一轮用户问题提取
+//     知识领域实体，增强当前查询，使追问能精准定位上一轮讨论的知识点。
+// ============================================================================
+const COREFERENCE_WORDS = ['分别','它们','这些','这个','那个','上面','上述','其','该','前者','后者','两者','此','这','那']
+
+function hasCoreference(query) {
+  return COREFERENCE_WORDS.some(w => query.includes(w))
+}
+
+function resolveCoreference(query, history) {
+  if (!hasCoreference(query) || !Array.isArray(history) || history.length === 0) {
+    return query
+  }
+  const lastUser = [...history].reverse().find(m => m.role === 'user' && m.content)
+  if (!lastUser) return query
+  const entities = DOMAIN_TERMS.filter(t => lastUser.content.includes(t))
+  if (!entities.length) return query
+  const prefix = entities.filter(e => !query.includes(e)).slice(0, 3).join(' ')
+  return prefix ? `${prefix} ${query}` : query
+}
+
+// ============================================================================
 // 2. 查询改写：术语同义词扩展（多次精准查询 + 合并去重）
 // ============================================================================
 const TERM_MAP = {
