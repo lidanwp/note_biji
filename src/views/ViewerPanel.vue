@@ -310,9 +310,17 @@
         </div>
         
         <div v-if="selectedNote.attachments?.length" class="detail-attachments">
-          <h4>📎 附件资源</h4>
+          <h4>🎵 录音文件</h4>
           <ul>
-            <li v-for="file in selectedNote.attachments" :key="file"><a href="#">{{ file }}</a></li>
+            <li v-for="(file, idx) in selectedNote.attachments" :key="idx">
+              <!-- 新格式：可播放的录音文件 -->
+              <div v-if="typeof file === 'object' && file.url" class="audio-item">
+                <div class="audio-name">🎵 {{ file.name }}</div>
+                <audio controls preload="metadata" :src="file.url" class="audio-player"></audio>
+              </div>
+              <!-- 旧格式：纯文件名（兼容历史数据） -->
+              <span v-else>📄 {{ typeof file === 'string' ? file : (file.name || '未知文件') }}</span>
+            </li>
           </ul>
         </div>
         
@@ -1587,6 +1595,26 @@ header {
 
 .detail-attachments a:hover {
   text-decoration: underline;
+}
+
+.detail-attachments .audio-item {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background: var(--bg-secondary, #f7f8fa);
+  border-radius: 8px;
+}
+
+.detail-attachments .audio-name {
+  font-size: 14px;
+  color: #3D3533;
+  margin-bottom: 6px;
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.detail-attachments .audio-player {
+  width: 100%;
+  height: 36px;
 }
 
 .detail-tags {

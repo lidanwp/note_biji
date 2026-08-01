@@ -329,21 +329,27 @@
             </div>
 
             <div class="form-group">
-              <label>📎 附件资源</label>
+              <label>🎵 录音文件</label>
+              <div class="hint">上传音频文件（mp3/wav/m4a 等），访客可在线播放</div>
               <div class="attachment-list">
                 <div v-for="(file, index) in form.attachments" :key="index" class="attachment-item">
-                  <span>📄 {{ file }}</span>
+                  <span>🎵 {{ typeof file === 'string' ? file : file.name }}</span>
                   <button @click="removeAttachment(index)" class="btn-remove">✕</button>
                 </div>
               </div>
               <div class="attachment-upload">
-                <input 
-                  v-model="form.newAttachment" 
-                  placeholder="输入文件名（如：WBS模板.xlsx）"
+                <input
+                  type="file"
+                  accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,.flac"
                   class="attachment-input"
-                  @keyup.enter="addAttachment"
+                  :disabled="uploadingAudio"
+                  @change="handleAudioUpload"
+                  ref="audioInputRef"
+                  style="display:none;"
                 >
-                <button @click="addAttachment" class="btn-add">添加</button>
+                <button @click="triggerAudioPick" class="btn-add" :disabled="uploadingAudio">
+                  {{ uploadingAudio ? '上传中...' : '📁 选择录音文件' }}
+                </button>
               </div>
             </div>
           </div>
@@ -464,12 +470,15 @@ import CustomSelect from '../components/CustomSelect.vue'
 import Pagination from '../components/Pagination.vue'
 import { toastSuccess, toastError, toastInfo, toastWarning } from '../utils/toast'
 import { migrateNote } from '../utils/noteMigrate'
+import { uploadAudioFile, deleteAudioFile } from '../services/supabase'
 import ChangePasswordModal from '../components/ChangePasswordModal.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const notesStore = useNotesStore()
 const fileInput = ref(null)
+const audioInputRef = ref(null)
+const uploadingAudio = ref(false)
 
 // ===== 数据 =====
 const showModal = ref(false)
@@ -905,16 +914,42 @@ const removeKeyPoint = (index) => {
   autoSaveDraft()
 }
 
-// ===== 附件方法 =====
-const addAttachment = () => {
-  if (form.newAttachment.trim()) {
-    form.attachments.push(form.newAttachment.trim())
-    form.newAttachment = ''
+// ===== 录音文件方法 =====
+const triggerAudioPick = () => {
+  audioInputRef.value?.click()
+}
+
+const handleAudioUpload = async (e) => {
+  const file = e.target.files?.[0]
+  if (!file) return
+  // 大小限制 50MB
+  if (file.size > 50 * 1024 * 1024) {
+    toastWarning('录音文件不能超过 50MB')
+    e.target.value = ''
+    return
+  }
+  uploadingAudio.value = true
+  try {
+    const userId = authStore.user?.id || 'anonymous'
+    const result = await uploadAudioFile(file, userId)
+    form.attachments.push({ name: result.name, url: result.url, path: result.path })
     autoSaveDraft()
+    toastSuccess('录音文件上传成功')
+  } catch (err) {
+    console.error('上传录音失败:', err)
+    toastError(`上传失败: ${err.message}`)
+  } finally {
+    uploadingAudio.value = false
+    e.target.value = ''  // 清空，允许重复选同一文件
   }
 }
 
-const removeAttachment = (index) => {
+const removeAttachment = async (index) => {
+  const file = form.attachments[index]
+  // 新格式对象：同步删除 Storage 文件释放空间
+  if (file && typeof file === 'object' && file.path) {
+    await deleteAudioFile(file.path)
+  }
   form.attachments.splice(index, 1)
   autoSaveDraft()
 }

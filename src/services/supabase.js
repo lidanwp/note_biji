@@ -162,3 +162,55 @@ export const updateUsefulCount = async (id, usefulCount) => {
 
   return await response.json()
 }
+
+// ===== Storage：录音文件上传 / 删除 =====
+// 配合 SQL 脚本 scripts/003_create_audio_storage.sql 使用
+const AUDIO_BUCKET = 'audio-files'
+
+/**
+ * 上传录音文件到 Supabase Storage
+ * @param {File} file 浏览器 File 对象
+ * @param {string} userId 当前登录用户 ID（用作路径前缀，便于隔离）
+ * @returns {Promise<{name:string, url:string, path:string}>}
+ */
+export const uploadAudioFile = async (file, userId) => {
+  // 文件名安全化：保留中文/字母/数字/点/横杠，其余替换为下划线
+  const safeName = file.name.replace(/[^\w\u4e00-\u9fa5.-]/g, '_')
+  const path = `${userId || 'anonymous'}/${Date.now()}-${safeName}`
+
+  const { error } = await supabase.storage
+    .from(AUDIO_BUCKET)
+    .upload(path, file, {
+      contentType: file.type || 'audio/mpeg',
+      cacheControl: '3600',
+      upsert: false
+    })
+
+  if (error) throw new Error(`上传失败: ${error.message}`)
+
+  const { data: urlData } = supabase.storage
+    .from(AUDIO_BUCKET)
+    .getPublicUrl(path)
+
+  return {
+    name: file.name,
+    url: urlData.publicUrl,
+    path: path
+  }
+}
+
+/**
+ * 删除 Storage 中的录音文件
+ * @param {string} path Storage 内的文件路径（上传时返回的 path）
+ */
+export const deleteAudioFile = async (path) => {
+  if (!path) return
+  try {
+    const { error } = await supabase.storage
+      .from(AUDIO_BUCKET)
+      .remove([path])
+    if (error) console.error('删除录音文件失败:', error.message)
+  } catch (e) {
+    console.error('删除录音文件异常:', e.message)
+  }
+}
