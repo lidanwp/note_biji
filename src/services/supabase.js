@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://oobyperdpjzktzlbph.supabase.co'
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://oobyberpdpjzktzlbph.supabase.co'
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_KacaVTayTEo0hWOyyMfw1Q_WSMdGKxQ'
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
@@ -189,14 +189,12 @@ export const uploadAudioFile = async (file, userId) => {
   const { path, token, signedUrl, publicUrl, name } = await resp.json()
 
   // 2) 用原生 fetch PUT 直传到 Supabase Storage
-  //    不带 Authorization header，避免 SDK 自动注入 anon key 触发 RLS 拒绝
-  //    签名 URL 本身就是预授权凭证
+  //    不带 Authorization/apikey/x-client-info，避免 SDK 自定义 header 触发 CORS 预检失败
+  //    只带 Content-Type，最小化 CORS 预检要求
   const uploadResp = await fetch(signedUrl, {
     method: 'PUT',
     headers: {
-      'Content-Type': file.type || 'audio/mpeg',
-      // 不设 Authorization，让签名 URL 的 token 做授权
-      'x-upsert': 'false'
+      'Content-Type': file.type || 'audio/mpeg'
     },
     body: file
   })
