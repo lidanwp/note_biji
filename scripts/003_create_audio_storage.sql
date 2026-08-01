@@ -1,14 +1,10 @@
 -- ============================================================================
 -- 003: 录音文件存储桶配置（参考记录）
--- 状态：已通过 Supabase Dashboard 手动配置完成，此文件无需执行，仅作记录
--- 实际配置：
---   - 桶名：audio-files，类型：public（访客可通过公开URL播放）
---   - RLS SELECT：仅 authenticated 可读取（影响 list/signedUrl，不影响 publicURL 直读）
---   - 无 INSERT/UPDATE/DELETE 策略：普通用户无写入权限
--- 写入方案：上传/删除经后端 /api/upload-audio、/api/delete-audio 用 service_role 执行
+-- 状态：桶已通过 Supabase Dashboard 手动建好（public）
+--       需执行下方 INSERT 策略，让前端签名URL直传可用
 -- ============================================================================
 
--- 1. 创建存储桶（public，访客可读）
+-- 1. 创建存储桶（public，访客可通过公开URL播放）
 INSERT INTO storage.buckets (id, name, public)
 VALUES ('audio-files', 'audio-files', true)
 ON CONFLICT (id) DO NOTHING;
@@ -16,30 +12,25 @@ ON CONFLICT (id) DO NOTHING;
 -- 2. 启用 storage.objects 的 RLS
 ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
 
--- 3. SELECT 策略：任何人可读取 audio-files 桶（访客播放录音）
-DROP POLICY IF EXISTS "audio_files_public_read" ON storage.objects;
-CREATE POLICY "audio_files_public_read" ON storage.objects
+-- 3. SELECT 策略：任何人可读取（访客播放录音走 publicURL，不经过RLS）
+DROP POLICY IF EXISTS "audio_files_select" ON storage.objects;
+CREATE POLICY "audio_files_select" ON storage.objects
   FOR SELECT USING (bucket_id = 'audio-files');
 
--- 4. INSERT 策略：登录用户可上传
-DROP POLICY IF EXISTS "audio_files_auth_insert" ON storage.objects;
-CREATE POLICY "audio_files_auth_insert" ON storage.objects
-  FOR INSERT TO authenticated WITH CHECK (bucket_id = 'audio-files');
+-- 4. INSERT 策略：允许上传（前端无supabase session，用anon身份+签名URL）
+--    安全性靠签名URL的path+token保证（后端service_role生成，前端无法伪造路径）
+DROP POLICY IF EXISTS "audio_files_insert" ON storage.objects;
+CREATE POLICY "audio_files_insert" ON storage.objects
+  FOR INSERT WITH CHECK (bucket_id = 'audio-files');
 
--- 5. UPDATE 策略：登录用户可修改
-DROP POLICY IF EXISTS "audio_files_auth_update" ON storage.objects;
-CREATE POLICY "audio_files_auth_update" ON storage.objects
-  FOR UPDATE TO authenticated
-  USING (bucket_id = 'audio-files')
-  WITH CHECK (bucket_id = 'audio-files');
-
--- 6. DELETE 策略：登录用户可删除（编辑端删除录音时同步清理 Storage）
-DROP POLICY IF EXISTS "audio_files_auth_delete" ON storage.objects;
-CREATE POLICY "audio_files_auth_delete" ON storage.objects
-  FOR DELETE TO authenticated USING (bucket_id = 'audio-files');
+-- 5. DELETE 策略：仅 service_role 可删（前端删除走后端 /api/delete-audio 代理）
+--    不给普通用户 DELETE 权限，防止前端直接删除
+--    （service_role 绕过 RLS，无需策略）
 
 -- 验证：应返回 audio-files 一行，public = true
 SELECT id, name, public FROM storage.buckets WHERE id = 'audio-files';
 
--- 验证：应返回 4 条策略
-SELECT policyname, cmd FROM pg_policies WHERE tablename = 'objects' AND schemaname = 'storage' AND policyname LIKE 'audio_files_%';
+-- 验证：应返回 SELECT + INSERT 两条策略
+SELECT policyname, cmd FROM pg_policies
+ WHERE tablename = 'objects' AND schemaname = 'storage'
+   AND policyname LIKE 'audio_files_%';

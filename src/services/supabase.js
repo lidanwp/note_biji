@@ -163,37 +163,51 @@ export const updateUsefulCount = async (id, usefulCount) => {
   return await response.json()
 }
 
-// ===== Storage：录音文件上传 / 删除（经后端 service_role 代理）=====
-// Storage 桶无 INSERT/DELETE RLS 策略，写入必须用 service_role
-// 流程：前端把文件 POST 到后端 → 后端用 service_role 直接上传 → 返回 publicUrl
-// 注意：Vercel Hobby 请求体限制 4.5MB，前端已做大小检查
+// ===== Storage：录音文件上传 / 删除 =====
+// 方案2：后端生成签名URL → 前端原生fetch直传Storage（绕过Vercel 4.5MB限制）
+// 需配合 RLS INSERT 策略（见 scripts/003_create_audio_storage.sql）
 
 /**
  * 上传录音文件
- * 前端把文件以 FormData POST 到 /api/upload-audio
- * 后端用 service_role 直接上传到 Storage，完全绕过 RLS
+ * 1) 调后端 /api/upload-audio 用 service_role 生成签名上传 URL
+ * 2) 前端用原生 fetch PUT 直传到 Supabase Storage（不经 Vercel，无大小限制）
  * @param {File} file 浏览器 File 对象
  * @param {string} userId 当前登录用户 ID
  * @returns {Promise<{name:string, url:string, path:string}>}
  */
 export const uploadAudioFile = async (file, userId) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  formData.append('userId', userId || 'anonymous')
-
+  // 1) 后端用 service_role 生成签名上传 URL
   const resp = await fetch('/api/upload-audio', {
     method: 'POST',
-    body: formData
-    // 不设 Content-Type，让浏览器自动设 multipart boundary
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, fileName: file.name, contentType: file.type })
   })
-
   if (!resp.ok) {
     const e = await resp.json().catch(() => ({}))
-    throw new Error(e.error || `上传失败: ${resp.status}`)
+    throw new Error(e.error || `生成上传URL失败: ${resp.status}`)
+  }
+  const { path, token, signedUrl, publicUrl, name } = await resp.json()
+
+  // 2) 用原生 fetch PUT 直传到 Supabase Storage
+  //    不带 Authorization header，避免 SDK 自动注入 anon key 触发 RLS 拒绝
+  //    签名 URL 本身就是预授权凭证
+  const uploadResp = await fetch(signedUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': file.type || 'audio/mpeg',
+      // 不设 Authorization，让签名 URL 的 token 做授权
+      'x-upsert': 'false'
+    },
+    body: file
+  })
+
+  if (!uploadResp.ok) {
+    const errorText = await uploadResp.text().catch(() => '')
+    console.error('[uploadAudioFile] 直传Storage失败:', uploadResp.status, errorText)
+    throw new Error(`上传失败: ${uploadResp.status} ${errorText.slice(0, 200)}`)
   }
 
-  const result = await resp.json()
-  return { name: result.name, url: result.url, path: result.path }
+  return { name, url: publicUrl, path }
 }
 
 /**

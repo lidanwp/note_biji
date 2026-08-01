@@ -922,9 +922,9 @@ const triggerAudioPick = () => {
 const handleAudioUpload = async (e) => {
   const file = e.target.files?.[0]
   if (!file) return
-  // Vercel Hobby 请求体限制 4.5MB，留余量用 4MB
-  if (file.size > 4 * 1024 * 1024) {
-    toastWarning('录音文件不能超过 4MB（Vercel 限制），请压缩后再上传')
+  // 直传Storage不经Vercel，无4.5MB限制，设50MB合理上限
+  if (file.size > 50 * 1024 * 1024) {
+    toastWarning('录音文件不能超过 50MB，请压缩后再上传')
     e.target.value = ''
     return
   }
