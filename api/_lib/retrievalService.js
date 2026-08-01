@@ -288,7 +288,7 @@ function matchNoteMeta(content, notesMeta) {
 // ============================================================================
 const PANDAWIKI_BASE = process.env.PANDAWIKI_BASE || 'http://129.204.21.82:5050'
 
-async function callPandaQA(datasetId, query, timeoutMs = 5000) {
+async function callPandaQA(datasetId, query, timeoutMs = 4000) {
   const ctrl = new AbortController()
   const to = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
@@ -315,7 +315,7 @@ async function callPandaQA(datasetId, query, timeoutMs = 5000) {
   }
 }
 
-async function callPandaSearch(datasetId, query, topK = 10, timeoutMs = 8000) {
+async function callPandaSearch(datasetId, query, topK = 10, timeoutMs = 5000) {
   const ctrl = new AbortController()
   const to = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
@@ -630,7 +630,7 @@ export async function retrieve({ dataset_id, query, history }) {
   // ---- 三路并发：notesMeta + QA + search，最大化利用 10s Hobby 限制 ----
   const notesMetaTask = loadNotesMeta(env).catch(() => [])
 
-  const qaTask = callPandaQA(dataset_id, resolvedQuery, 5000)
+  const qaTask = callPandaQA(dataset_id, resolvedQuery, 4000)
     .then(res => {
       if (res.embeddingDown) return { qaFinalAnswer: null, embeddingDown: true }
       if (res.ok && isGoodQaAnswer(res.answer, resolvedQuery)) return { qaFinalAnswer: res.answer, embeddingDown: false }
@@ -638,8 +638,9 @@ export async function retrieve({ dataset_id, query, history }) {
     })
     .catch(() => ({ qaFinalAnswer: null, embeddingDown: false }))
 
+  // search 变体数从 4 减到 3，单变体 5s 超时，总耗时 max(3s,4s,5s)=5s 内完成
   const searchTask = Promise.all(
-    variants.slice(0, 4).map(q => callPandaSearch(dataset_id, q, 8))
+    variants.slice(0, 3).map(q => callPandaSearch(dataset_id, q, 5))
   )
 
   const [notesMeta, { qaFinalAnswer, embeddingDown }, searchGroupsRaw] = await Promise.all([
