@@ -27,6 +27,12 @@ const routes = [
     path: '/register',
     name: 'register',
     component: () => import('@/views/Register.vue')
+  },
+  {
+    path: '/auth/callback',
+    name: 'auth-callback',
+    component: () => import('@/views/EmailVerify.vue'),
+    meta: { public: true }
   }
 ]
 
