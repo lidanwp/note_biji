@@ -189,14 +189,20 @@ export const uploadAudioFile = async (file, userId) => {
   }
   const { path, token, publicUrl, name } = await resp.json()
 
-  // 2) 前端用签名 URL 直传到 Supabase Storage（不经 Vercel，支持大文件）
-  const { error } = await supabase.storage
-    .from(AUDIO_BUCKET)
-    .uploadToSignedUrl(path, token, file, {
-      contentType: file.type || 'audio/mpeg'
-    })
+  // 2) 用 fetch 直传 Supabase Storage（绕过 SDK 封装，更稳定）
+  const uploadResp = await fetch(signedUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': file.type || 'audio/mpeg'
+    },
+    body: file
+  })
 
-  if (error) throw new Error(`上传失败: ${error.message}`)
+  if (!uploadResp.ok) {
+    const errorText = await uploadResp.text().catch(() => '')
+    console.error('[uploadAudioFile] 直传Storage失败:', uploadResp.status, errorText)
+    throw new Error(`上传失败: ${uploadResp.status} - 可能是CORS未配置或URL已过期`)
+  }
 
   return { name, url: publicUrl, path }
 }
