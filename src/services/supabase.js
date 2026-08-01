@@ -177,10 +177,10 @@ export const updateUsefulCount = async (id, usefulCount) => {
  */
 export const uploadAudioFile = async (file, userId) => {
   // 1) 后端用 service_role 生成签名上传 URL
-  const resp = await fetch('/api/upload-audio', {
+  const resp = await fetch('/api/audio', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ userId, fileName: file.name, contentType: file.type })
+    body: JSON.stringify({ action: 'upload', userId, fileName: file.name, contentType: file.type })
   })
   if (!resp.ok) {
     const e = await resp.json().catch(() => ({}))
@@ -215,10 +215,10 @@ export const uploadAudioFile = async (file, userId) => {
 export const deleteAudioFile = async (path) => {
   if (!path) return
   try {
-    const resp = await fetch('/api/delete-audio', {
+    const resp = await fetch('/api/audio', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path })
+      body: JSON.stringify({ action: 'delete', path })
     })
     if (!resp.ok) {
       const e = await resp.json().catch(() => ({}))
