@@ -33,6 +33,11 @@ const routes = [
     name: 'auth-callback',
     component: () => import('@/views/EmailVerify.vue'),
     meta: { public: true }
+  },
+  // catch-all: 任何未匹配路径重定向到首页（避免白屏）
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/'
   }
 ]
 
@@ -44,7 +49,10 @@ const router = createRouter({
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
 
-  await authStore.checkAuth()
+  // public 路由（如邮箱验证回调）跳过登录检查，避免卡在 checkAuth
+  if (!to.meta.public) {
+    await authStore.checkAuth()
+  }
 
   if (to.meta.requiresAuth) {
     if (!authStore.isLoggedIn) {

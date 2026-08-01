@@ -13,17 +13,14 @@ import './styles/theme.css'
   const search = window.location.search
   const hash = window.location.hash
 
-  // 如果当前是 hash 路由（以 # 开头），或者已经在 hash 中，不处理
+  // 如果当前已经是 hash 路由（以 #/ 开头），不处理
   if (hash && hash.startsWith('#/')) return
 
-  // 如果路径包含 auth/callback 等需要处理的路径
-  const redirectPaths = ['/auth/callback', '/auth/confirm', '/auth/verify']
-  const needsRedirect = redirectPaths.some(p => path.startsWith(p))
-
-  if (needsRedirect && (search || path)) {
-    // 重定向到 hash 路由
+  // 任何非根路径的非 hash URL，都重定向到 hash 路由
+  // 这样邮箱验证回调、直接输入的 URL 等都能被 Vue Router 处理
+  if (path !== '/' || search) {
     const newHash = '#' + path + search
-    window.location.replace(window.location.origin + window.location.pathname + newHash)
+    window.location.replace(window.location.origin + '/' + newHash)
   }
 })()
 
