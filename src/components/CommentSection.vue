@@ -36,7 +36,7 @@
         </div>
         <div class="comment-body">
           <div class="comment-meta">
-            <span class="comment-author">{{ comment.username || '匿名用户' }}</span>
+            <span class="comment-author">{{ maskAuthor(comment.username) }}</span>
             <span class="comment-time">{{ formatTime(comment.created_at) }}</span>
             <button class="btn-reply" @click="startReply(comment)">回复</button>
             <button
@@ -59,7 +59,7 @@
               <div class="comment-avatar">{{ reply.username?.charAt(0) || '👤' }}</div>
               <div class="comment-body">
                 <div class="comment-meta">
-                  <span class="comment-author">{{ reply.username || '匿名用户' }}</span>
+                  <span class="comment-author">{{ maskAuthor(reply.username) }}</span>
                   <span class="comment-time">{{ formatTime(reply.created_at) }}</span>
                   <span class="reply-to">回复 @{{ comment.username }}</span>
                   <button
@@ -133,6 +133,14 @@ const sortedComments = computed(() => {
       .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
   }))
 })
+
+// 邮箱脱敏：第 3~6 位字符替换为 *
+const maskAuthor = (username) => {
+  if (!username) return '匿名用户'
+  if (username.length < 3) return username
+  const maskLen = Math.min(4, username.length - 2)
+  return username.slice(0, 2) + '*'.repeat(maskLen) + username.slice(2 + maskLen)
+}
 
 const formatTime = (timestamp) => {
   if (!timestamp) return '刚刚'

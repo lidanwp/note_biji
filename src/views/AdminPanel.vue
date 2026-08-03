@@ -44,11 +44,6 @@
         <span class="badge-label">笔记</span>
       </div>
       <div class="stat-badge">
-        <span class="badge-icon">📂</span>
-        <span class="badge-num">{{ categories.length }}</span>
-        <span class="badge-label">分类</span>
-      </div>
-      <div class="stat-badge">
         <span class="badge-icon">👁️</span>
         <span class="badge-num">{{ totalViews }}</span>
         <span class="badge-label">浏览</span>
@@ -57,10 +52,10 @@
 
     <!-- 搜索栏 -->
     <div class="search-bar">
-      <input 
-        type="text" 
-        v-model="notesStore.search" 
-        placeholder="搜索笔记..."
+      <input
+        type="text"
+        v-model="notesStore.search"
+        placeholder="搜索标题、内容、标签..."
         class="search-input"
       >
       <button @click="openAddModal" class="btn-primary">+ 新建笔记</button>
@@ -69,7 +64,7 @@
     <!-- 筛选行 -->
     <div class="filter-bar">
       <CustomSelect v-model="notesStore.categoryFilter" :options="categoryFilterOptions" placeholder="全部分类" class="filter-cs" />
-      <CustomSelect v-model="notesStore.difficultyFilter" :options="difficultyFilterOptions" placeholder="全部难度" class="filter-cs" />
+      <CustomSelect v-model="notesStore.knowledgeAreaFilter" :options="knowledgeAreaOptions" placeholder="全部知识领域" class="filter-cs" />
       <div class="mode-switch">
         <button 
           @click="examMode = false" 
@@ -98,19 +93,6 @@
       </div>
       <div class="note-grid" v-show="!isLoading">
         <div v-for="note in paginatedNotes" :key="note.id" class="note-card" @click="editNote(note)">
-          <div class="card-header">
-            <div class="card-top-left">
-              <span v-if="note.difficulty" class="difficulty-badge" :class="note.difficulty">
-                {{ note.difficulty }}
-              </span>
-            </div>
-            <div class="card-top-right">
-              <span v-if="note.examScore != null" class="progress-badge">
-                📊 {{ note.examScore }}%
-              </span>
-            </div>
-          </div>
-
           <div class="card-body">
             <h3 class="card-title">{{ note.title }}</h3>
             <p class="card-summary">{{ note.content ? stripHtml(note.content).slice(0, 100) + ((note.content?.length || 0) > 100 ? '...' : '') : '暂无内容' }}</p>
@@ -269,8 +251,8 @@
                 <CustomSelect v-model="form.category" :options="formCategoryOptions" placeholder="请选择分类" @change="autoSaveDraft" />
               </div>
               <div class="form-group flex-1">
-                <label>📊 难度</label>
-                <CustomSelect v-model="form.difficulty" :options="formDifficultyOptions" placeholder="请选择难度" @change="autoSaveDraft" />
+                <label>� 知识领域</label>
+                <CustomSelect v-model="form.knowledgeArea" :options="formKnowledgeAreaOptions" placeholder="请选择知识领域" @change="autoSaveDraft" />
               </div>
             </div>
 
@@ -513,7 +495,7 @@ const form = reactive({
   id: null,
   title: '',
   category: '',
-  difficulty: '中级',
+  knowledgeArea: '',
   keyPoints: [],
   scenario: '',
   content: '',
@@ -546,12 +528,25 @@ const categoryFilterOptions = computed(() => [
   ...categories.value.map(c => ({ value: c, label: c }))
 ])
 
-const difficultyFilterOptions = [
-  { value: '', label: '全部难度' },
-  { value: '初级', label: '🌱 初级' },
-  { value: '中级', label: '🔥 中级' },
-  { value: '高级', label: '🚀 高级' },
+// 项目管理知识领域（概论、立项 + PMBOK 十大）
+const knowledgeAreaOptions = [
+  { value: '', label: '全部知识领域' },
+  { value: '项目管理概论', label: '📖 项目管理概论' },
+  { value: '项目立项管理', label: '📋 项目立项管理' },
+  { value: '整合管理', label: '🔗 整合管理' },
+  { value: '范围管理', label: '📐 范围管理' },
+  { value: '进度管理', label: '⏱️ 进度管理' },
+  { value: '成本管理', label: '💰 成本管理' },
+  { value: '质量管理', label: '✅ 质量管理' },
+  { value: '资源管理', label: '👥 资源管理' },
+  { value: '沟通管理', label: '💬 沟通管理' },
+  { value: '风险管理', label: '⚠️ 风险管理' },
+  { value: '采购管理', label: '🛒 采购管理' },
+  { value: '干系人管理', label: '🤝 干系人管理' },
 ]
+
+// 知识领域取值集合（用于在 tags 中识别/同步知识领域）
+const KNOWLEDGE_AREAS = knowledgeAreaOptions.map(o => o.value).filter(Boolean)
 
 const formCategoryOptions = [
   { value: '', label: '请选择分类' },
@@ -577,10 +572,9 @@ const formCategoryOptions = [
   { value: '其他', label: '其他' },
 ]
 
-const formDifficultyOptions = [
-  { value: '初级', label: '🌱 初级' },
-  { value: '中级', label: '🔥 中级' },
-  { value: '高级', label: '🚀 高级' },
+const formKnowledgeAreaOptions = [
+  { value: '', label: '不指定' },
+  ...knowledgeAreaOptions.filter(o => o.value),
 ]
 
 // ===== 计算属性 =====
@@ -703,7 +697,7 @@ const restoreDraft = () => {
         id: draft.id || null,
         title: draft.title || '',
         category: draft.category || '',
-        difficulty: draft.difficulty || '中级',
+        knowledgeArea: draft.knowledgeArea || '',
         keyPoints: draft.keyPoints || [],
         scenario: draft.scenario || '',
         content: draft.content || '',
@@ -842,13 +836,14 @@ const editNote = (note) => {
   form.id = noteData.id
   form.title = noteData.title || ''
   form.category = noteData.category || ''
-  form.difficulty = noteData.difficulty || '中级'
+  form.knowledgeArea = (noteData.tags || []).find(t => KNOWLEDGE_AREAS.includes(t)) || ''
   form.keyPoints = noteData.keyPoints || []
   form.scenario = noteData.scenario || ''
   form.content = noteData.content || ''
   form.caseStudy = noteData.caseStudy || ''
-  form.tags = noteData.tags || []
-  form.tagsInput = noteData.tags?.join(', ') || ''
+  const _noteTags = (noteData.tags || []).filter(t => !KNOWLEDGE_AREAS.includes(t))
+  form.tags = _noteTags
+  form.tagsInput = _noteTags.join(', ')
   form.attachments = noteData.attachments || []
   form.newAttachment = ''
   form.date = noteData.date || ''
@@ -867,7 +862,7 @@ const resetForm = () => {
   form.id = null
   form.title = ''
   form.category = ''
-  form.difficulty = '中级'
+  form.knowledgeArea = ''
   form.keyPoints = []
   form.scenario = ''
   form.content = ''
@@ -1062,10 +1057,13 @@ const saveNote = async () => {
     return
   }
 
-  const tags = form.tagsInput
+  // 知识领域作为标签保存（供知识领域筛选使用）
+  const inputTags = form.tagsInput
     .split(',')
     .map(t => t.trim())
     .filter(Boolean)
+  const otherTags = inputTags.filter(t => !KNOWLEDGE_AREAS.includes(t))
+  const tags = form.knowledgeArea ? [...otherTags, form.knowledgeArea] : otherTags
 
   const keyPoints = form.keyPoints.filter(p => p.trim())
 
@@ -1073,7 +1071,6 @@ const saveNote = async () => {
     id: form.id || Date.now(),
     title: form.title.trim(),
     category: form.category,
-    difficulty: form.difficulty || '中级',
     keyPoints: keyPoints,
     scenario: form.scenario || '',
     content: form.content.trim(),
@@ -1537,7 +1534,7 @@ header {
 
 .card-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   padding: 14px 16px;
 }

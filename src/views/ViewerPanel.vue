@@ -35,11 +35,6 @@
         <span class="badge-label">笔记</span>
       </span>
       <span class="stat-badge">
-        <span class="badge-icon">📂</span>
-        <span class="badge-num">{{ categories.length }}</span>
-        <span class="badge-label">分类</span>
-      </span>
-      <span class="stat-badge">
         <span class="badge-icon">👁️</span>
         <span class="badge-num">{{ totalViews }}</span>
         <span class="badge-label">浏览</span>
@@ -88,7 +83,7 @@
       />
       <div class="filter-row">
         <CustomSelect v-model="notesStore.categoryFilter" :options="categoryFilterOptions" placeholder="📂 过程组" class="filter-cs" />
-        <CustomSelect v-model="notesStore.difficultyFilter" :options="difficultyFilterOptions" placeholder="📊 全部难度" class="filter-cs" />
+        <CustomSelect v-model="notesStore.knowledgeAreaFilter" :options="knowledgeAreaOptions" placeholder="📚 全部知识领域" class="filter-cs" />
         <div class="exam-toggle">
           <label class="switch">
             <input type="checkbox" v-model="examMode" />
@@ -132,20 +127,6 @@
         class="note-card"
         @click="viewDetail(note)"
       >
-        <!-- 顶部：难度（左）+ 进度（右） -->
-        <div class="card-header-row">
-          <div class="card-header-left">
-            <span v-if="note.difficulty" class="difficulty-badge" :class="note.difficulty">
-              {{ note.difficulty }}
-            </span>
-          </div>
-          <div class="card-header-right">
-            <span v-if="note.examScore != null" class="progress-badge">
-              📊 {{ note.examScore }}%
-            </span>
-          </div>
-        </div>
-
         <!-- 中间：标题 + 内容摘要 -->
         <h3 class="card-title">{{ note.title }}</h3>
         <p class="card-summary">
@@ -241,13 +222,13 @@
               <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
           </button>
-          <span class="detail-category">{{ selectedNote.category }}</span>
-          <h2>{{ selectedNote.title }}</h2>
-          <div class="detail-meta">
-            <span>📅 {{ selectedNote.date }}</span>
-            <span>👁️ {{ selectedNote.viewCount || 0 }}次浏览</span>
-            <span v-if="selectedNote.examScore != null" class="meta-score">🎯 掌握度 {{ selectedNote.examScore }}%</span>
+          <div class="detail-meta-row">
+            <span class="detail-category">{{ selectedNote.category }}</span>
+            <span class="detail-time">
+              📅 {{ selectedNote.date }}<template v-if="selectedNote.viewCount"> · 👁️ {{ selectedNote.viewCount }}次</template>
+            </span>
           </div>
+          <h2 class="detail-title">{{ selectedNote.title }}</h2>
         </div>
         
         <div v-if="selectedNote.keyPoints?.length" class="detail-keypoints">
@@ -322,7 +303,15 @@
         </div>
         
         <div v-if="selectedNote.tags?.length" class="detail-tags">
-          <span v-for="tag in selectedNote.tags" :key="tag" class="tag">#{{ tag }}</span>
+          <span v-for="tag in selectedNote.tags" :key="tag" :class="['tag', tagColorClass(tag)]">#{{ tag }}</span>
+        </div>
+        
+        <div v-if="selectedNote.examScore != null" class="detail-progress">
+          <span class="progress-label">掌握度</span>
+          <div class="progress-track">
+            <div class="progress-fill" :style="{ width: (selectedNote.examScore || 0) + '%' }"></div>
+          </div>
+          <span class="progress-percent">{{ selectedNote.examScore || 0 }}%</span>
         </div>
         
         <div class="detail-actions">
@@ -392,12 +381,39 @@ const categoryFilterOptions = computed(() => [
   ...categories.value.map(c => ({ value: c, label: c }))
 ])
 
-const difficultyFilterOptions = [
-  { value: '', label: '📊 全部难度' },
-  { value: '初级', label: '🌱 初级' },
-  { value: '中级', label: '🔥 中级' },
-  { value: '高级', label: '🚀 高级' },
+// 项目管理知识领域（概论、立项 + PMBOK 十大）
+const knowledgeAreaOptions = [
+  { value: '', label: '📚 全部知识领域' },
+  { value: '项目管理概论', label: '📖 项目管理概论' },
+  { value: '项目立项管理', label: '📋 项目立项管理' },
+  { value: '整合管理', label: '🔗 整合管理' },
+  { value: '范围管理', label: '📐 范围管理' },
+  { value: '进度管理', label: '⏱️ 进度管理' },
+  { value: '成本管理', label: '💰 成本管理' },
+  { value: '质量管理', label: '✅ 质量管理' },
+  { value: '资源管理', label: '👥 资源管理' },
+  { value: '沟通管理', label: '💬 沟通管理' },
+  { value: '风险管理', label: '⚠️ 风险管理' },
+  { value: '采购管理', label: '🛒 采购管理' },
+  { value: '干系人管理', label: '🤝 干系人管理' },
 ]
+
+// 标签按知识领域分配颜色
+const TAG_COLOR_MAP = {
+  '整合管理': 'tag-green',
+  '范围管理': 'tag-blue',
+  '进度管理': 'tag-cyan',
+  '成本管理': 'tag-amber',
+  '质量管理': 'tag-teal',
+  '资源管理': 'tag-purple',
+  '沟通管理': 'tag-sky',
+  '风险管理': 'tag-pink',
+  '采购管理': 'tag-orange',
+  '干系人管理': 'tag-rose',
+  '项目管理概论': 'tag-indigo',
+  '项目立项管理': 'tag-slate',
+}
+const tagColorClass = (tag) => TAG_COLOR_MAP[tag] || 'tag-default'
 
 // ===== 计算属性 =====
 const categories = computed(() => notesStore.categories)
@@ -607,7 +623,6 @@ onUnmounted(() => {
 
 <style scoped>
 .viewer-panel {
-  min-height: 100vh;
   background: var(--bg-primary);
   padding: 16px;
 }
@@ -1007,10 +1022,10 @@ header {
   transform: scale(0.98);
 }
 
-/* 卡片顶部：难度 + 进度 */
+/* 卡片顶部：进度 */
 .card-header-row {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
   padding: 14px 16px 0;
 }
@@ -1288,104 +1303,145 @@ header {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   z-index: 1000;
   padding: 0;
   display: block;
   overflow: hidden;
 }
 
+/* 整体容器：电脑端直接占满全屏，背景用次要色 */
 .modal-detail {
+  position: relative;
   background: var(--bg-secondary);
-  padding: 20px 20px 40px;
-  border-radius: 0;
   width: 100%;
   height: 100%;
-  max-height: 100%;
   max-width: 100%;
+  max-height: 100%;
+  padding: 20px 24px 32px;
+  border-radius: 0;
+  box-shadow: none;
+  box-sizing: border-box;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  box-sizing: border-box;
 }
 
 .modal-back {
-  position: absolute;
-  top: 12px;
+  position: fixed;
+  top: 20px;
   left: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   cursor: pointer;
-  color: #2563EB;
-  width: 44px;
-  height: 44px;
+  color: var(--text-primary);
+  width: 48px;
+  height: 48px;
   padding: 0;
   background: transparent;
-  border-radius: 0;
+  border-radius: 8px;
   transition: all 0.15s ease;
-  z-index: 10;
+  z-index: 1100;
 }
 
 .modal-back:hover,
 .modal-back:active {
-  color: #1d4ed8;
+  color: #6366f1;
   transform: translateX(-2px);
 }
 
 .back-icon {
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
 }
 
 /* 详情内容样式 */
 .detail-header {
   margin-bottom: 24px;
-  padding-top: 4px;
-  padding-left: 10px;
+}
+
+/* 顶部元信息：分类胶囊 + 时间戳，flex 同行，下方分割线 */
+.detail-meta-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-bottom: 14px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border-light);
 }
 
 .detail-category {
   display: inline-block;
-  background: var(--border-color);
-  padding: 2px 16px;
-  border-radius: 12px;
+  background: #ede9fe;
+  color: #6d28d9;
+  padding: 4px 14px;
+  border-radius: 999px;
   font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.detail-header h2 {
-  margin: 8px 0;
-  font-size: 26px;
-  color: var(--text-primary);
-}
-
-.detail-meta {
-  display: flex;
-  gap: 20px;
-  font-size: 14px;
-  color: var(--text-muted);
-  flex-wrap: wrap;
-}
-
-.meta-score {
-  color: #667eea;
   font-weight: 500;
 }
 
-.detail-keypoints,
-.detail-scenario,
+.detail-time {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* 标题：32px / 700，底部留白 8px */
+.detail-title {
+  margin: 0 0 8px;
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-primary);
+}
+
+/* 掌握度进度条：6px 高，靛蓝→紫渐变，右侧百分比 */
+.detail-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.progress-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.progress-track {
+  flex: 1;
+  height: 6px;
+  background: var(--border-light);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-percent {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6366f1;
+  white-space: nowrap;
+}
+
 .detail-case,
 .detail-attachments,
 .detail-exam {
   margin-bottom: 24px;
   padding: 16px 20px;
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
   border-radius: 8px;
 }
 
-.detail-keypoints h4,
-.detail-scenario h4,
 .detail-case h4,
 .detail-attachments h4,
 .detail-exam h4 {
@@ -1393,14 +1449,66 @@ header {
   color: var(--text-primary);
 }
 
+/* 核心要点：浅灰蓝卡片 + 左侧 4px 紫色竖条 + 菱形符号 */
+.detail-keypoints {
+  background: #eef2ff;
+  border-left: 4px solid #667eea;
+  padding: 24px 28px;
+  margin: 32px 0 28px;
+  border-radius: 8px;
+}
+
+.detail-keypoints h4 {
+  margin: 0 0 12px 0;
+  color: #312e81;
+}
+
 .detail-keypoints ul {
   margin: 0;
-  padding-left: 20px;
+  padding: 0;
+  list-style: none;
 }
 
 .detail-keypoints li {
+  position: relative;
+  padding-left: 22px;
+  margin-bottom: 10px;
+  line-height: 1.7;
+  color: #475569;
+}
+
+.detail-keypoints li:last-child {
+  margin-bottom: 0;
+}
+
+.detail-keypoints li::before {
+  content: "◆";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #667eea;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+/* 适用场景：浅黄卡片 + 黄边 + 深褐字 */
+.detail-scenario {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  padding: 20px 24px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+}
+
+.detail-scenario h4 {
+  margin: 0 0 8px 0;
+  color: #92400e;
+}
+
+.detail-scenario p {
+  margin: 0;
+  color: #78350f;
   line-height: 1.8;
-  color: var(--text-secondary);
 }
 
 .detail-exam-item {
@@ -1424,29 +1532,42 @@ header {
   color: #c0392b;
 }
 
+/* 正文区域：16px / 行高 1.9 / 段落间距 18px */
 .detail-content {
+  font-size: 16px;
   line-height: 1.9;
   color: var(--text-secondary);
   margin-bottom: 24px;
   padding: 0;
 }
 
+.detail-content :deep(p) {
+  margin: 0 0 18px;
+}
+
 .detail-content :deep(h1) {
   font-size: 26px;
-  margin: 20px 0 10px;
+  margin: 28px 0 14px;
   color: var(--text-primary);
+  font-weight: 600;
 }
 
+/* 二级标题：22px，底部 2px 浅灰分割线，上下 40/16 */
 .detail-content :deep(h2) {
   font-size: 22px;
-  margin: 18px 0 8px;
+  margin: 40px 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--border-light);
   color: var(--text-primary);
+  font-weight: 600;
 }
 
+/* 三级标题：18px，上下 28/12 */
 .detail-content :deep(h3) {
   font-size: 18px;
-  margin: 16px 0 8px;
+  margin: 28px 0 12px;
   color: var(--text-primary);
+  font-weight: 600;
 }
 
 .detail-content :deep(ul) {
@@ -1482,28 +1603,49 @@ header {
   color: var(--text-muted);
 }
 
+/* 表格：宽度 100%，首列自然宽度不堆叠 */
 .detail-content :deep(table) {
   border-collapse: collapse;
   width: 100%;
+  table-layout: auto;
 }
 
 .detail-content :deep(th),
 .detail-content :deep(td) {
   border: 1px solid var(--border-color);
-  padding: 6px 12px;
+  padding: 12px 16px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  text-align: center;
+  vertical-align: middle;
+}
+
+.detail-content :deep(td:first-child),
+.detail-content :deep(th:first-child) {
+  white-space: normal;
+  min-width: 0;
+}
+
+.detail-content :deep(td:last-child),
+.detail-content :deep(th:last-child) {
+  white-space: normal;
+  min-width: 0;
 }
 
 .detail-content :deep(th) {
-  background: var(--accent-light);
+  background: var(--border-light);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .case-content {
   background: var(--bg-primary);
-  padding: 0;
+  padding: 12px 16px;
   border-radius: 6px;
   color: var(--text-secondary);
   line-height: 1.9;
   font-size: 15px;
+  overflow-x: auto;
 }
 
 .case-content :deep(h1) {
@@ -1558,18 +1700,39 @@ header {
 }
 
 .case-content :deep(table) {
-  border-collapse: collapse;
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
   width: 100%;
+  table-layout: auto;
 }
 
 .case-content :deep(th),
 .case-content :deep(td) {
   border: 1px solid var(--border-color);
-  padding: 6px 12px;
+  padding: 12px 16px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  text-align: center;
+  vertical-align: middle;
+  white-space: normal;
+}
+
+.case-content :deep(td:first-child),
+.case-content :deep(th:first-child) {
+  white-space: normal;
+  min-width: 0;
+}
+
+.case-content :deep(td:last-child),
+.case-content :deep(th:last-child) {
+  white-space: normal;
+  min-width: 0;
 }
 
 .case-content :deep(th) {
-  background: var(--accent-light);
+  background: var(--border-light);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .case-content :deep(a) {
@@ -1601,21 +1764,45 @@ header {
   gap: 4px;
 }
 
+/* 标签区域：底部，分割线隔开，胶囊样式 + 知识领域配色 + 悬停上浮 */
 .detail-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 24px;
+  gap: 10px;
+  margin-top: 40px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border-light);
 }
 
 .detail-tags .tag {
   display: inline-block;
-  background: var(--border-color);
-  padding: 4px 12px;
-  border-radius: 12px;
+  padding: 6px 14px;
+  border-radius: 999px;
   font-size: 13px;
-  color: var(--text-secondary);
+  font-weight: 500;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: default;
 }
+
+.detail-tags .tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+/* 知识领域配色 */
+.tag-default { background: var(--border-color); color: var(--text-secondary); }
+.tag-green { background: #dcfce7; color: #166534; }
+.tag-blue { background: #dbeafe; color: #1e40af; }
+.tag-cyan { background: #cffafe; color: #155e75; }
+.tag-amber { background: #fef3c7; color: #92400e; }
+.tag-teal { background: #ccfbf1; color: #115e59; }
+.tag-purple { background: #ede9fe; color: #5b21b6; }
+.tag-sky { background: #e0f2fe; color: #075985; }
+.tag-pink { background: #fce7f3; color: #9d174d; }
+.tag-orange { background: #ffedd5; color: #9a3412; }
+.tag-rose { background: #ffe4e6; color: #9f1239; }
+.tag-indigo { background: #e0e7ff; color: #3730a3; }
+.tag-slate { background: #e2e8f0; color: #334155; }
 
 .detail-actions {
   display: flex;
@@ -1648,12 +1835,9 @@ header {
     grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
     gap: 24px;
   }
-
-  .modal-detail {
-    padding: 30px 40px 50px;
-  }
 }
 
+/* 手机端：内容宽度自适应，阅读区内边距缩小 */
 @media (max-width: 767px) {
   .viewer-panel {
     padding: 12px;
@@ -1664,11 +1848,131 @@ header {
   }
 
   .modal-detail {
-    padding: 16px 16px 30px;
+    padding: 12px 12px 30px;
   }
 
-  .detail-header h2 {
-    font-size: 20px;
+  .detail-title {
+    font-size: 24px;
   }
+
+  .detail-keypoints {
+    padding: 14px 16px;
+    margin: 20px 0 16px;
+  }
+
+  .detail-keypoints li {
+    font-size: 14px;
+    line-height: 1.6;
+    padding-left: 18px;
+    margin-bottom: 8px;
+  }
+
+  .detail-keypoints li::before {
+    font-size: 10px;
+  }
+
+  .detail-scenario {
+    padding: 12px 14px;
+  }
+
+  .detail-scenario p {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .detail-case,
+  .detail-attachments,
+  .detail-exam {
+    padding: 12px 14px;
+  }
+
+  .case-content {
+    padding: 10px 12px;
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  .case-content :deep(h1) {
+    font-size: 21px;
+    margin: 12px 0 6px;
+  }
+
+  .case-content :deep(h2) {
+    font-size: 19px;
+    margin: 12px 0 6px;
+  }
+
+  .case-content :deep(h3) {
+    font-size: 18px;
+    margin: 10px 0 4px;
+  }
+
+  .case-content :deep(table) {
+    table-layout: auto;
+  }
+
+  .case-content :deep(th),
+  .case-content :deep(td) {
+    padding: 8px 10px;
+    font-size: 16px;
+    line-height: 1.5;
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  .case-content :deep(td:first-child),
+  .case-content :deep(th:first-child) {
+    white-space: normal;
+    min-width: 0;
+  }
+
+  .case-content :deep(td:last-child),
+  .case-content :deep(th:last-child) {
+    white-space: normal;
+    min-width: 0;
+  }
+
+  .detail-content :deep(h2) {
+    font-size: 20px;
+    margin: 28px 0 12px;
+  }
+
+  .detail-content :deep(h3) {
+    font-size: 17px;
+    margin: 20px 0 10px;
+  }
+}
+</style>
+
+<style>
+/* ===== 暗色模式：核心要点 & 适用场景卡片 ===== */
+[data-theme="dark"] .detail-keypoints {
+  background: rgba(102, 126, 234, 0.12);
+  border-left-color: #818cf8;
+}
+
+[data-theme="dark"] .detail-keypoints h4 {
+  color: #c7d2fe;
+}
+
+[data-theme="dark"] .detail-keypoints li {
+  color: #c0c0d0;
+}
+
+[data-theme="dark"] .detail-keypoints li::before {
+  color: #818cf8;
+}
+
+[data-theme="dark"] .detail-scenario {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: #92400e;
+}
+
+[data-theme="dark"] .detail-scenario h4 {
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .detail-scenario p {
+  color: #d4c5a0;
 }
 </style>

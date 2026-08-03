@@ -16,22 +16,45 @@ export const useNotesStore = defineStore('notes', () => {
   
   const search = ref('')
   const categoryFilter = ref('')
-  const difficultyFilter = ref('')
+  const knowledgeAreaFilter = ref('')
   
   const currentPage = ref(1)
   const pageSize = ref(10)
 
+  // 去除 HTML 标签，仅保留纯文本用于搜索
+  const stripHtml = (html) => {
+    if (!html) return ''
+    return String(html).replace(/<[^>]*>/g, ' ')
+  }
+
+  // 笔记可检索的全文：标题、内容、分类、场景、案例、要点、标签、记忆口诀、考点关联
+  const noteText = (note) => [
+    note.title,
+    stripHtml(note.content),
+    note.category,
+    note.scenario,
+    stripHtml(note.caseStudy),
+    (note.keyPoints || []).join(' '),
+    (note.tags || []).join(' '),
+    (note.memoryAids || []).join(' '),
+    (note.examMapping?.relatedProcesses || []).join(' '),
+    (note.examMapping?.typicalQuestions || []).join(' '),
+    (note.examMapping?.commonPitfalls || []).join(' '),
+  ].join(' ').toLowerCase()
+
   const filteredNotes = computed(() => {
+    const q = search.value.trim().toLowerCase()
+    const ka = knowledgeAreaFilter.value.trim().toLowerCase()
     return notes.value.filter(note => {
-      const matchSearch = !search.value ||
-        note.title?.toLowerCase().includes(search.value.toLowerCase()) ||
-        note.content?.toLowerCase().includes(search.value.toLowerCase()) ||
-        note.tags?.some(tag => tag.toLowerCase().includes(search.value.toLowerCase()))
+      const text = noteText(note)
+      // 全面搜索：匹配笔记全文
+      const matchSearch = !q || text.includes(q)
 
       const matchCategory = !categoryFilter.value || note.category === categoryFilter.value
-      const matchDifficulty = !difficultyFilter.value || note.difficulty === difficultyFilter.value
+      // 知识领域：匹配全文（含显式标签 + 标题/内容等隐式提及），覆盖未手动标注的已有笔记
+      const matchKnowledgeArea = !ka || text.includes(ka)
 
-      return matchSearch && matchCategory && matchDifficulty
+      return matchSearch && matchCategory && matchKnowledgeArea
     })
   })
 
@@ -154,8 +177,8 @@ export const useNotesStore = defineStore('notes', () => {
     currentPage.value = 1
   }
 
-  const setDifficultyFilter = (value) => {
-    difficultyFilter.value = value
+  const setKnowledgeAreaFilter = (value) => {
+    knowledgeAreaFilter.value = value
     currentPage.value = 1
   }
 
@@ -171,7 +194,7 @@ export const useNotesStore = defineStore('notes', () => {
   const resetFilters = () => {
     search.value = ''
     categoryFilter.value = ''
-    difficultyFilter.value = ''
+    knowledgeAreaFilter.value = ''
     currentPage.value = 1
   }
 
@@ -185,7 +208,7 @@ export const useNotesStore = defineStore('notes', () => {
     error,
     search,
     categoryFilter,
-    difficultyFilter,
+    knowledgeAreaFilter,
     currentPage,
     pageSize,
     filteredNotes,
@@ -203,7 +226,7 @@ export const useNotesStore = defineStore('notes', () => {
     incrementUsefulCount,
     setSearch,
     setCategoryFilter,
-    setDifficultyFilter,
+    setKnowledgeAreaFilter,
     setCurrentPage,
     setPageSize,
     resetFilters,
