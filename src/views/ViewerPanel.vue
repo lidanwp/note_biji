@@ -768,7 +768,9 @@ header {
   margin-bottom: 12px;
   position: sticky;
   top: 0;
-  z-index: 100;
+  /* 高于筛选区 .filter-wrap(200)/.filter-cs(210)，保证 user-menu 下拉不被 cs-trigger 遮挡；
+     低于 scroll-rail(900) 与弹窗(1000+) */
+  z-index: 300;
 }
 
 .history-section {
