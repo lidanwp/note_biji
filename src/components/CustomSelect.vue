@@ -187,6 +187,7 @@ const handleMediaChange = (e) => {
   position: relative;
   width: 100%;
   min-width: 0;
+  z-index: 210;
 }
 
 /* ===== Trigger ===== */

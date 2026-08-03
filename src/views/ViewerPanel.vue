@@ -75,15 +75,17 @@
     />
     <!-- ===== 搜索 + 筛选行 ===== -->
     <div class="filter-wrap">
-      <input
-        type="text"
-        v-model="notesStore.search"
-        placeholder="🔍 搜索标题、内容、标签..."
-        class="search-input"
-      />
+      <div class="search-field">
+        <input
+          type="text"
+          v-model="notesStore.search"
+          placeholder="🔍 搜索标题、内容、标签..."
+          class="search-input"
+        />
+      </div>
       <div class="filter-row">
-        <CustomSelect v-model="notesStore.categoryFilter" :options="categoryFilterOptions" placeholder="📂 过程组" class="filter-cs" />
-        <CustomSelect v-model="notesStore.knowledgeAreaFilter" :options="knowledgeAreaOptions" placeholder="📚 全部知识领域" class="filter-cs" />
+        <CustomSelect v-model="notesStore.categoryFilter" :options="categoryFilterOptions" placeholder="📂 过程组" class="filter-cs" :class="{ 'is-active': notesStore.categoryFilter }" />
+        <CustomSelect v-model="notesStore.knowledgeAreaFilter" :options="knowledgeAreaOptions" placeholder="📚 全部知识领域" class="filter-cs" :class="{ 'is-active': notesStore.knowledgeAreaFilter }" />
         <div class="exam-toggle">
           <label class="switch">
             <input type="checkbox" v-model="examMode" />
@@ -199,12 +201,17 @@
       </div>
     </div>
     
-    <Pagination 
-      v-model:currentPage="notesStore.currentPage" 
+    <Pagination
+      v-model:currentPage="notesStore.currentPage"
       v-model:pageSize="notesStore.pageSize"
       :total="totalNotes"
       v-show="!isLoading"
     />
+
+    <!-- ===== 右侧滚动进度光带 ===== -->
+    <div class="scroll-rail" v-show="!selectedNote">
+      <span class="scroll-knob" ref="scrollKnob"></span>
+    </div>
 
     <!-- ===== 笔记详情弹窗 - 全屏铺开 ===== -->
     <div v-if="selectedNote" class="modal-overlay" @click="closeDetail">
@@ -368,6 +375,76 @@ const examMode = ref(false)
 const showUserMenu = ref(false)
 const showChangePassword = ref(false)
 const userMenuRef = ref(null)
+const scrollKnob = ref(null)
+
+// ===== 动效交互（鼠标光晕/3D倾斜 + 墨渍涟漪 + 滚动进度光带） =====
+let rafPending = false
+let lastHoverCard = null
+let burstLocked = false
+
+function spawnInkRipple(e, target) {
+  const r = target.getBoundingClientRect()
+  const el = document.createElement('span')
+  el.className = 'ink-ripple'
+  el.style.left = (e.clientX - r.left) + 'px'
+  el.style.top = (e.clientY - r.top) + 'px'
+  target.appendChild(el)
+  el.addEventListener('animationend', () => el.remove(), { once: true })
+}
+
+function handleGridMouseMove(e) {
+  const card = e.target.closest('.note-card')
+  if (!card) return
+  if (card !== lastHoverCard && lastHoverCard) {
+    lastHoverCard.style.setProperty('--mx', '50')
+    lastHoverCard.style.setProperty('--my', '50')
+  }
+  lastHoverCard = card
+  if (rafPending) return
+  rafPending = true
+  requestAnimationFrame(() => {
+    rafPending = false
+    if (!lastHoverCard) return
+    const r = lastHoverCard.getBoundingClientRect()
+    // 用无单位 0-100，便于 tilt 计算；光晕位置用 calc(* 1%) 还原
+    lastHoverCard.style.setProperty('--mx', String((e.clientX - r.left) / r.width * 100))
+    lastHoverCard.style.setProperty('--my', String((e.clientY - r.top) / r.height * 100))
+  })
+}
+
+function handleGridMouseLeave() {
+  if (lastHoverCard) {
+    lastHoverCard.style.setProperty('--mx', '50')
+    lastHoverCard.style.setProperty('--my', '50')
+    lastHoverCard = null
+  }
+}
+
+function handleListClickRipple(e) {
+  // 筛选标签点击 → 墨渍涟漪
+  const fc = e.target.closest('.filter-cs')
+  if (fc) { spawnInkRipple(e, fc); return }
+  // 笔记卡片点击 → 彩色波纹（作为“查看全文”打开反馈）
+  const card = e.target.closest('.note-card')
+  if (card) spawnInkRipple(e, card)
+}
+
+function handleScroll() {
+  const h = document.documentElement
+  const max = h.scrollHeight - h.clientHeight
+  const pct = max > 0 ? h.scrollTop / max : 0
+  const knob = scrollKnob.value
+  if (!knob) return
+  knob.style.top = (pct * 100) + '%'
+  if (pct > 0.985 && !burstLocked) {
+    burstLocked = true
+    knob.classList.add('burst')
+    setTimeout(() => {
+      knob.classList.remove('burst')
+      burstLocked = false
+    }, 900)
+  }
+}
 
 // 滑动返回相关
 const startX = ref(0)
@@ -606,6 +683,16 @@ onMounted(async () => {
   }
   
   document.addEventListener('click', handleClickOutside)
+
+  // 动效交互绑定（事件委托，避免逐卡片绑监听）
+  const grid = document.querySelector('.note-grid')
+  if (grid) {
+    grid.addEventListener('mousemove', handleGridMouseMove)
+    grid.addEventListener('mouseleave', handleGridMouseLeave)
+  }
+  document.addEventListener('click', handleListClickRipple)
+  window.addEventListener('scroll', handleScroll, { passive: true })
+  handleScroll() // 初始定位
 })
 
 watch(() => route.query.noteId, (newNoteId) => {
@@ -617,6 +704,13 @@ watch(() => route.query.noteId, (newNoteId) => {
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  const grid = document.querySelector('.note-grid')
+  if (grid) {
+    grid.removeEventListener('mousemove', handleGridMouseMove)
+    grid.removeEventListener('mouseleave', handleGridMouseLeave)
+  }
+  document.removeEventListener('click', handleListClickRipple)
+  window.removeEventListener('scroll', handleScroll)
   document.body.style.overflow = ''
 })
 </script>
@@ -812,6 +906,17 @@ header {
   box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
 
+/* 前 3 个数据徽章（笔记/浏览/字数）：心跳式呼吸脉动，错峰 */
+.stat-badge:nth-child(-n+3) {
+  animation: badge-breathe 3.2s var(--ease-in-out-soft) infinite;
+}
+.stat-badge:nth-child(2) { animation-delay: .4s; }
+.stat-badge:nth-child(3) { animation-delay: .8s; }
+@keyframes badge-breathe {
+  0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 var(--ink-violet); }
+  50%      { transform: scale(1.025); box-shadow: 0 0 0 6px transparent; }
+}
+
 .badge-icon {
   font-size: 14px;
 }
@@ -830,6 +935,45 @@ header {
 /* ===== 搜索 + 筛选 ===== */
 .filter-wrap {
   margin-bottom: 16px;
+  position: relative;
+  z-index: 200;
+}
+
+/* 搜索框容器：承载底部极光光条（input 无 ::after，故包一层） */
+.search-field {
+  position: relative;
+  margin-bottom: 8px;
+}
+.search-field::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 2px;
+  background: var(--aurora-grad);
+  background-size: 200% 100%;
+  background-position: 100% 0;
+  opacity: 0;
+  transition: opacity .35s var(--ease-soft);
+  border-radius: 0 0 10px 10px;
+  pointer-events: none;
+}
+/* 靠近即探索：hover 扫一次 */
+.search-field:hover::after {
+  opacity: .9;
+  animation: aurora-sweep 1.4s var(--ease-out-quint) forwards;
+}
+/* 聚焦：常驻低亮度流动 */
+.search-field:focus-within::after {
+  opacity: .55;
+  animation: aurora-flow 2.8s linear infinite;
+}
+@keyframes aurora-sweep {
+  from { background-position: 100% 0; }
+  to   { background-position: -100% 0; }
+}
+@keyframes aurora-flow {
+  from { background-position: 0% 0; }
+  to   { background-position: -200% 0; }
 }
 
 .search-input {
@@ -839,7 +983,6 @@ header {
   border-radius: 10px;
   font-size: 14px;
   box-sizing: border-box;
-  margin-bottom: 8px;
   transition: border-color 0.2s;
   background: var(--bg-input);
   color: var(--text-primary);
@@ -859,6 +1002,25 @@ header {
 .filter-row .filter-cs {
   flex: 1;
   min-width: 0;
+  position: relative;
+  z-index: 210;
+  transition: transform .3s var(--ease-out-quint),
+              box-shadow .3s var(--ease-soft),
+              margin-left .3s var(--ease-soft);
+}
+
+/* 悬停：上浮放大 + 兄弟间微微拉开 */
+.filter-row:hover .filter-cs { margin-left: 4px; }
+.filter-row .filter-cs:first-child { margin-left: 0; }
+.filter-cs:hover {
+  transform: translateY(-3px) scale(1.04);
+  box-shadow: 0 6px 18px var(--ink-violet);
+}
+
+/* 选中态：发光胶囊高亮 */
+.filter-cs.is-active {
+  box-shadow: 0 0 0 2px var(--accent-color),
+              0 0 16px var(--ink-violet);
 }
 
 /* 考试模式切换 */
@@ -1012,11 +1174,38 @@ header {
   background: var(--bg-secondary);
   border-radius: 14px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-  transition: all 0.25s ease;
+  transition: box-shadow .35s var(--ease-soft),
+              transform .25s var(--ease-out-quint);
   overflow: hidden;
   cursor: pointer;
   position: relative;
+  --mx: 50;
+  --my: 50;
 }
+
+/* 鼠标光晕：跟随鼠标的柔和径向光 */
+.note-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(180px circle at calc(var(--mx) * 1%) calc(var(--my) * 1%),
+              var(--ink-violet), transparent 60%);
+  opacity: 0;
+  transition: opacity .35s var(--ease-soft);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* 悬停：朝鼠标方向 3D 倾斜（纸张被提起一角）+ 上浮 */
+.note-card:hover {
+  transform: perspective(900px)
+             rotateX(calc((var(--my) - 50) / 12 * -1deg))
+             rotateY(calc((var(--mx) - 50) / 12 * 1deg))
+             translateY(-4px);
+  box-shadow: 0 16px 40px var(--ink-violet);
+}
+.note-card:hover::before { opacity: .6; }
 
 .note-card:active {
   transform: scale(0.98);
@@ -1125,6 +1314,35 @@ header {
   font-size: 13px;
   color: #667eea;
   font-weight: 500;
+}
+
+/* 查看全文：悬停 ≥0.5s 渐显 + 帷幕细线从中间向两端展开（仅悬停设备） */
+@media (hover: hover) {
+  .view-link {
+    position: relative;
+    opacity: 0;
+    transform: translateX(-6px);
+    transition: opacity .4s var(--ease-soft) .5s,
+                transform .4s var(--ease-out-quint) .5s;
+  }
+  .view-link::before,
+  .view-link::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--accent-color), var(--gold));
+    transition: width .45s var(--ease-out-quint) .55s;
+  }
+  .view-link::before { right: 50%; }
+  .view-link::after  { left: 50%; }
+  .note-card:hover .view-link {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  .note-card:hover .view-link::before,
+  .note-card:hover .view-link::after { width: 22px; }
 }
 
 /* ===== 考试模式附加详情 ===== */
@@ -1837,6 +2055,55 @@ header {
   }
 }
 
+/* ===== 右侧滚动进度光带 ===== */
+.scroll-rail {
+  position: fixed;
+  right: 10px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border-light);
+  opacity: .6;
+  z-index: 900;
+  pointer-events: none;
+}
+.scroll-knob {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--accent-color);
+  box-shadow: 0 0 10px var(--accent-color), 0 0 18px var(--gold-soft);
+  transition: top .1s linear;
+}
+.scroll-knob.burst {
+  animation: starburst .9s var(--ease-out-quint) forwards;
+}
+@keyframes starburst {
+  0%   { box-shadow: 0 0 10px var(--accent-color); }
+  60%  { box-shadow: 0 0 0 14px transparent, 0 0 24px 6px var(--gold); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.2); }
+}
+
+/* ===== 无障碍：尊重「减少动态」偏好 ===== */
+@media (prefers-reduced-motion: reduce) {
+  .stat-badge:nth-child(-n+3),
+  .search-field:hover::after,
+  .search-field:focus-within::after,
+  .scroll-knob.burst {
+    animation: none !important;
+  }
+  .note-card,
+  .filter-cs,
+  .view-link,
+  .scroll-knob {
+    transition: none !important;
+  }
+}
+
 /* 手机端：内容宽度自适应，阅读区内边距缩小 */
 @media (max-width: 767px) {
   .viewer-panel {
@@ -1945,6 +2212,25 @@ header {
 </style>
 
 <style>
+/* ===== 墨渍涟漪（JS 动态创建，需放在非 scoped 块） ===== */
+.ink-ripple {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  background: radial-gradient(circle,
+              rgba(102,126,234,.45) 0%,
+              rgba(251,191,36,.35) 60%,
+              transparent 70%);
+  animation: ink-spread .7s cubic-bezier(.22,1,.36,1) forwards;
+  z-index: 5;
+}
+@keyframes ink-spread {
+  to { transform: translate(-50%, -50%) scale(14); opacity: 0; }
+}
+
 /* ===== 暗色模式：核心要点 & 适用场景卡片 ===== */
 [data-theme="dark"] .detail-keypoints {
   background: rgba(102, 126, 234, 0.12);
