@@ -51,8 +51,8 @@ export const useNotesStore = defineStore('notes', () => {
       const matchSearch = !q || text.includes(q)
 
       const matchCategory = !categoryFilter.value || note.category === categoryFilter.value
-      // 知识领域：匹配全文（含显式标签 + 标题/内容等隐式提及），覆盖未手动标注的已有笔记
-      const matchKnowledgeArea = !ka || text.includes(ka)
+      // 知识领域：仅按标题（detail-title）匹配
+      const matchKnowledgeArea = !ka || (note.title || '').toLowerCase().includes(ka)
 
       return matchSearch && matchCategory && matchKnowledgeArea
     })

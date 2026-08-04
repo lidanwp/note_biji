@@ -3,6 +3,7 @@
     <!-- Trigger -->
     <div
       class="cs-trigger"
+      ref="triggerRef"
       :class="{ 'cs-open': isOpen, 'cs-disabled': disabled }"
       @click="toggle"
       role="combobox"
@@ -96,6 +97,7 @@ const emit = defineEmits(['update:modelValue', 'change'])
 const isOpen = ref(false)
 const isMobile = ref(false)
 const wrapperRef = ref(null)
+const triggerRef = ref(null)
 let mql = null
 
 const flatOptions = computed(() => {
@@ -131,6 +133,11 @@ const select = (value) => {
   emit('update:modelValue', value)
   emit('change', value)
   isOpen.value = false
+  // 选择后将焦点平稳回归到 trigger，避免浏览器默认直角 outline
+  // 并保持与点击时一致的圆角蓝色 :focus 边框
+  requestAnimationFrame(() => {
+    triggerRef.value && triggerRef.value.focus()
+  })
 }
 
 const close = () => {
@@ -206,9 +213,10 @@ const handleMediaChange = (e) => {
   font-size: 14px;
   color: var(--text-primary, #333);
   box-sizing: border-box;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s;
   user-select: none;
   -webkit-user-select: none;
+  outline: none;
 }
 
 .cs-trigger:hover {
@@ -219,7 +227,6 @@ const handleMediaChange = (e) => {
 .cs-trigger:focus-visible,
 .cs-trigger.cs-open {
   border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
   outline: none;
 }
 

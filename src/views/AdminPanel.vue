@@ -7,31 +7,33 @@
       </div>
       <div class="header-right">
         <div class="user-menu" ref="userMenuRef">
-          <button @click="toggleUserMenu" class="user-btn">
+          <button @click="toggleUserMenu" class="user-btn" ref="userBtnRef">
             <span class="user-avatar">�</span>
             <span class="user-name">{{ authStore.user?.username }}</span>
             <span class="user-role">(管理员)</span>
             <span class="menu-arrow">{{ showUserMenu ? '▲' : '▼' }}</span>
           </button>
-          <div v-if="showUserMenu" class="dropdown-menu">
-            <button @click="importData" class="dropdown-item">
-              <span class="item-icon">⬇</span>
-              <span>导入数据</span>
-            </button>
-            <button @click="exportData" class="dropdown-item">
-              <span class="item-icon">⬆</span>
-              <span>导出数据</span>
-            </button>
-            <div class="dropdown-divider"></div>
-            <button @click="openChangePassword" class="dropdown-item">
-              <span class="item-icon">🔐</span>
-              <span>修改密码</span>
-            </button>
-            <button @click="logout" class="dropdown-item danger">
-              <span class="item-icon">🚪</span>
-              <span>退出登录</span>
-            </button>
-          </div>
+          <Teleport to="body">
+            <div v-if="showUserMenu" class="dropdown-menu" :style="userMenuStyle" ref="dropdownMenuRef">
+              <button @click="importData" class="dropdown-item">
+                <span class="item-icon">⬇</span>
+                <span>导入数据</span>
+              </button>
+              <button @click="exportData" class="dropdown-item">
+                <span class="item-icon">⬆</span>
+                <span>导出数据</span>
+              </button>
+              <div class="dropdown-divider"></div>
+              <button @click="openChangePassword" class="dropdown-item">
+                <span class="item-icon">🔐</span>
+                <span>修改密码</span>
+              </button>
+              <button @click="logout" class="dropdown-item danger">
+                <span class="item-icon">🚪</span>
+                <span>退出登录</span>
+              </button>
+            </div>
+          </Teleport>
         </div>
       </div>
     </header>
@@ -442,7 +444,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, reactive, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useNotesStore } from '../stores/notes'
@@ -469,7 +471,10 @@ const examMode = ref(false)
 const activeTab = ref('basic')
 const showUserMenu = ref(false)
 const userMenuRef = ref(null)
-const showChangePassword = ref(false)
+const userBtnRef = ref(null)
+const dropdownMenuRef = ref(null)
+const userMenuStyle = ref({})
+const showChangePassword = ref(null)
 
 // ===== 草稿相关 =====
 const draftKey = ref('note_draft')
@@ -585,11 +590,33 @@ const paginatedNotes = computed(() => notesStore.paginatedNotes)
 const totalNotes = computed(() => notesStore.totalNotes)
 const isLoading = computed(() => notesStore.isLoading)
 
+const updateUserMenuPosition = () => {
+  if (!userBtnRef.value) return
+  const rect = userBtnRef.value.getBoundingClientRect()
+  userMenuStyle.value = {
+    position: 'fixed',
+    top: `${rect.bottom + 4}px`,
+    left: `${rect.right - 160}px`,
+    zIndex: 9999
+  }
+}
+
 const toggleUserMenu = () => {
+  if (!showUserMenu.value) {
+    updateUserMenuPosition()
+  }
   showUserMenu.value = !showUserMenu.value
 }
 
 const closeUserMenu = () => {
+  showUserMenu.value = false
+}
+
+const handleClickOutside = (e) => {
+  // 检查是否点击在触发器按钮上
+  if (userBtnRef.value && userBtnRef.value.contains(e.target)) return
+  // 检查是否点击在下拉菜单上（通过 Teleport 渲染到 body）
+  if (dropdownMenuRef.value && dropdownMenuRef.value.contains(e.target)) return
   showUserMenu.value = false
 }
 
@@ -1202,8 +1229,23 @@ const logout = () => {
 onMounted(async () => {
   if (authStore.user?.role !== 'admin') {
     router.push('/viewer')
+    return
   }
   await loadNotes()
+  
+  document.addEventListener('click', handleClickOutside)
+  
+  // 滚动时更新下拉菜单位置
+  window.addEventListener('scroll', () => {
+    if (showUserMenu.value) updateUserMenuPosition()
+  }, { passive: true })
+  window.addEventListener('resize', () => {
+    if (showUserMenu.value) updateUserMenuPosition()
+  })
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 

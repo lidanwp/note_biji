@@ -7,23 +7,25 @@
         <span class="app-name">知识分享</span>
       </div>
       <div class="header-right" ref="userMenuRef">
-        <button @click="toggleUserMenu" class="user-btn">
+        <button @click="toggleUserMenu" class="user-btn" ref="userBtnRef">
           <span class="user-avatar">👤</span>
           <span class="user-name">{{ authStore.user?.username }}</span>
           <span class="menu-arrow">{{ showUserMenu ? '▲' : '▼' }}</span>
         </button>
-        <Transition name="menu-fade">
-          <div v-if="showUserMenu" class="dropdown-menu">
-            <button @click="openChangePassword" class="dropdown-item">
-              <span class="item-icon">🔐</span>
-              <span>修改密码</span>
-            </button>
-            <button @click="logout" class="dropdown-item danger">
-              <span class="item-icon">🚪</span>
-              <span>退出登录</span>
-            </button>
-          </div>
-        </Transition>
+        <Teleport to="body">
+          <Transition name="menu-fade">
+            <div v-if="showUserMenu" class="dropdown-menu" :style="userMenuStyle" ref="dropdownMenuRef">
+              <button @click="openChangePassword" class="dropdown-item">
+                <span class="item-icon">🔐</span>
+                <span>修改密码</span>
+              </button>
+              <button @click="logout" class="dropdown-item danger">
+                <span class="item-icon">🚪</span>
+                <span>退出登录</span>
+              </button>
+            </div>
+          </Transition>
+        </Teleport>
       </div>
     </header>
 
@@ -375,6 +377,9 @@ const examMode = ref(false)
 const showUserMenu = ref(false)
 const showChangePassword = ref(false)
 const userMenuRef = ref(null)
+const userBtnRef = ref(null)
+const dropdownMenuRef = ref(null)
+const userMenuStyle = ref({})
 const scrollKnob = ref(null)
 
 // ===== 动效交互（鼠标光晕/3D倾斜 + 墨渍涟漪 + 滚动进度光带） =====
@@ -557,7 +562,21 @@ const renderMarkdown = (content) => {
   }
 }
 
+const updateUserMenuPosition = () => {
+  if (!userBtnRef.value) return
+  const rect = userBtnRef.value.getBoundingClientRect()
+  userMenuStyle.value = {
+    position: 'fixed',
+    top: `${rect.bottom + 4}px`,
+    left: `${rect.right - 160}px`,
+    zIndex: 9999
+  }
+}
+
 const toggleUserMenu = () => {
+  if (!showUserMenu.value) {
+    updateUserMenuPosition()
+  }
   showUserMenu.value = !showUserMenu.value
 }
 
@@ -566,9 +585,11 @@ const closeUserMenu = () => {
 }
 
 const handleClickOutside = (e) => {
-  if (userMenuRef.value && !userMenuRef.value.contains(e.target)) {
-    showUserMenu.value = false
-  }
+  // 检查是否点击在触发器按钮上
+  if (userBtnRef.value && userBtnRef.value.contains(e.target)) return
+  // 检查是否点击在下拉菜单上（通过 Teleport 渲染到 body）
+  if (dropdownMenuRef.value && dropdownMenuRef.value.contains(e.target)) return
+  showUserMenu.value = false
 }
 
 const loadNotes = async () => {
@@ -692,6 +713,13 @@ onMounted(async () => {
   }
   document.addEventListener('click', handleListClickRipple)
   window.addEventListener('scroll', handleScroll, { passive: true })
+  // 滚动时更新下拉菜单位置
+  window.addEventListener('scroll', () => {
+    if (showUserMenu.value) updateUserMenuPosition()
+  }, { passive: true })
+  window.addEventListener('resize', () => {
+    if (showUserMenu.value) updateUserMenuPosition()
+  })
   handleScroll() // 初始定位
 })
 
@@ -1004,6 +1032,8 @@ header {
   min-width: 0;
   position: relative;
   z-index: 210;
+  /* 与 .cs-trigger 的 border-radius 对齐，让 :hover / .is-active 的 box-shadow 跟随圆角 */
+  border-radius: 10px;
   transition: transform .3s var(--ease-out-quint),
               box-shadow .3s var(--ease-soft),
               margin-left .3s var(--ease-soft);
