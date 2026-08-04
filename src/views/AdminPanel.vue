@@ -1267,7 +1267,7 @@ header {
   margin-bottom: 16px;
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 500;
 }
 
 .header-left {

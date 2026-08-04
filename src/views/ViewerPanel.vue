@@ -796,7 +796,8 @@ header {
   margin-bottom: 12px;
   position: sticky;
   top: 0;
-  z-index: 100;
+  /* 高于筛选区 .filter-wrap(200)/.filter-cs(210)，保证 sticky header 始终在筛选项之上 */
+  z-index: 500;
 }
 
 .history-section {
