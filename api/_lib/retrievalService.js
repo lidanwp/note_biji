@@ -607,10 +607,12 @@ function buildSystemPrompt() {
 // 用于无 QA 答案时作为 primaryAnswer，让前端 ctx.primaryAnswer 也是口语化的
 function composeListSummary(keyPoints) {
   if (!keyPoints || !keyPoints.length) return ''
+  // 分隔符：英文冒号 :、中文冒号 ：、em dash —、连字符 -（放末尾避免字符类范围歧义）
+  const NAME_SEP_RE = /^([^\s:：—\-]{2,12})\s*[:：—\-]/
   const names = keyPoints.map(kp => {
     const s = String(kp).trim()
-    // 优先取冒号/破折号前的主语作为核心名称
-    const m = s.match(/^([^:：——\-—\s]{2,12})\s*[:：——\-—]/)
+    // 优先取冒号/破折号前的主语作为核心名称；无分隔符则取前 8 字兜底
+    const m = s.match(NAME_SEP_RE)
     return (m ? m[1] : s.slice(0, 8)).replace(/[，,。.；;]$/, '')
   })
   const parts = names.map((n, i) => `${i + 1}）${n}`)
