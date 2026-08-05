@@ -43,7 +43,7 @@
       </span>
       <span class="stat-badge">
         <span class="badge-icon">📄</span>
-        <span class="badge-num">{{ totalCharacters }}</span>
+        <span class="badge-num">{{ formatNum(totalCharacters) }}</span>
         <span class="badge-label">字数</span>
       </span>
        <button 
@@ -501,6 +501,14 @@ const tagColorClass = (tag) => TAG_COLOR_MAP[tag] || 'tag-default'
 const categories = computed(() => notesStore.categories)
 const totalViews = computed(() => notesStore.totalViews)
 const totalCharacters = computed(() => notesStore.totalCharacters)
+
+// 数字格式化：超 1 万显示为 X.XW，超 1 千显示为 X.XK
+const formatNum = (n) => {
+  if (!n) return '0'
+  if (n >= 10000) return (n / 10000).toFixed(1) + 'W'
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
+  return String(n)
+}
 const filteredNotes = computed(() => notesStore.filteredNotes)
 const paginatedNotes = computed(() => notesStore.paginatedNotes)
 const totalNotes = computed(() => notesStore.totalNotes)
