@@ -596,10 +596,12 @@ function buildSystemPrompt() {
     '绝对禁止使用"根据资料显示""据了解""资料表明"这类套话，直接说答案。',
     '如果笔记里没有直接答案，就根据已有知识合理推测，并在回答开头说明"以下是我的推测："。',
     '涉及数字、公式、对比时，优先用口诀或对比表呈现，记得点明知识点之间的前后关联。',
-    '列举类问题（如"有哪些""几个过程"）必须用口语化总结模式：',
-    '  先说"一共 N 个核心过程："，再用一句话把每个过程串联起来，',
-    '  每个过程用"序号）名称，就是…"格式（如"1）规划范围管理，就是为整个项目定好规矩和方向"），',
-    '  整体用中文分号"；"连接，像人在说话，不要换行粘贴清单。'
+    '所有意图类型都必须输出自然语言，禁止粘贴 markdown 表格、列表符号或原始片段：',
+    '• 列举类（有哪些/几个过程）：先说"一共 N 个核心过程："，再用一句话把每个过程串联起来，',
+    '  每个过程用"序号）名称，就是…"格式，整体用中文分号"；"连接，不要换行粘贴清单。',
+    '• 定义类（是什么/什么是）：用"XXX 就是…"的句式一句话说清本质，再补 1-2 句展开，不要堆砌要点。',
+    '• 综合类（一般提问）：把检索到的内容消化后用自己的话说出来，像跟人聊天一样，不要直接复制片段。',
+    '• 对比类/场景类：可以复用对比表格和案例，但要用自然语言点明关键差异或映射关系。'
   ].join('\n')
 }
 
@@ -617,6 +619,51 @@ function composeListSummary(keyPoints) {
   })
   const parts = names.map((n, i) => `${i + 1}）${n}`)
   return `一共 ${keyPoints.length} 个核心过程：${parts.join('；')}。`
+}
+
+// 定义类口语化：用标题 + 第一条 keyPoint 组织"XXX 就是…"的句式，而非粘贴原始片段
+function composeDefinitionAnswer(topNote, fallbackContent) {
+  if (!topNote) return stripFragmentForSpeech(fallbackContent || '')
+  const title = (topNote.title || '').trim()
+  const kp0 = topNote.keyPoints && topNote.keyPoints[0] ? String(topNote.keyPoints[0]).trim() : ''
+  if (title && kp0) {
+    // 从 keyPoint 去掉前缀名称和分隔符，取核心说明
+    const desc = kp0.replace(/^[\s\S]{0,12}[:：—\-]\s*/, '').trim() || kp0
+    return `${title}就是${desc}。`
+  }
+  if (title && fallbackContent) {
+    // 无 keyPoint，取检索片段第一句作为说明
+    const firstSentence = stripFragmentForSpeech(fallbackContent).split(/[。.\n！!？?]/)[0].trim()
+    return firstSentence ? `${title}就是${firstSentence}。` : stripFragmentForSpeech(fallbackContent)
+  }
+  return stripFragmentForSpeech(fallbackContent || '')
+}
+
+// 综合类口语化：从检索片段提取核心句，去掉表格/列表符号，避免粘贴原始 markdown 片段
+function composeGeneralAnswer(merged) {
+  const pick = merged.slice(0, 2)
+  const parts = pick.map(r => {
+    let t = stripFragmentForSpeech(r.content || '')
+    if (t.length > 200) t = t.slice(0, 200) + '...'
+    return t
+  })
+  return parts.filter(Boolean).join('；')
+}
+
+// 片段清洗：去掉 markdown 表格行、列表符号、多余空白，提取适合口语朗读的纯文本
+function stripFragmentForSpeech(content) {
+  if (!content) return ''
+  let t = String(content).trim()
+  // 逐行处理：过滤表格行/分隔线行 → 去掉行首列表符号 → 合并
+  t = t.split('\n')
+    .filter(line => !/^\s*\|/.test(line) && !/^\s*[-:|\s]+$/.test(line))
+    .map(line => line.replace(/^[-*]\s+/, '').replace(/^\d+[.、]\s+/, ''))
+    .join(' ')
+  // 去掉 markdown 强调符号
+  t = t.replace(/[*_`#>]/g, '')
+  // 压缩多余空白
+  t = t.replace(/\s+/g, ' ').trim()
+  return t
 }
 
 // ============================================================================
@@ -718,14 +765,21 @@ export async function retrieve({ dataset_id, query, history }) {
   const phaseContext = buildPhaseContext(detection.phase, chapters, notesMeta)
 
   // ---- 组装主答案（纯文本）----
-  // 优先级：QA 口语化答案 > list 意图 keyPoints 口语化串联 > 检索 top 片段拼接
+  // 优先级：QA 口语化答案 > 按意图口语化生成 > 检索 top 片段拼接（仅 comparison/scenario）
   let primaryAnswer
   if (qaFinalAnswer) {
     primaryAnswer = qaFinalAnswer
   } else if (intent === 'list' && topNote && topNote.keyPoints && topNote.keyPoints.length) {
-    // 列举类无 QA 答案：用 keyPoints 生成口语化串联，避免粘贴清单
+    // 列举类：用 keyPoints 生成口语化串联，避免粘贴清单
     primaryAnswer = composeListSummary(topNote.keyPoints)
+  } else if (intent === 'definition') {
+    // 定义类：用标题 + keyPoint 组织"XXX 就是…"句式，避免粘贴原始片段
+    primaryAnswer = composeDefinitionAnswer(topNote, merged[0]?.content)
+  } else if (intent === 'general') {
+    // 综合类：从检索片段提取核心句，去掉表格/列表符号
+    primaryAnswer = composeGeneralAnswer(merged)
   } else {
+    // 对比类/场景类：保留片段拼接（含表格结构，供前端结构化渲染）
     const pick = merged.slice(0, 2)
     const parts = pick.map(r => {
       let t = (r.content || '').trim()
