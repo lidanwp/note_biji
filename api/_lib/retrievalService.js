@@ -311,7 +311,7 @@ function matchNoteMeta(content, notesMeta) {
 // ============================================================================
 const PANDAWIKI_BASE = process.env.PANDAWIKI_BASE || 'http://129.204.21.82:5050'
 
-async function callPandaQA(datasetId, query, timeoutMs = 4000) {
+async function callPandaQA(datasetId, query, timeoutMs = 6000) {
   const ctrl = new AbortController()
   const to = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
@@ -338,7 +338,7 @@ async function callPandaQA(datasetId, query, timeoutMs = 4000) {
   }
 }
 
-async function callPandaSearch(datasetId, query, topK = 10, timeoutMs = 5000) {
+async function callPandaSearch(datasetId, query, topK = 10, timeoutMs = 6000) {
   const ctrl = new AbortController()
   const to = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
@@ -557,19 +557,8 @@ function classifyIntent(query) {
 function composeLayeredAnswer({ primaryAnswer, intent, detection, graphReasoning, phaseContext, topNote }) {
   const lines = []
 
-  // 列举类：先总数，再逐项列出名称+一句话说明（不被"定义类"规则压缩）
-  if (intent === 'list' && topNote && topNote.keyPoints && topNote.keyPoints.length) {
-    const kps = topNote.keyPoints
-    lines.push(`共 ${kps.length} 项：`)
-    kps.forEach((kp, i) => {
-      lines.push(`${i + 1}. ${kp}`)
-    })
-    // 若 QA/检索主答案较短且未与清单重复，作为补充说明附后
-    if (primaryAnswer && primaryAnswer.length <= 200 && !kps.some(k => primaryAnswer.includes(String(k)))) {
-      lines.push('')
-      lines.push(primaryAnswer)
-    }
-  } else if (primaryAnswer) {
+  // 列举类：primaryAnswer 已由 retrieve 用 composeListSummary 口语化处理，直接使用
+  if (primaryAnswer) {
     lines.push(primaryAnswer)
   }
 
@@ -602,16 +591,30 @@ function composeLayeredAnswer({ primaryAnswer, intent, detection, graphReasoning
 // 任务4 前端渲染时可读取此 prompt 与 context 决定是否高亮口诀/渲染对比表
 function buildSystemPrompt() {
   return [
-    '你是「软考中级系统集成项目管理工程师」AI 助手。',
-    '回答遵循「口诀优先 + 分层输出」原则：',
-    '1. 涉及精确数字/公式/概念对比时，优先输出 memoryAids（记忆口诀）与 comparisonTable（对比表格）。',
-    '2. 回答格式按意图分层：',
-    '   - 定义类：一句话定义 + 最多三个要点。',
-    '   - 对比类：复用对比表格，突出关键差异列。',
-    '   - 场景类：只输出案例精要 + 知识点映射，不堆砌全文。',
-    '3. 体现知识承接关系：回答时点明该知识点的前置输入与后续输出。',
-    '4. 简洁优先，单次回答控制在 300 字以内，避免整篇笔记翻出。'
+    '你是「软考中级系统集成项目管理工程师」AI 助手，用自己的话回答问题，不要逐字照抄原文。',
+    '回答风格：先给结论，再展开说明，简洁明了（200字以内）。',
+    '绝对禁止使用"根据资料显示""据了解""资料表明"这类套话，直接说答案。',
+    '如果笔记里没有直接答案，就根据已有知识合理推测，并在回答开头说明"以下是我的推测："。',
+    '涉及数字、公式、对比时，优先用口诀或对比表呈现，记得点明知识点之间的前后关联。',
+    '列举类问题（如"有哪些""几个过程"）必须用口语化总结模式：',
+    '  先说"一共 N 个核心过程："，再用一句话把每个过程串联起来，',
+    '  每个过程用"序号）名称，就是…"格式（如"1）规划范围管理，就是为整个项目定好规矩和方向"），',
+    '  整体用中文分号"；"连接，像人在说话，不要换行粘贴清单。'
   ].join('\n')
+}
+
+// 列举类口语化总结：把 keyPoints 提炼成"一共 N 个核心过程：1）名称；2）名称；…"的单句串联
+// 用于无 QA 答案时作为 primaryAnswer，让前端 ctx.primaryAnswer 也是口语化的
+function composeListSummary(keyPoints) {
+  if (!keyPoints || !keyPoints.length) return ''
+  const names = keyPoints.map(kp => {
+    const s = String(kp).trim()
+    // 优先取冒号/破折号前的主语作为核心名称
+    const m = s.match(/^([^:：——\-—\s]{2,12})\s*[:：——\-—]/)
+    return (m ? m[1] : s.slice(0, 8)).replace(/[，,。.；;]$/, '')
+  })
+  const parts = names.map((n, i) => `${i + 1}）${n}`)
+  return `一共 ${keyPoints.length} 个核心过程：${parts.join('；')}。`
 }
 
 // ============================================================================
@@ -653,7 +656,7 @@ export async function retrieve({ dataset_id, query, history }) {
   // ---- 三路并发：notesMeta + QA + search，最大化利用 10s Hobby 限制 ----
   const notesMetaTask = loadNotesMeta(env).catch(() => [])
 
-  const qaTask = callPandaQA(dataset_id, resolvedQuery, 4000)
+  const qaTask = callPandaQA(dataset_id, resolvedQuery, 6000)
     .then(res => {
       if (res.embeddingDown) return { qaFinalAnswer: null, embeddingDown: true }
       if (res.ok && isGoodQaAnswer(res.answer, resolvedQuery)) return { qaFinalAnswer: res.answer, embeddingDown: false }
@@ -663,7 +666,7 @@ export async function retrieve({ dataset_id, query, history }) {
 
   // search 变体数从 4 减到 3，单变体 5s 超时，总耗时 max(3s,4s,5s)=5s 内完成
   const searchTask = Promise.all(
-    variants.slice(0, 3).map(q => callPandaSearch(dataset_id, q, 5))
+    variants.slice(0, 3).map(q => callPandaSearch(dataset_id, q, 3))
   )
 
   const [notesMeta, { qaFinalAnswer, embeddingDown }, searchGroupsRaw] = await Promise.all([
@@ -689,7 +692,7 @@ export async function retrieve({ dataset_id, query, history }) {
   // 质量检查：最高加权分过低 → 未命中
   const topScore = merged[0]?.weightedScore || 0
   const topRawScore = merged[0]?.score || 0
-  if (merged.length === 0 || (topRawScore < 0.1 && topScore < 0.1)) {
+  if (merged.length === 0 || (topRawScore < 0.15 && topScore < 0.15)) {
     return {
       success: true,
       source: 'empty',
@@ -713,10 +716,13 @@ export async function retrieve({ dataset_id, query, history }) {
   const phaseContext = buildPhaseContext(detection.phase, chapters, notesMeta)
 
   // ---- 组装主答案（纯文本）----
-  // 若 QA 已有好答案，以其为主；否则用检索 top 结果内容拼接
+  // 优先级：QA 口语化答案 > list 意图 keyPoints 口语化串联 > 检索 top 片段拼接
   let primaryAnswer
   if (qaFinalAnswer) {
     primaryAnswer = qaFinalAnswer
+  } else if (intent === 'list' && topNote && topNote.keyPoints && topNote.keyPoints.length) {
+    // 列举类无 QA 答案：用 keyPoints 生成口语化串联，避免粘贴清单
+    primaryAnswer = composeListSummary(topNote.keyPoints)
   } else {
     const pick = merged.slice(0, 2)
     const parts = pick.map(r => {
