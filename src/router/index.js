@@ -29,6 +29,12 @@ const routes = [
     component: () => import('@/views/Register.vue')
   },
   {
+    path: '/note-list',
+    name: 'note-list',
+    component: () => import('@/views/NoteList.vue'),
+    meta: { public: true }
+  },
+  {
     path: '/auth/callback',
     name: 'auth-callback',
     component: () => import('@/views/EmailVerify.vue'),

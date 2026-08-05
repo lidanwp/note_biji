@@ -31,37 +31,35 @@
 
     <!-- ===== 统计徽章 ===== -->
     <div class="stats-bar">
-      <span class="stat-badge">
-        <span class="badge-icon">📝</span>
-        <span class="badge-num">{{ notesStore.notes.length }}</span>
-        <span class="badge-label">笔记</span>
+      <span class="stat-mini">
+        <span class="stat-val">{{ notesStore.notes.length }}</span>
+        <span class="stat-label">笔记</span>
       </span>
-      <span class="stat-badge">
-        <span class="badge-icon">👁️</span>
-        <span class="badge-num">{{ totalViews }}</span>
-        <span class="badge-label">浏览</span>
+      <span class="stat-dot">·</span>
+      <span class="stat-mini">
+        <span class="stat-val">{{ totalViews }}</span>
+        <span class="stat-label">浏览</span>
       </span>
-      <span class="stat-badge">
-        <span class="badge-icon">📄</span>
-        <span class="badge-num">{{ formatNum(totalCharacters) }}</span>
-        <span class="badge-label">字数</span>
+      <span class="stat-dot">·</span>
+      <span class="stat-mini">
+        <span class="stat-val">{{ formatNum(totalCharacters) }}</span>
+        <span class="stat-label">字数</span>
       </span>
+      <span class="stat-spacer"></span>
        <button 
         @click="showHistoryPanel = !showHistoryPanel" 
-        class="stat-badge history-toggle"
+        class="stat-icon-btn"
         :class="{ active: showHistoryPanel }"
       >
-        <span class="badge-icon">📜</span>
-        <span class="badge-num">{{ historyStore.history.length }}</span>
-        <span class="badge-label">历史</span>
+        <span>📜</span>
+        <span>{{ historyStore.history.length }}</span>
       </button>
        <button 
         @click="showSettings = !showSettings" 
-        class="stat-badge settings-toggle"
+        class="stat-icon-btn"
         :class="{ active: showSettings }"
       >
-        <span class="badge-icon">⚙️</span>
-        <span class="badge-label">设置</span>
+        <span>⚙️</span>
       </button>
     </div>
     <!-- 设置面板 -->
@@ -120,11 +118,7 @@
     </div>
 
     <!-- ===== 笔记列表 ===== -->
-    <div v-if="isLoading" class="loading-overlay">
-      <div class="loading-spinner"></div>
-      <span>加载中...</span>
-    </div>
-    <div class="note-grid" v-show="!isLoading">
+    <div class="note-grid" v-if="!isLoading">
       <div
         v-for="note in paginatedNotes"
         :key="note.id"
@@ -137,12 +131,15 @@
           {{ contentSummary(note.content) }}
         </p>
 
-        <!-- 底部：分类（左）+ 日期 + 查看全文（右） -->
+        <!-- 底部：分类（左，带小圆点）+ 日期 + 查看全文（右，带箭头） -->
         <div class="card-footer">
-          <span class="category-tag">{{ note.category || '未分类' }}</span>
+          <div class="card-footer-left">
+            <span class="cat-dot"></span>
+            <span class="cat-name">{{ note.category || '未分类' }}</span>
+          </div>
           <div class="card-footer-right">
-            <span class="card-date">📅 {{ note.date }}</span>
-            <span class="view-link">查看全文 →</span>
+            <span class="card-date">{{ note.date }}</span>
+            <span class="view-link">查看全文 <span class="arrow-icon">→</span></span>
           </div>
         </div>
 
@@ -200,6 +197,19 @@
         <div class="empty-icon">📭</div>
         <p>暂无匹配的笔记</p>
         <span class="empty-hint">试试调整筛选条件</span>
+      </div>
+    </div>
+
+    <!-- ===== 骨架屏加载占位 ===== -->
+    <div class="skeleton-grid" v-if="isLoading">
+      <div class="skeleton-card" v-for="n in 4" :key="n">
+        <div class="skeleton-line skeleton-title"></div>
+        <div class="skeleton-line"></div>
+        <div class="skeleton-line skeleton-short"></div>
+        <div class="skeleton-footer">
+          <div class="skeleton-line skeleton-mini"></div>
+          <div class="skeleton-line skeleton-mini"></div>
+        </div>
       </div>
     </div>
     
@@ -555,7 +565,9 @@ const stripHtml = (content) => {
 const contentSummary = (content) => {
   const text = stripHtml(content)
   if (!text) return '暂无内容'
-  return text.length > 100 ? text.slice(0, 100) + '...' : text
+  // 过滤 Markdown 标题符号（#、##、### 等）
+  const cleanText = text.replace(/^#{1,6}\s+/gm, '').trim()
+  return cleanText.length > 100 ? cleanText.slice(0, 100) + '...' : cleanText
 }
 
 const renderMarkdown = (content) => {
@@ -754,42 +766,8 @@ onUnmounted(() => {
 <style scoped>
 .viewer-panel {
   background: var(--bg-primary);
-  padding: 16px;
-}
-/* 设置与历史按钮统一样式 */
-.settings-toggle,
-.history-toggle {
-  cursor: pointer;
-  background: var(--bg-secondary);
-  border: none;
-  transition: all 0.2s;
-  padding: 6px 14px;
-  border-radius: 20px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-
-.settings-toggle:hover,
-.history-toggle:hover {
-  background: var(--bg-hover);
-  transform: translateY(-1px);
-}
-
-.settings-toggle.active,
-.history-toggle.active {
-  background: #667eea;
-  color: white;
-}
-
-.settings-toggle.active .badge-label,
-.history-toggle.active .badge-label {
-  color: rgba(255,255,255,0.8);
-}
-
-.history-toggle.active .badge-num {
-  color: white;
+  padding: 20px 18px;
+  min-height: 100vh;
 }
 
 /* ===== 头部 ===== */
@@ -928,45 +906,73 @@ header {
 .stats-bar {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 12px;
-  flex-wrap: wrap;
 }
 
-.stat-badge {
-  display: flex;
+/* 轻量化统计标签 */
+.stat-mini {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  font-size: 12px;
+  color: #999;
+}
+
+.stat-mini .stat-val {
+  font-size: 14px;
+  font-weight: 600;
+  color: #6366f1;
+}
+
+.stat-mini .stat-label {
+  font-size: 12px;
+  color: #999;
+}
+
+.stat-dot {
+  color: #ccc;
+  font-size: 12px;
+}
+
+.stat-spacer {
+  flex: 1;
+}
+
+/* 图标按钮（历史、设置） */
+.stat-icon-btn {
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  background: var(--bg-secondary);
-  padding: 6px 14px;
-  border-radius: 20px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-}
-
-/* 前 3 个数据徽章（笔记/浏览/字数）：心跳式呼吸脉动，错峰 */
-.stat-badge:nth-child(-n+3) {
-  animation: badge-breathe 3.2s var(--ease-in-out-soft) infinite;
-}
-.stat-badge:nth-child(2) { animation-delay: .4s; }
-.stat-badge:nth-child(3) { animation-delay: .8s; }
-@keyframes badge-breathe {
-  0%, 100% { transform: scale(1);    box-shadow: 0 0 0 0 var(--ink-violet); }
-  50%      { transform: scale(1.025); box-shadow: 0 0 0 6px transparent; }
-}
-
-.badge-icon {
-  font-size: 14px;
-}
-
-.badge-num {
-  font-size: 15px;
-  font-weight: 700;
-  color: #667eea;
-}
-
-.badge-label {
+  padding: 4px 10px;
+  border-radius: 16px;
+  border: 1px solid #e5e5e5;
+  background: transparent;
   font-size: 12px;
-  color: var(--text-muted);
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.stat-icon-btn:hover {
+  background: #f5f5f5;
+  border-color: #ccc;
+}
+
+.stat-icon-btn.active {
+  background: #6366f1;
+  color: white;
+  border-color: #6366f1;
+}
+
+/* 前 3 个统计项：呼吸脉动效果 */
+.stat-mini:nth-child(-n+3) .stat-val {
+  animation: val-pulse 3.2s ease-in-out infinite;
+}
+
+@keyframes val-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 /* ===== 搜索 + 筛选 ===== */
@@ -976,64 +982,68 @@ header {
   z-index: 200;
 }
 
-/* 搜索框容器：承载底部极光光条（input 无 ::after，故包一层） */
+/* 搜索框容器 */
 .search-field {
   position: relative;
   margin-bottom: 8px;
 }
-.search-field::after {
+
+/* 搜索框与筛选行之间的极浅分隔线 */
+.filter-wrap::after {
   content: "";
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  height: 2px;
-  background: var(--aurora-grad);
-  background-size: 200% 100%;
-  background-position: 100% 0;
-  opacity: 0;
-  transition: opacity .35s var(--ease-soft);
-  border-radius: 0 0 10px 10px;
-  pointer-events: none;
-}
-/* 靠近即探索：hover 扫一次 */
-.search-field:hover::after {
-  opacity: .9;
-  animation: aurora-sweep 1.4s var(--ease-out-quint) forwards;
-}
-/* 聚焦：常驻低亮度流动 */
-.search-field:focus-within::after {
-  opacity: .55;
-  animation: aurora-flow 2.8s linear infinite;
-}
-@keyframes aurora-sweep {
-  from { background-position: 100% 0; }
-  to   { background-position: -100% 0; }
-}
-@keyframes aurora-flow {
-  from { background-position: 0% 0; }
-  to   { background-position: -200% 0; }
+  display: block;
+  height: 1px;
+  background: #f0f0f0;
+  margin: 4px 0 0;
 }
 
 .search-input {
   width: 100%;
-  padding: 10px 14px;
-  border: 2px solid var(--border-color);
-  border-radius: 10px;
+  padding: 12px 16px;
+  border: 1.5px solid transparent;
+  border-radius: 24px;
   font-size: 14px;
   box-sizing: border-box;
-  transition: border-color 0.2s;
-  background: var(--bg-input);
+  transition: all 0.25s var(--ease-soft);
+  background: var(--bg-secondary);
   color: var(--text-primary);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
 
 .search-input:focus {
-  border-color: #667eea;
+  border-color: rgba(99, 102, 241, 0.5);
   outline: none;
+  background: var(--bg-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
 .filter-row {
   display: flex;
   align-items: center;
   gap: 8px;
+  position: relative;
+}
+
+/* 左右渐变遮罩，提示可横向滚动 */
+.filter-row::before,
+.filter-row::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+  pointer-events: none;
+  z-index: 220;
+}
+
+.filter-row::before {
+  left: -4px;
+  background: linear-gradient(to right, var(--bg-primary), transparent);
+}
+
+.filter-row::after {
+  right: -4px;
+  background: linear-gradient(to left, var(--bg-primary), transparent);
 }
 
 .filter-row .filter-cs {
@@ -1206,13 +1216,14 @@ header {
 .note-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 20px;
+  gap: 16px;
+  padding: 4px 0;
 }
 
 .note-card {
-  background: var(--bg-secondary);
-  border-radius: 14px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  background: var(--bg-primary);
+  border-radius: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
   transition: box-shadow .35s var(--ease-soft),
               transform .25s var(--ease-out-quint);
   overflow: hidden;
@@ -1220,10 +1231,31 @@ header {
   position: relative;
   --mx: 50;
   --my: 50;
+  border: 1px solid rgba(0,0,0,0.04);
+}
+
+/* 左侧紫蓝渐变色条 */
+.note-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 4px;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(180deg, #6366f1 0%, #8b5cf6 100%);
+  opacity: 0.8;
+  transition: opacity 0.3s, width 0.3s;
+  z-index: 1;
+}
+
+.note-card:hover::before {
+  opacity: 1;
+  width: 5px;
 }
 
 /* 鼠标光晕：跟随鼠标的柔和径向光 */
-.note-card::before {
+.note-card::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -1301,10 +1333,10 @@ header {
 
 /* 卡片中间：标题 + 摘要 */
 .card-title {
-  margin: 10px 16px 6px;
+  margin: 14px 16px 8px 20px;
   color: var(--text-primary);
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 18px;
+  font-weight: 700;
   line-height: 1.4;
 }
 
@@ -1317,7 +1349,7 @@ header {
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  margin: 0 16px 12px;
+  margin: 0 16px 14px 20px;
 }
 
 /* 卡片底部 */
@@ -1325,44 +1357,68 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 16px;
-  border-top: 1px solid var(--border-light);
-  background: var(--bg-primary);
+  padding: 10px 16px 12px 20px;
+  background: transparent;
+}
+
+/* 底部左侧：分类带小圆点 */
+.card-footer-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cat-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #6366f1;
+  flex-shrink: 0;
+}
+
+.cat-name {
+  font-size: 12px;
+  color: #999;
 }
 
 .category-tag {
-  font-size: 12px;
-  color: var(--text-secondary);
-  background: var(--border-color);
-  padding: 4px 12px;
-  border-radius: 12px;
+  display: none; /* 旧的标签样式已被 cat-dot + cat-name 替代 */
 }
 
 .card-footer-right {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .card-date {
   font-size: 12px;
-  color: var(--text-muted);
+  color: #bbb;
 }
 
 .view-link {
-  font-size: 13px;
-  color: #667eea;
+  font-size: 12px;
+  color: #6366f1;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: gap 0.2s;
 }
 
-/* 查看全文：悬停 ≥0.5s 渐显 + 帷幕细线从中间向两端展开（仅悬停设备） */
+.view-link:hover {
+  gap: 6px;
+}
+
+.arrow-icon {
+  font-size: 12px;
+  transition: transform 0.2s;
+}
+
+/* 查看全文：悬停时渐显 + 帷幕细线从中间向两端展开（仅悬停设备） */
 @media (hover: hover) {
   .view-link {
     position: relative;
-    opacity: 0;
-    transform: translateX(-6px);
-    transition: opacity .4s var(--ease-soft) .5s,
-                transform .4s var(--ease-out-quint) .5s;
   }
   .view-link::before,
   .view-link::after {
@@ -1376,10 +1432,6 @@ header {
   }
   .view-link::before { right: 50%; }
   .view-link::after  { left: 50%; }
-  .note-card:hover .view-link {
-    opacity: 1;
-    transform: translateX(0);
-  }
   .note-card:hover .view-link::before,
   .note-card:hover .view-link::after { width: 22px; }
 }
@@ -1522,33 +1574,74 @@ header {
   margin: 12px 0;
 }
 
-.loading-overlay {
-  grid-column: 1/-1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 80px 0;
-  gap: 12px;
-  color: #667eea;
-}
-
-.loading-overlay .loading-spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid rgba(102, 126, 234, 0.2);
-  border-top-color: #667eea;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
 .empty-hint {
   color: var(--text-light);
   font-size: 14px;
+}
+
+/* ===== 骨架屏加载 ===== */
+.skeleton-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.skeleton-card {
+  background: var(--bg-primary);
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid rgba(0,0,0,0.04);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255,255,255,0.6) 50%,
+    transparent 100%);
+  animation: skeleton-shimmer 1.5s infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.skeleton-line {
+  height: 14px;
+  margin-bottom: 10px;
+  background: linear-gradient(90deg, #f0f0f0 0%, #e8e8e8 50%, #f0f0f0 100%);
+  border-radius: 4px;
+}
+
+.skeleton-title {
+  height: 18px;
+  width: 60%;
+  margin-bottom: 14px;
+}
+
+.skeleton-short {
+  width: 70%;
+}
+
+.skeleton-footer {
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(0,0,0,0.04);
+}
+
+.skeleton-mini {
+  height: 10px;
+  width: 40px;
+  margin: 0;
+  background: linear-gradient(90deg, #f0f0f0 0%, #e8e8e8 50%, #f0f0f0 100%);
 }
 
 /* ================================================================
@@ -2129,7 +2222,7 @@ header {
 
 /* ===== 无障碍：尊重「减少动态」偏好 ===== */
 @media (prefers-reduced-motion: reduce) {
-  .stat-badge:nth-child(-n+3),
+  .stat-mini:nth-child(-n+3) .stat-val,
   .search-field:hover::after,
   .search-field:focus-within::after,
   .scroll-knob.burst {
@@ -2138,15 +2231,83 @@ header {
   .note-card,
   .filter-cs,
   .view-link,
-  .scroll-knob {
+  .scroll-knob,
+  .skeleton-card::before {
     transition: none !important;
+    animation: none !important;
   }
 }
 
 /* 手机端：内容宽度自适应，阅读区内边距缩小 */
 @media (max-width: 767px) {
   .viewer-panel {
-    padding: 12px;
+    padding: 16px 14px;
+  }
+
+  /* 搜索框更圆润 */
+  .search-input {
+    padding: 14px 18px;
+    font-size: 15px;
+  }
+
+  /* 统计徽章：更紧凑 */
+  .stats-bar {
+    gap: 6px;
+    margin-bottom: 12px;
+  }
+
+  .stat-mini .stat-val {
+    font-size: 13px;
+  }
+
+  .stat-icon-btn {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+
+  /* 筛选行：支持横向滚动 */
+  .filter-row {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+    margin-left: -14px;
+    margin-right: -14px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .filter-row::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 笔记卡片：增加间距 */
+  .note-grid {
+    gap: 14px;
+  }
+
+  .note-card {
+    border-radius: 14px;
+  }
+
+  .note-card::before {
+    top: 12px;
+    bottom: 12px;
+    width: 3px;
+  }
+
+  .card-title {
+    font-size: 17px;
+    margin: 12px 14px 6px 18px;
+  }
+
+  .card-summary {
+    font-size: 13px;
+    margin: 0 14px 12px 18px;
+  }
+
+  .card-footer {
+    padding: 10px 14px 10px 18px;
   }
 
   .exam-dashboard {
@@ -2246,6 +2407,15 @@ header {
   .detail-content :deep(h3) {
     font-size: 17px;
     margin: 20px 0 10px;
+  }
+
+  /* 骨架屏适配 */
+  .skeleton-grid {
+    gap: 14px;
+  }
+
+  .skeleton-card {
+    padding: 14px;
   }
 }
 </style>
