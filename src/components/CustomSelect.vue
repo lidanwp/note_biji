@@ -195,6 +195,9 @@ const handleMediaChange = (e) => {
   width: 100%;
   min-width: 0;
   z-index: 210;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 /* ===== Trigger ===== */
@@ -208,7 +211,7 @@ const handleMediaChange = (e) => {
   padding: 8px 12px;
   border: 2px solid var(--border-color, #e8ecf1);
   border-radius: 8px;
-  background: var(--bg-input, #fff);
+  background: transparent;
   cursor: pointer;
   font-size: 14px;
   color: var(--text-primary, #333);
@@ -231,7 +234,7 @@ const handleMediaChange = (e) => {
 }
 
 .cs-trigger.cs-disabled {
-  background: var(--bg-hover, #f5f7fa);
+  background: transparent;
   cursor: not-allowed;
   opacity: 0.6;
 }
@@ -272,6 +275,7 @@ const handleMediaChange = (e) => {
   max-height: 280px;
   overflow-y: auto;
   padding: 6px 0;
+  margin-top: 0;
 }
 
 .cs-dropdown-enter-active,

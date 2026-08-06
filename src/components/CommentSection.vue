@@ -1,7 +1,7 @@
 <template>
   <div class="comment-section">
     <div class="comment-header">
-      <h4>💬 评论 <span class="comment-count">({{ comments.length }})</span></h4>
+      <h4>💬 评论 <span class="comment-count">({{ totalComments }})</span></h4>
     </div>
 
     <!-- 评论输入 -->
@@ -23,75 +23,14 @@
       </div>
     </div>
 
-    <!-- 评论列表 -->
+    <!-- 评论列表（树形） -->
     <div class="comment-list" ref="commentListRef">
-      <div
-        v-for="comment in sortedComments"
-        :key="comment.id"
-        class="comment-item"
-        :class="{ 'is-reply': comment.parentId }"
-      >
-        <div class="comment-avatar">
-          {{ comment.username?.charAt(0) || '👤' }}
-        </div>
-        <div class="comment-body">
-          <div class="comment-meta">
-            <span class="comment-author">{{ maskAuthor(comment.username) }}</span>
-            <span class="comment-time">{{ formatTime(comment.created_at) }}</span>
-            <button class="btn-reply" @click="startReply(comment)">回复</button>
-            <button
-              v-if="comment.userId === authStore.user?.id"
-              class="btn-delete"
-              @click="deleteComment(comment.id)"
-            >
-              删除
-            </button>
-          </div>
-          <div class="comment-content" v-html="renderMarkdown(comment.content)"></div>
-
-          <!-- 子评论（回复） -->
-          <div v-if="comment.replies?.length" class="replies">
-            <div
-              v-for="reply in comment.replies"
-              :key="reply.id"
-              class="comment-item is-reply"
-            >
-              <div class="comment-avatar">{{ reply.username?.charAt(0) || '👤' }}</div>
-              <div class="comment-body">
-                <div class="comment-meta">
-                  <span class="comment-author">{{ maskAuthor(reply.username) }}</span>
-                  <span class="comment-time">{{ formatTime(reply.created_at) }}</span>
-                  <span class="reply-to">回复 @{{ comment.username }}</span>
-                  <button
-                    v-if="reply.userId === authStore.user?.id"
-                    class="btn-delete"
-                    @click="deleteComment(reply.id)"
-                  >
-                    删除
-                  </button>
-                </div>
-                <div class="comment-content" v-html="renderMarkdown(reply.content)"></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 内联回复输入框 -->
-          <div v-if="replyingTo === comment.id" class="reply-input-wrapper">
-            <textarea
-              v-model="replyContent"
-              placeholder="写下你的回复..."
-              rows="2"
-              @keydown.ctrl.enter="submitReply(comment)"
-            ></textarea>
-            <div class="input-actions">
-              <button @click="cancelReply" class="btn-cancel">取消</button>
-              <button @click="submitReply(comment)" :disabled="!replyContent.trim()" class="btn-submit">
-                回复
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <CommentItem
+        v-for="root in commentTree"
+        :key="root.id"
+        :comment="root"
+        :depth="0"
+      />
 
       <div v-if="comments.length === 0" class="empty-comments">
         <span>📝</span>
@@ -102,9 +41,10 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, provide, nextTick, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import MarkdownIt from 'markdown-it'
+import CommentItem from './CommentItem.vue'
 
 const props = defineProps({
   noteId: {
@@ -116,23 +56,45 @@ const props = defineProps({
 const authStore = useAuthStore()
 const md = new MarkdownIt({ html: true, linkify: true })
 
-const comments = ref([])
-const newComment = ref('')
-const replyContent = ref('')
-const replyingTo = ref(null)
+const comments = ref([])              // 扁平评论数组（数据库原始结构）
+const newComment = ref('')            // 顶层评论输入框内容
+const replyContent = ref('')          // 内联回复输入框内容
+const replyingTo = ref(null)          // 当前正在回复的评论 id
 const commentListRef = ref(null)
 
-// 排序：按时间升序，回复跟在父评论后面
-const sortedComments = computed(() => {
-  const top = comments.value.filter(c => !c.parentId)
-  const replies = comments.value.filter(c => c.parentId)
+const currentUserId = computed(() => authStore.user?.id)
+const totalComments = computed(() => comments.value.length)
 
-  return top.map(parent => ({
-    ...parent,
-    replies: replies.filter(r => r.parentId === parent.id)
-      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-  }))
-})
+/**
+ * 把扁平评论数组按 parent_id 构建成树形结构（支持任意层级嵌套）
+ * 算法：两遍遍历
+ *   1. 第一遍：为每条评论创建带 children 的节点，建立 id -> node 映射
+ *   2. 第二遍：根据 parent_id 把节点挂到父节点的 children 上；无父节点的作为根
+ * 边界处理：parent_id 指向不存在的评论（孤儿）自动降级为根节点
+ */
+const buildTree = (flatList) => {
+  const map = new Map()
+  const roots = []
+
+  flatList.forEach(item => {
+    map.set(item.id, { ...item, children: [] })
+  })
+
+  flatList.forEach(item => {
+    const node = map.get(item.id)
+    const parentId = item.parent_id
+    if (parentId && map.has(parentId)) {
+      map.get(parentId).children.push(node)
+    } else {
+      roots.push(node)
+    }
+  })
+
+  return roots
+}
+
+// 树形评论（顶层评论数组，每项含 children 递归结构）
+const commentTree = computed(() => buildTree(comments.value))
 
 // 邮箱脱敏：第 3~6 位字符替换为 *
 const maskAuthor = (username) => {
@@ -174,7 +136,7 @@ const loadComments = async () => {
   }
 }
 
-// 提交评论
+// 提交顶层评论
 const submitComment = async () => {
   if (!newComment.value.trim()) return
   if (!authStore.user) {
@@ -205,8 +167,8 @@ const submitComment = async () => {
   }
 }
 
-// 开始回复
-const startReply = (comment) => {
+// 开始回复：记录目标评论 id，清空输入框，自动聚焦
+const onStartReply = (comment) => {
   replyingTo.value = comment.id
   replyContent.value = ''
   nextTick(() => {
@@ -216,13 +178,13 @@ const startReply = (comment) => {
 }
 
 // 取消回复
-const cancelReply = () => {
+const onCancelReply = () => {
   replyingTo.value = null
   replyContent.value = ''
 }
 
-// 提交回复
-const submitReply = async (parentComment) => {
+// 提交回复：带上被回复评论的 id 作为 parent_id
+const onSubmitReply = async (parentComment) => {
   if (!replyContent.value.trim()) return
   if (!authStore.user) {
     alert('请先登录')
@@ -246,7 +208,7 @@ const submitReply = async (parentComment) => {
 
     replyContent.value = ''
     replyingTo.value = null
-    await loadComments()
+    await loadComments()   // 刷新列表，保持树形结构
     scrollToBottom()
   } catch (error) {
     console.error('❌ 提交回复失败:', error)
@@ -255,7 +217,7 @@ const submitReply = async (parentComment) => {
 }
 
 // 删除评论
-const deleteComment = async (commentId) => {
+const onDelete = async (commentId) => {
   if (!confirm('确定要删除这条评论吗？')) return
 
   try {
@@ -283,6 +245,20 @@ const scrollToBottom = () => {
     }
   })
 }
+
+// 通过 provide 把回复状态和回调注入递归子组件 CommentItem
+provide('commentContext', {
+  replyingTo,
+  replyContent,
+  currentUserId,
+  onStartReply,
+  onCancelReply,
+  onSubmitReply,
+  onDelete,
+  maskAuthor,
+  formatTime,
+  renderMarkdown
+})
 
 // 暴露加载方法给父组件
 defineExpose({ loadComments })
@@ -372,6 +348,7 @@ onMounted(() => {
   min-height: 50px;
   background: transparent;
   color: var(--text-primary, #333);
+  box-sizing: border-box;
 }
 
 .comment-input-area textarea::placeholder {
@@ -411,144 +388,10 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-.btn-cancel {
-  padding: 6px 16px;
-  background: #f0f0f0;
-  color: #666;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.btn-cancel:hover {
-  background: #e0e0e0;
-}
-
 /* 评论列表 */
 .comment-list {
   max-height: 500px;
   overflow-y: auto;
-}
-
-.comment-item {
-  display: flex;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border-light, #f0f0f0);
-}
-
-.comment-item:last-child {
-  border-bottom: none;
-}
-
-.comment-item.is-reply {
-  padding-left: 48px;
-  border-bottom: none;
-}
-
-.comment-meta {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 4px;
-}
-
-.comment-author {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text-primary, #333);
-}
-
-.comment-time {
-  font-size: 12px;
-  color: var(--text-muted, #bbb);
-}
-
-.reply-to {
-  font-size: 12px;
-  color: var(--accent-color, #667eea);
-  background: var(--accent-light, #f0f2ff);
-  padding: 0 8px;
-  border-radius: 4px;
-}
-
-.btn-reply {
-  font-size: 12px;
-  color: var(--accent-color, #667eea);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-}
-
-.btn-reply:hover {
-  text-decoration: underline;
-}
-
-.btn-delete {
-  font-size: 12px;
-  color: var(--danger-color, #e74c3c);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-}
-
-.btn-delete:hover {
-  text-decoration: underline;
-}
-
-.comment-content {
-  font-size: 14px;
-  color: var(--text-secondary, #444);
-  line-height: 1.7;
-}
-
-.comment-content :deep(p) {
-  margin: 4px 0;
-}
-
-.comment-content :deep(code) {
-  background: var(--bg-code, #f0f0f0);
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 13px;
-  color: var(--text-primary, #333);
-}
-
-.comment-content :deep(blockquote) {
-  border-left: 3px solid var(--accent-color, #667eea);
-  padding-left: 12px;
-  margin: 4px 0;
-  color: var(--text-secondary, #666);
-}
-
-/* 回复输入框 */
-.reply-input-wrapper {
-  margin-top: 8px;
-  background: var(--bg-input, #ffffff);
-  border-radius: 8px;
-  border: 1px solid var(--border-color, #e8ecf1);
-  overflow: hidden;
-}
-
-.reply-input-wrapper textarea {
-  width: 100%;
-  padding: 8px 12px;
-  border: none;
-  outline: none;
-  resize: vertical;
-  font-size: 14px;
-  font-family: inherit;
-  background: transparent;
-  color: var(--text-primary, #333);
-}
-
-.reply-input-wrapper .input-actions {
-  padding: 4px 10px 8px;
-  border-top: 1px solid var(--border-light, #f0f0f0);
 }
 
 /* 空状态 */
