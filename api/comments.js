@@ -11,9 +11,12 @@ export default async function handler(req, res) {
   }
 
   const supabaseUrl = process.env.SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_ANON_KEY
+  // 写操作用 SERVICE_ROLE_KEY 绕过 RLS（API 层已自行鉴权）
+  // 读操作用 ANON_KEY
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const anonKey = process.env.SUPABASE_ANON_KEY || serviceKey
 
-  if (!supabaseUrl || !supabaseKey) {
+  if (!supabaseUrl || !anonKey) {
     return res.status(500).json({ error: 'Supabase 环境变量未配置' })
   }
 
@@ -22,8 +25,8 @@ export default async function handler(req, res) {
       const { noteId } = req.query
       const response = await fetch(`${supabaseUrl}/rest/v1/comments?select=*&note_id=eq.${Number(noteId)}&order=created_at.asc`, {
         headers: {
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': anonKey,
+          'Authorization': `Bearer ${anonKey}`,
           'Content-Type': 'application/json'
         }
       })
@@ -42,6 +45,7 @@ export default async function handler(req, res) {
       }
 
       const body = req.body
+      const useKey = serviceKey || anonKey
 
       // 特殊 action：删除评论（绕过 DELETE 路由的 bug）
       if (body.action === 'delete' && body.id) {
@@ -50,8 +54,8 @@ export default async function handler(req, res) {
           `${supabaseUrl}/rest/v1/comments?id=eq.${encodeURIComponent(body.id)}&select=user_id`,
           {
             headers: {
-              'apikey': supabaseKey,
-              'Authorization': `Bearer ${supabaseKey}`
+              'apikey': useKey,
+              'Authorization': `Bearer ${useKey}`
             }
           }
         )
@@ -74,8 +78,8 @@ export default async function handler(req, res) {
           {
             method: 'DELETE',
             headers: {
-              'apikey': supabaseKey,
-              'Authorization': `Bearer ${supabaseKey}`
+              'apikey': useKey,
+              'Authorization': `Bearer ${useKey}`
             }
           }
         )
@@ -99,8 +103,8 @@ export default async function handler(req, res) {
       const response = await fetch(`${supabaseUrl}/rest/v1/comments?select=*`, {
         method: 'POST',
         headers: {
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`,
+          'apikey': useKey,
+          'Authorization': `Bearer ${useKey}`,
           'Content-Type': 'application/json',
           'Prefer': 'return=representation'
         },
@@ -108,6 +112,8 @@ export default async function handler(req, res) {
       })
 
       if (!response.ok) {
+        const errText = await response.text().catch(() => '')
+        console.error('保存评论失败:', response.status, errText)
         throw new Error(`保存评论失败: ${response.status}`)
       }
 
