@@ -42,6 +42,51 @@ export default async function handler(req, res) {
       }
 
       const body = req.body
+
+      // 特殊 action：删除评论（绕过 DELETE 路由的 bug）
+      if (body.action === 'delete' && body.id) {
+        // 先查询评论，确认归属
+        const findRes = await fetch(
+          `${supabaseUrl}/rest/v1/comments?id=eq.${encodeURIComponent(body.id)}&select=user_id`,
+          {
+            headers: {
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`
+            }
+          }
+        )
+
+        const comments = await findRes.json()
+        const comment = Array.isArray(comments) ? comments[0] : null
+
+        if (!comment) {
+          return res.status(404).json({ error: '评论不存在' })
+        }
+
+        // 权限校验：只有作者或管理员可删
+        if (comment.user_id !== auth.user.id && auth.user.role !== 'admin') {
+          return res.status(403).json({ error: '无权限删除此评论' })
+        }
+
+        // 执行删除
+        const delRes = await fetch(
+          `${supabaseUrl}/rest/v1/comments?id=eq.${encodeURIComponent(body.id)}`,
+          {
+            method: 'DELETE',
+            headers: {
+              'apikey': supabaseKey,
+              'Authorization': `Bearer ${supabaseKey}`
+            }
+          }
+        )
+
+        if (!delRes.ok) {
+          throw new Error(`删除失败: ${delRes.status}`)
+        }
+
+        return res.status(200).json({ success: true, id: body.id })
+      }
+
       const commentData = {
         note_id: Number(body.note_id),
         user_id: auth.user.id,

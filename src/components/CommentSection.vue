@@ -30,6 +30,7 @@
         :key="root.id"
         :comment="root"
         :depth="0"
+        :current-user-id="currentUserId"
       />
 
       <div v-if="comments.length === 0" class="empty-comments">
@@ -216,24 +217,33 @@ const onSubmitReply = async (parentComment) => {
   }
 }
 
-// 删除评论
+// 删除评论 —— 使用远程 DELETE 路由，带 id 查询参数兼容后端
 const onDelete = async (commentId) => {
   if (!confirm('确定要删除这条评论吗？')) return
 
   try {
-    const response = await fetch('/api/comments/' + commentId, {
-      method: 'DELETE',
-      headers: getAuthHeader()
-    })
+    // 同时传路由参数和查询参数，兼容远程不同版本的 id 提取方式
+    const resp = await fetch(
+      '/api/comments/' + encodeURIComponent(commentId) + '?id=' + encodeURIComponent(commentId),
+      {
+        method: 'DELETE',
+        headers: getAuthHeader()
+      }
+    )
 
-    if (!response.ok) {
-      throw new Error('删除评论失败')
+    if (!resp.ok) {
+      let msg = '删除失败'
+      try {
+        const err = await resp.json()
+        if (err?.error) msg = err.error
+      } catch (_) {}
+      throw new Error(msg)
     }
 
     await loadComments()
   } catch (error) {
     console.error('❌ 删除评论失败:', error)
-    alert('删除失败，请重试')
+    alert('删除失败：' + (error.message || '请重试'))
   }
 }
 

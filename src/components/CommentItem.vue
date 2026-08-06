@@ -9,9 +9,9 @@
           <span v-if="parentAuthor" class="reply-to">回复 @{{ ctx.maskAuthor(parentAuthor) }}</span>
           <button class="btn-reply" @click="ctx.onStartReply(comment)">回复</button>
           <button
-            v-if="comment.user_id === currentUserId"
+            v-if="isOwner"
             class="btn-delete"
-            @click="ctx.onDelete(comment.id)"
+            @click="handleDelete"
           >
             删除
           </button>
@@ -49,6 +49,7 @@
         :comment="child"
         :depth="depth + 1"
         :parent-author="comment.username"
+        :current-user-id="currentUserId"
       />
     </div>
   </div>
@@ -68,23 +69,35 @@ const props = defineProps({
     type: Number,
     default: 0
   },
-  // 被回复的评论作者昵称，用于显示"回复 @xxx"
   parentAuthor: {
+    type: String,
+    default: ''
+  },
+  currentUserId: {
     type: String,
     default: ''
   }
 })
 
-// 从父组件 CommentSection 注入评论上下文
 const ctx = inject('commentContext')
 
-// 解包注入的响应式值，供模板直接使用
 const replyingTo = computed(() => ctx.replyingTo.value)
-const currentUserId = computed(() => ctx.currentUserId.value)
 const replyContent = computed({
   get: () => ctx.replyContent.value,
   set: (val) => { ctx.replyContent.value = val }
 })
+
+// 当前用户 id 直接从 prop 读取（简单可靠，无响应式链问题）
+const isOwner = computed(() => {
+  const uid = props.currentUserId
+  if (!uid) return false
+  if (!props.comment?.user_id) return false
+  return String(props.comment.user_id) === String(uid)
+})
+
+const handleDelete = () => {
+  ctx.onDelete(props.comment.id)
+}
 </script>
 
 <style scoped>
