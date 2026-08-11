@@ -2349,7 +2349,6 @@ header {
   .detail-case,
   .detail-attachments,
   .detail-exam {
-    padding: 12px 14px;
   }
 
   .case-content {
