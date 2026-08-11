@@ -1787,7 +1787,6 @@ header {
 .detail-attachments,
 .detail-exam {
   margin-bottom: 24px;
-  padding: 16px 20px;
   background: var(--bg-secondary);
   border-radius: 8px;
 }
