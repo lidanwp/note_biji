@@ -330,7 +330,7 @@ async function callPandaQA(datasetId, query, timeoutMs = 6000) {
     const r = await fetch(`${PANDAWIKI_BASE}/api/v1/qa`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: JSON.stringify({ dataset_id: datasetId, query }),
+      body: JSON.stringify({ dataset_id: datasetId, query, temperature: 0.2, max_tokens: 600, system_prompt: "你是一个专业的项目管理知识助手。请严格根据检索到的内容回答问题。如果检索内容与问题不匹配，直接说'知识库中没有找到相关内容'，不要编造。" }),
       signal: ctrl.signal
     })
     const buf = await r.arrayBuffer()
@@ -350,14 +350,14 @@ async function callPandaQA(datasetId, query, timeoutMs = 6000) {
   }
 }
 
-async function callPandaSearch(datasetId, query, topK = 10, timeoutMs = 6000) {
+async function callPandaSearch(datasetId, query, topK = 5, timeoutMs = 6000) {
   const ctrl = new AbortController()
   const to = setTimeout(() => ctrl.abort(), timeoutMs)
   try {
     const r = await fetch(`${PANDAWIKI_BASE}/api/v1/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: JSON.stringify({ dataset_id: datasetId, query, top_k: topK }),
+      body: JSON.stringify({ dataset_id: datasetId, query, top_k: topK, threshold: 0.75 }),
       signal: ctrl.signal
     })
     const buf = await r.arrayBuffer()
@@ -727,7 +727,7 @@ export async function retrieve({ dataset_id, query, history }) {
 
   // search 变体数从 4 减到 3，单变体 5s 超时，总耗时 max(3s,4s,5s)=5s 内完成
   const searchTask = Promise.all(
-    variants.slice(0, 3).map(q => callPandaSearch(dataset_id, q, 3))
+    variants.slice(0, 2).map(q => callPandaSearch(dataset_id, q, 3))
   )
 
   const [notesMeta, { qaFinalAnswer, embeddingDown }, searchGroupsRaw] = await Promise.all([
@@ -748,7 +748,24 @@ export async function retrieve({ dataset_id, query, history }) {
   const searchGroups = searchGroupsRaw.map(group =>
     rerankByWeight(group, resolvedQuery, detection, notesMeta, intent)
   )
-  const merged = mergeAndRankResults(searchGroups)
+  let merged = mergeAndRankResults(searchGroups)
+
+  // 强制关键词过滤：如果查询包含特定术语，只保留包含该术语的片段
+  const filteredMerged = merged.filter(r => r.weightedScore > 0.3)
+  const queryTerms = query.split(/[\s,，、]+/).filter(t => t.length >= 2)
+  if (queryTerms.length > 0) {
+    const keywordFiltered = filteredMerged.filter(r => {
+      const content = (r.content || '').toLowerCase()
+      return queryTerms.some(term => content.includes(term.toLowerCase()))
+    })
+    if (keywordFiltered.length > 0) {
+      merged = keywordFiltered
+    } else {
+      merged = filteredMerged
+    }
+  } else {
+    merged = filteredMerged
+  }
 
   // 质量检查：最高加权分过低 → 未命中
   const topScore = merged[0]?.weightedScore || 0
