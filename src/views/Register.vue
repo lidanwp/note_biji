@@ -147,6 +147,44 @@
         {{ star.char }}
       </span>
     </div>
+
+    <!-- ===== 注册成功弹窗（遮罩点击不关闭，防误操作） ===== -->
+    <div class="success-modal-overlay" v-if="showSuccessModal">
+      <div class="success-modal" role="dialog" aria-modal="true" aria-label="注册成功提示">
+        <span class="modal-icon">✉️</span>
+        <h2 class="modal-title">注册成功！</h2>
+        <p class="modal-desc">账户已创建，完成邮箱验证即可登录</p>
+
+        <div class="modal-email">
+          <span class="email-label">📧 注册邮箱</span>
+          <span class="email-value">{{ registeredEmail }}</span>
+        </div>
+
+        <div class="modal-steps">
+          <div class="modal-step">
+            <span class="step-badge">1</span>
+            <div class="step-body">
+              <span class="step-text">打开你的邮箱</span>
+            </div>
+          </div>
+          <div class="modal-step">
+            <span class="step-badge">2</span>
+            <div class="step-body">
+              <span class="step-text">查收验证邮件</span>
+              <span class="step-tip">⚠️ 如果没收到，请去「垃圾箱」里找找</span>
+            </div>
+          </div>
+          <div class="modal-step">
+            <span class="step-badge">3</span>
+            <div class="step-body">
+              <span class="step-text">点击邮件中的验证链接</span>
+            </div>
+          </div>
+        </div>
+
+        <button class="modal-btn" @click="goToLogin">我知道了，去登录</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -199,22 +237,13 @@ const showErrorToast = (message) => {
   }, 2200)
 }
 
-const showSuccessToast = (message) => {
-  toastMessage.value = message
-  showToast.value = true
-  toastLeaving.value = false
-  toastContainerClass.value = 'success'
-  
-  setTimeout(() => {
-    toastLeaving.value = true
-    setTimeout(() => {
-      showToast.value = false
-      toastContainerClass.value = ''
-    }, 400)
-  }, 2500)
-}
+const showSuccessModal = ref(false)
+const registeredEmail = ref('')
 
-const toastContainerClass = ref('')
+const goToLogin = () => {
+  showSuccessModal.value = false
+  router.push('/login')
+}
 
 const triggerShake = () => {
   shakeEmail.value = true
@@ -302,17 +331,14 @@ const handleRegister = async () => {
 
     loading.value = false
     registerSuccess.value = true
-    
+
+    registeredEmail.value = email.value
     createStarsRain()
-    showSuccessToast('✅ 注册成功！请检查邮箱完成验证后登录')
-    
+    showSuccessModal.value = true
+
     email.value = ''
     password.value = ''
     confirmPassword.value = ''
-    
-    setTimeout(() => {
-      router.push('/login')
-    }, 2500)
 
   } catch (error) {
     loading.value = false
@@ -331,6 +357,8 @@ onMounted(() => {
   showConfirmPassword.value = false
   showToast.value = false
   showStars.value = false
+  showSuccessModal.value = false
+  registeredEmail.value = ''
 })
 </script>
 
@@ -738,11 +766,6 @@ h1 {
   z-index: 1000;
 }
 
-.toast-container.success .toast {
-  background: rgba(52, 211, 153, 0.92);
-  box-shadow: 0 8px 24px rgba(52, 211, 153, 0.3);
-}
-
 .toast {
   background: rgba(239, 68, 68, 0.92);
   backdrop-filter: blur(20px);
@@ -776,6 +799,182 @@ h1 {
     opacity: 0;
     transform: translateY(-20px);
   }
+}
+
+/* ===== 注册成功弹窗 ===== */
+.success-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(30, 27, 45, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: overlayFadeIn 0.3s ease forwards;
+}
+
+@keyframes overlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.success-modal {
+  width: 100%;
+  max-width: 380px;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(40px);
+  -webkit-backdrop-filter: blur(40px);
+  border-radius: 28px;
+  padding: 32px 28px 26px;
+  box-shadow: 0 24px 60px rgba(45, 27, 61, 0.25);
+  animation: modalPopIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+@keyframes modalPopIn {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-icon {
+  display: block;
+  text-align: center;
+  font-size: 46px;
+  animation: modalIconBounce 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalIconBounce {
+  0% { transform: scale(0) rotate(-15deg); opacity: 0; }
+  60% { transform: scale(1.15) rotate(8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.modal-title {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  color: #2D1B3D;
+  margin: 10px 0 4px;
+}
+
+.modal-desc {
+  text-align: center;
+  font-size: 14px;
+  color: #7C6B8A;
+  margin-bottom: 16px;
+}
+
+.modal-email {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  background: rgba(76, 175, 80, 0.08);
+  border: 1.5px dashed rgba(76, 175, 80, 0.4);
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+
+.email-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #7C6B8A;
+}
+
+.email-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #2D1B3D;
+  word-break: break-all;
+}
+
+.modal-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.modal-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(124, 58, 237, 0.05);
+  border: 1.5px solid rgba(124, 58, 237, 0.12);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+
+.step-badge {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7C3AED, #A78BFA);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.step-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2D1B3D;
+}
+
+.step-tip {
+  font-size: 12px;
+  font-weight: 500;
+  color: #F59E0B;
+}
+
+.modal-btn {
+  width: 100%;
+  height: 50px;
+  margin-top: 24px;
+  border: none;
+  border-radius: 100px;
+  background: linear-gradient(135deg, #66BB6A, #43A047);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(76, 175, 80, 0.35);
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
+
+.modal-btn:hover {
+  box-shadow: 0 12px 32px rgba(76, 175, 80, 0.45);
+  transform: translateY(-1px);
+}
+
+.modal-btn:active {
+  transform: scale(0.97);
 }
 
 .stars-container {
@@ -847,6 +1046,12 @@ h1 {
 
   .subtitle {
     font-size: 14px;
+  }
+
+  /* 弹窗：手机端收窄内边距与圆角 */
+  .success-modal {
+    padding: 28px 20px 22px;
+    border-radius: 24px;
   }
 }
 </style>

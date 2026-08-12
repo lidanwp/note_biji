@@ -3,12 +3,23 @@
     <!-- ===== 头部 ===== -->
     <header>
       <div class="header-left">
-        <span class="app-logo">📖</span>
+        <span class="app-logo">
+          <img src="/书本.svg" alt="书本" />
+        </span>
         <span class="app-name">知识分享</span>
+      </div>
+      <!-- ===== 无缝滚动公告条 ===== -->
+      <div class="header-ticker" ref="tickerRef">
+        <div class="ticker-track" ref="tickerTrackRef">
+          <span class="ticker-content">🤝 非盈利 · 纯干货 | 抱团取暖，共享笔记，互帮互助 | <span class="ticker-highlight">2026 软考集成，我们一起拿下！</span></span>
+          <span class="ticker-content" aria-hidden="true">🤝 非盈利 · 纯干货 | 抱团取暖，共享笔记，互帮互助 | <span class="ticker-highlight">2026 软考集成，我们一起拿下！</span></span>
+        </div>
       </div>
       <div class="header-right" ref="userMenuRef">
         <button @click="toggleUserMenu" class="user-btn" ref="userBtnRef">
-          <span class="user-avatar">👤</span>
+          <span class="user-avatar">
+            <img src="/退出.svg" alt="退出" />
+          </span>
           <span class="user-name">{{ authStore.user?.username }}</span>
           <span class="menu-arrow">{{ showUserMenu ? '▲' : '▼' }}</span>
         </button>
@@ -391,6 +402,8 @@ const userBtnRef = ref(null)
 const dropdownMenuRef = ref(null)
 const userMenuStyle = ref({})
 const scrollKnob = ref(null)
+const tickerRef = ref(null)
+const tickerTrackRef = ref(null)
 
 // ===== 动效交互（鼠标光晕/3D倾斜 + 墨渍涟漪 + 滚动进度光带） =====
 let rafPending = false
@@ -459,6 +472,17 @@ function handleScroll() {
       burstLocked = false
     }, 900)
   }
+}
+
+// 公告条：测量容器宽度，让文字从右边缘进入并向左无缝滚动
+function syncTicker() {
+  const box = tickerRef.value
+  const track = tickerTrackRef.value
+  if (!box || !track) return
+  const containerW = box.clientWidth
+  const trackW = track.scrollWidth // 双份内容总宽
+  box.style.setProperty('--ticker-from', containerW + 'px')
+  box.style.setProperty('--ticker-to', (containerW - trackW) + 'px')
 }
 
 // 滑动返回相关
@@ -740,6 +764,12 @@ onMounted(async () => {
   window.addEventListener('resize', () => {
     if (showUserMenu.value) updateUserMenuPosition()
   })
+  // 公告条起始位置：挂载 + 窗口变化 + 字体加载后各测一次
+  syncTicker()
+  window.addEventListener('resize', syncTicker)
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(syncTicker)
+  }
   handleScroll() // 初始定位
 })
 
@@ -759,6 +789,7 @@ onUnmounted(() => {
   }
   document.removeEventListener('click', handleListClickRipple)
   window.removeEventListener('scroll', handleScroll)
+  window.removeEventListener('resize', syncTicker)
   document.body.style.overflow = ''
 })
 </script>
@@ -809,7 +840,14 @@ header {
 }
 
 .app-logo {
-  font-size: 20px;
+  display: flex;
+  align-items: center;
+}
+
+.app-logo img {
+  display: block;
+  width: 20px;
+  height: 20px;
 }
 
 .app-name {
@@ -841,7 +879,14 @@ header {
 }
 
 .user-avatar {
-  font-size: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.user-avatar img {
+  display: block;
+  width: 16px;
+  height: 16px;
 }
 
 .user-name {
@@ -900,6 +945,43 @@ header {
 
 .item-icon {
   font-size: 14px;
+}
+
+/* ===== 无缝滚动公告条 ===== */
+.header-ticker {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  margin: 0 14px;
+  /* 左右渐隐遮罩，滚动进出更柔和 */
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
+}
+
+.ticker-track {
+  display: inline-flex;
+  white-space: nowrap;
+  will-change: transform;
+  /* 从容器右边缘进入，向左平移一个轨道宽度（双份内容宽）后回到等效位置 → 首尾无缝 */
+  animation: ticker-scroll 20s linear infinite;
+}
+
+.ticker-content {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ticker-highlight {
+  color: #6366f1;
+  font-weight: 600;
+}
+
+@keyframes ticker-scroll {
+  from { transform: translateX(var(--ticker-from, 100%)); }
+  to { transform: translateX(var(--ticker-to, -100%)); }
 }
 
 /* ===== 统计徽章行 ===== */
@@ -2224,7 +2306,8 @@ header {
   .stat-mini:nth-child(-n+3) .stat-val,
   .search-field:hover::after,
   .search-field:focus-within::after,
-  .scroll-knob.burst {
+  .scroll-knob.burst,
+  .ticker-track {
     animation: none !important;
   }
   .note-card,
@@ -2262,6 +2345,16 @@ header {
   .stat-icon-btn {
     padding: 3px 8px;
     font-size: 11px;
+  }
+
+  /* 公告条：手机端收窄高度与字号，仅在剩余空间内滚动，不撑破 header */
+  .header-ticker {
+    height: 22px;
+    margin: 0 8px;
+  }
+
+  .ticker-content {
+    font-size: 12px;
   }
 
   /* 筛选行：支持横向滚动 */
