@@ -451,8 +451,14 @@ const sendQuestion = async () => {
 .status-dot {
   width: 8px;
   height: 8px;
-  background: #A8B8A8;
+  background: #22c55e;
   border-radius: 50%;
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
+  animation: status-pulse 2s ease-in-out infinite;
+}
+@keyframes status-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(34, 197, 94, 0.5); }
+  50% { box-shadow: 0 0 12px rgba(34, 197, 94, 0.8); }
 }
 .status-text {
   font-size: 12px;

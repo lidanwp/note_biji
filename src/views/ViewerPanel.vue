@@ -247,8 +247,8 @@
       >
         <div class="detail-header">
           <button class="modal-back" @click="closeDetail">
-            <svg viewBox="0 0 24 24" class="back-icon" aria-label="返回">
-              <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <svg viewBox="0 0 1024 1024" class="back-icon" aria-label="返回" xmlns="http://www.w3.org/2000/svg">
+              <path d="M477.867 307.2V186.027c-10.24-51.2-52.907-20.48-52.907-20.48L139.947 414.72c-63.147 44.373-5.12 76.8-5.12 76.8l281.6 245.76c56.32 40.96 61.44-22.187 61.44-22.187V604.16C764.587 512 880.64 872.107 880.64 872.107c10.24 20.48 17.067 0 17.067 0C1008.64 332.8 477.867 307.2 477.867 307.2z" fill="#cdcdcd"/>
             </svg>
           </button>
           <div class="detail-meta-row">
