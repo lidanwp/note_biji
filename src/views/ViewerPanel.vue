@@ -95,7 +95,6 @@
         />
       </div>
       <div class="filter-row">
-        <CustomSelect v-model="notesStore.categoryFilter" :options="categoryFilterOptions" placeholder="📂 过程组" class="filter-cs" :class="{ 'is-active': notesStore.categoryFilter }" />
         <CustomSelect v-model="notesStore.knowledgeAreaFilter" :options="knowledgeAreaOptions" placeholder="📚 全部知识领域" class="filter-cs" :class="{ 'is-active': notesStore.knowledgeAreaFilter }" />
         <div class="exam-toggle">
           <label class="switch">
@@ -492,11 +491,6 @@ const slideX = ref(0)
 const isSliding = ref(false)
 
 // ===== 下拉选项数据 =====
-const categoryFilterOptions = computed(() => [
-  { value: '', label: '📂 全部分类' },
-  ...categories.value.map(c => ({ value: c, label: c }))
-])
-
 // 项目管理知识领域（概论、立项 + PMBOK 十大）
 const knowledgeAreaOptions = [
   { value: '', label: '📚 全部知识领域' },
@@ -532,7 +526,6 @@ const TAG_COLOR_MAP = {
 const tagColorClass = (tag) => TAG_COLOR_MAP[tag] || 'tag-default'
 
 // ===== 计算属性 =====
-const categories = computed(() => notesStore.categories)
 const totalViews = computed(() => notesStore.totalViews)
 const totalCharacters = computed(() => notesStore.totalCharacters)
 

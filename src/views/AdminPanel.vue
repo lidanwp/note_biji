@@ -65,7 +65,6 @@
 
     <!-- 筛选行 -->
     <div class="filter-bar">
-      <CustomSelect v-model="notesStore.categoryFilter" :options="categoryFilterOptions" placeholder="全部分类" class="filter-cs" />
       <CustomSelect v-model="notesStore.knowledgeAreaFilter" :options="knowledgeAreaOptions" placeholder="全部知识领域" class="filter-cs" />
       <div class="mode-switch">
         <button 
@@ -249,11 +248,7 @@
                 <input v-model="form.title" @input="autoSaveDraft" placeholder="如：WBS工作分解 - 快速拆解大型项目">
               </div>
               <div class="form-group flex-1">
-                <label>📂 分类 <span class="required">*</span></label>
-                <CustomSelect v-model="form.category" :options="formCategoryOptions" placeholder="请选择分类" @change="autoSaveDraft" />
-              </div>
-              <div class="form-group flex-1">
-                <label>� 知识领域</label>
+                <label>🎯 知识领域</label>
                 <CustomSelect v-model="form.knowledgeArea" :options="formKnowledgeAreaOptions" placeholder="请选择知识领域" @change="autoSaveDraft" />
               </div>
             </div>
@@ -528,11 +523,6 @@ const form = reactive({
 })
 
 // ===== 下拉选项数据 =====
-const categoryFilterOptions = computed(() => [
-  { value: '', label: '全部分类' },
-  ...categories.value.map(c => ({ value: c, label: c }))
-])
-
 // 项目管理知识领域（概论、立项 + PMBOK 十大）
 const knowledgeAreaOptions = [
   { value: '', label: '全部知识领域' },
@@ -553,37 +543,12 @@ const knowledgeAreaOptions = [
 // 知识领域取值集合（用于在 tags 中识别/同步知识领域）
 const KNOWLEDGE_AREAS = knowledgeAreaOptions.map(o => o.value).filter(Boolean)
 
-const formCategoryOptions = [
-  { value: '', label: '请选择分类' },
-  {
-    group: '项目管理',
-    items: [
-      { value: '项目管理/启动阶段', label: '启动阶段' },
-      { value: '项目管理/规划阶段', label: '规划阶段' },
-      { value: '项目管理/执行阶段', label: '执行阶段' },
-      { value: '项目管理/监控阶段', label: '监控阶段' },
-      { value: '项目管理/收尾阶段', label: '收尾阶段' },
-    ],
-  },
-  {
-    group: '系统集成',
-    items: [
-      { value: '系统集成/技术架构', label: '技术架构' },
-      { value: '系统集成/集成方案', label: '集成方案' },
-      { value: '系统集成/实施经验', label: '实施经验' },
-      { value: '系统集成/运维保障', label: '运维保障' },
-    ],
-  },
-  { value: '其他', label: '其他' },
-]
-
 const formKnowledgeAreaOptions = [
   { value: '', label: '不指定' },
   ...knowledgeAreaOptions.filter(o => o.value),
 ]
 
 // ===== 计算属性 =====
-const categories = computed(() => notesStore.categories)
 const totalViews = computed(() => notesStore.totalViews)
 const filteredNotes = computed(() => notesStore.filteredNotes)
 const paginatedNotes = computed(() => notesStore.paginatedNotes)
@@ -1069,10 +1034,6 @@ const removeMemoryAid = (index) => {
 const saveNote = async () => {
   if (!form.title.trim()) {
     toastWarning('请输入标题')
-    return
-  }
-  if (!form.category) {
-    toastWarning('请选择分类')
     return
   }
   if (!form.content || !form.content.trim()) {
