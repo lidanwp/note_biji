@@ -1137,8 +1137,8 @@ header {
 .filter-row:hover .filter-cs { margin-left: 4px; }
 .filter-row .filter-cs:first-child { margin-left: 0; }
 .filter-cs:hover {
-  transform: translateY(-3px) scale(1.04);
-  box-shadow: 0 6px 18px var(--ink-violet);
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 0 3px 10px var(--ink-violet);
 }
 
 /* 选中态：发光胶囊高亮 */
