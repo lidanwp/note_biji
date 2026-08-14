@@ -22,13 +22,17 @@
         <!-- 内联回复输入框 -->
         <div v-if="replyingTo === comment.id" class="reply-input-wrapper">
           <textarea
+            ref="replyTextareaRef"
             v-model="replyContent"
             :placeholder="`回复 @${ctx.maskAuthor(comment.username)}...`"
             rows="2"
             @keydown.ctrl.enter="ctx.onSubmitReply(comment)"
           ></textarea>
           <div class="input-actions">
-            <button @click="ctx.onCancelReply" class="btn-cancel">取消</button>
+            <div class="input-actions-left">
+              <MemePicker :textarea-ref="replyTextareaRef" @insert="onReplyMemeInsert" />
+              <button @click="ctx.onCancelReply" class="btn-cancel">取消</button>
+            </div>
             <button
               @click="ctx.onSubmitReply(comment)"
               :disabled="!replyContent.trim()"
@@ -56,7 +60,8 @@
 </template>
 
 <script setup>
-import { inject, computed } from 'vue'
+import { inject, computed, ref } from 'vue'
+import MemePicker from './MemePicker.vue'
 
 defineOptions({ name: 'CommentItem' })
 
@@ -81,11 +86,23 @@ const props = defineProps({
 
 const ctx = inject('commentContext')
 
+const replyTextareaRef = ref(null)
+
 const replyingTo = computed(() => ctx.replyingTo.value)
 const replyContent = computed({
   get: () => ctx.replyContent.value,
   set: (val) => { ctx.replyContent.value = val }
 })
+
+// MemePicker 插入回调：在 replyContent 的光标位置插入占位符
+const onReplyMemeInsert = ({ placeholder, start, end }) => {
+  const text = replyContent.value
+  if (start < 0) {
+    replyContent.value = text + placeholder
+  } else {
+    replyContent.value = text.slice(0, start) + placeholder + text.slice(end)
+  }
+}
 
 // 当前用户 id 直接从 prop 读取（简单可靠，无响应式链问题）
 const isOwner = computed(() => {
@@ -216,6 +233,18 @@ const handleDelete = () => {
   color: var(--text-secondary, #666);
 }
 
+/* 表情包图片：行内展示，垂直居中 */
+.comment-content :deep(.meme-emoji) {
+  display: inline-block;
+  width: 60px;
+  height: 60px;
+  vertical-align: middle;
+  border-radius: 6px;
+  margin: 0 2px;
+  object-fit: cover;
+  cursor: default;
+}
+
 /* 回复输入框 */
 .reply-input-wrapper {
   margin-top: 8px;
@@ -240,10 +269,18 @@ const handleDelete = () => {
 
 .reply-input-wrapper .input-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 8px;
   padding: 4px 10px 8px;
   border-top: 1px solid var(--border-light, #f0f0f0);
+}
+
+.reply-input-wrapper .input-actions-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .btn-submit {

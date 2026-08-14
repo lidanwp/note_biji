@@ -741,9 +741,6 @@ const sendQuestion = async () => {
   .header-title {
     font-size: 14px;
   }
-  .header-status {
-    display: none;
-  }
   .chip {
     padding: 3px 10px;
     font-size: 11px;

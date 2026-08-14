@@ -9,13 +9,17 @@
       <div class="comment-avatar">{{ authStore.user?.username?.charAt(0) || '👤' }}</div>
       <div class="comment-input-area">
         <textarea
+          ref="commentTextareaRef"
           v-model="newComment"
           placeholder="写下你的想法... (支持 Markdown)"
           rows="2"
           @keydown.ctrl.enter="submitComment"
         ></textarea>
         <div class="input-actions">
-          <span class="input-hint">Ctrl + Enter 快捷发送</span>
+          <div class="input-actions-left">
+            <MemePicker :textarea-ref="commentTextareaRef" @insert="onMemeInsert" />
+            <span class="input-hint">Ctrl + Enter 快捷发送</span>
+          </div>
           <button @click="submitComment" :disabled="!newComment.trim()" class="btn-submit">
             发送评论
           </button>
@@ -46,6 +50,7 @@ import { ref, computed, provide, nextTick, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import MarkdownIt from 'markdown-it'
 import CommentItem from './CommentItem.vue'
+import MemePicker, { renderMeme } from './MemePicker.vue'
 
 const props = defineProps({
   noteId: {
@@ -62,6 +67,7 @@ const newComment = ref('')            // 顶层评论输入框内容
 const replyContent = ref('')          // 内联回复输入框内容
 const replyingTo = ref(null)          // 当前正在回复的评论 id
 const commentListRef = ref(null)
+const commentTextareaRef = ref(null)  // 顶层输入框 textarea DOM 引用，供 MemePicker 定位光标
 
 const currentUserId = computed(() => authStore.user?.id)
 const totalComments = computed(() => comments.value.length)
@@ -120,7 +126,19 @@ const formatTime = (timestamp) => {
 
 const renderMarkdown = (content) => {
   if (!content) return ''
-  return md.render(content)
+  // 先把 [meme:id] 占位符替换为 <img class="meme-emoji" />，再走 Markdown 渲染
+  return md.render(renderMeme(content))
+}
+
+// MemePicker 插入回调：在 newComment 的光标位置插入占位符
+const onMemeInsert = ({ placeholder, start, end }) => {
+  const text = newComment.value
+  if (start < 0) {
+    // 无光标信息时追加到末尾
+    newComment.value = text + placeholder
+  } else {
+    newComment.value = text.slice(0, start) + placeholder + text.slice(end)
+  }
 }
 
 // 加载评论
@@ -369,8 +387,16 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 8px;
   padding: 6px 12px 10px;
   border-top: 1px solid var(--border-light, #f0f0f0);
+}
+
+.input-actions-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .input-hint {
