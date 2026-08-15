@@ -1,57 +1,77 @@
 <template>
   <div class="comment-section">
-    <div class="comment-header">
-      <h4>💬 评论 <span class="comment-count">({{ totalComments }})</span></h4>
-    </div>
-
-    <!-- 评论输入 -->
-    <div class="comment-input-wrapper">
-      <div class="comment-avatar">{{ authStore.user?.username?.charAt(0) || '👤' }}</div>
-      <div class="comment-input-area">
-        <textarea
-          ref="commentTextareaRef"
-          v-model="newComment"
-          placeholder="写下你的想法... (支持 Markdown)"
-          rows="2"
-          @keydown.ctrl.enter="submitComment"
-        ></textarea>
-        <div class="input-actions">
-          <div class="input-actions-left">
-            <MemePicker :textarea-ref="commentTextareaRef" @insert="onMemeInsert" />
-            <span class="input-hint">Ctrl + Enter 快捷发送</span>
-          </div>
-          <button @click="submitComment" :disabled="!newComment.trim()" class="btn-submit">
-            发送评论
+    <!-- 评论列表 -->
+    <div v-if="comments.length > 0" class="comment-list">
+      <div
+        v-for="comment in comments"
+        :key="comment.id"
+        class="comment-item"
+      >
+        <div class="comment-header">
+          <span class="comment-author">{{ comment.author }}</span>
+          <span class="comment-time">{{ formatTime(comment.created_at) }}</span>
+          <button
+            v-if="canDelete(comment)"
+            @click="deleteComment(comment.id)"
+            class="comment-delete"
+            title="删除评论"
+          >
+            ×
           </button>
         </div>
+        <!-- 评论内容 - 表情包在这里渲染，自然换行 -->
+        <div class="comment-text" v-html="renderMeme(comment.content)"></div>
+        <button
+          @click="replyToComment(comment)"
+          class="comment-reply-btn"
+        >
+          💬 回复
+        </button>
       </div>
     </div>
 
-    <!-- 评论列表（树形） -->
-    <div class="comment-list" ref="commentListRef">
-      <CommentItem
-        v-for="root in commentTree"
-        :key="root.id"
-        :comment="root"
-        :depth="0"
-        :current-user-id="currentUserId"
-      />
+    <!-- 空状态 -->
+    <div v-else class="comment-empty">
+      <span class="empty-icon">💬</span>
+      <p>暂无评论，来说点什么吧</p>
+    </div>
 
-      <div v-if="comments.length === 0" class="empty-comments">
-        <span>📝</span>
-        <p>暂无评论，快来写下你的第一条评论吧！</p>
+    <!-- 回复目标提示 -->
+    <div v-if="replyTarget" class="reply-target">
+      <span>回复 @{{ replyTarget.author }}</span>
+      <button @click="cancelReply" class="reply-cancel">取消</button>
+    </div>
+
+    <!-- 评论输入区域 -->
+    <div class="comment-input-area">
+      <textarea
+        ref="textareaRef"
+        v-model="newComment"
+        placeholder="写下你的评论... (Ctrl+Enter 快捷发送)"
+        class="comment-textarea"
+        @keydown.ctrl.enter="submitComment"
+        @keydown.meta.enter="submitComment"
+      />
+      <div class="comment-toolbar">
+        <MemePicker :textareaRef="textareaRef" @insert="insertMeme" />
+        <button
+          @click="submitComment"
+          class="comment-submit"
+          :disabled="!newComment.trim()"
+        >
+          发送
+        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, provide, nextTick, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
-import MarkdownIt from 'markdown-it'
-import CommentItem from './CommentItem.vue'
 import MemePicker, { renderMeme } from './MemePicker.vue'
 
+// ===== Props =====
 const props = defineProps({
   noteId: {
     type: String,
@@ -59,392 +79,452 @@ const props = defineProps({
   }
 })
 
+// ===== Stores =====
 const authStore = useAuthStore()
-const md = new MarkdownIt({ html: true, linkify: true })
 
-const comments = ref([])              // 扁平评论数组（数据库原始结构）
-const newComment = ref('')            // 顶层评论输入框内容
-const replyContent = ref('')          // 内联回复输入框内容
-const replyingTo = ref(null)          // 当前正在回复的评论 id
-const commentListRef = ref(null)
-const commentTextareaRef = ref(null)  // 顶层输入框 textarea DOM 引用，供 MemePicker 定位光标
+// ===== 响应式数据 =====
+const comments = ref([])
+const newComment = ref('')
+const textareaRef = ref(null)
+const replyTarget = ref(null) // { id, author }
+const isLoading = ref(false)
 
-const currentUserId = computed(() => authStore.user?.id)
-const totalComments = computed(() => comments.value.length)
-
-/**
- * 把扁平评论数组按 parent_id 构建成树形结构（支持任意层级嵌套）
- * 算法：两遍遍历
- *   1. 第一遍：为每条评论创建带 children 的节点，建立 id -> node 映射
- *   2. 第二遍：根据 parent_id 把节点挂到父节点的 children 上；无父节点的作为根
- * 边界处理：parent_id 指向不存在的评论（孤儿）自动降级为根节点
- */
-const buildTree = (flatList) => {
-  const map = new Map()
-  const roots = []
-
-  flatList.forEach(item => {
-    map.set(item.id, { ...item, children: [] })
-  })
-
-  flatList.forEach(item => {
-    const node = map.get(item.id)
-    const parentId = item.parent_id
-    if (parentId && map.has(parentId)) {
-      map.get(parentId).children.push(node)
-    } else {
-      roots.push(node)
-    }
-  })
-
-  return roots
-}
-
-// 树形评论（顶层评论数组，每项含 children 递归结构）
-const commentTree = computed(() => buildTree(comments.value))
-
-// 邮箱脱敏：第 3~6 位字符替换为 *
-const maskAuthor = (username) => {
-  if (!username) return '匿名用户'
-  if (username.length < 3) return username
-  const maskLen = Math.min(4, username.length - 2)
-  return username.slice(0, 2) + '*'.repeat(maskLen) + username.slice(2 + maskLen)
-}
-
-const formatTime = (timestamp) => {
-  if (!timestamp) return '刚刚'
-  const date = new Date(timestamp)
-  const now = new Date()
-  const diff = Math.floor((now - date) / 1000)
-
-  if (diff < 60) return diff + '秒前'
-  if (diff < 3600) return Math.floor(diff / 60) + '分钟前'
-  if (diff < 86400) return Math.floor(diff / 3600) + '小时前'
-  if (diff < 604800) return Math.floor(diff / 86400) + '天前'
-  return date.toLocaleDateString('zh-CN')
-}
-
-const renderMarkdown = (content) => {
-  if (!content) return ''
-  // 先把 [meme:id] 占位符替换为 <img class="meme-emoji" />，再走 Markdown 渲染
-  return md.render(renderMeme(content))
-}
-
-// MemePicker 插入回调：在 newComment 的光标位置插入占位符
-const onMemeInsert = ({ placeholder, start, end }) => {
-  const text = newComment.value
-  if (start < 0) {
-    // 无光标信息时追加到末尾
-    newComment.value = text + placeholder
-  } else {
-    newComment.value = text.slice(0, start) + placeholder + text.slice(end)
-  }
-}
-
-// 加载评论
-const loadComments = async () => {
+// ===== 从 localStorage 加载评论 =====
+const loadComments = () => {
   try {
-    const response = await fetch('/api/comments?noteId=' + props.noteId)
-    if (!response.ok) {
-      throw new Error('加载评论失败')
+    const key = `comments_${props.noteId}`
+    const stored = localStorage.getItem(key)
+    if (stored) {
+      comments.value = JSON.parse(stored)
+    } else {
+      // 改为空数组，不预设示例数据
+      comments.value = []
+      // 不再保存，让用户自己创建第一条评论
     }
-    comments.value = await response.json()
-  } catch (error) {
-    console.error('❌ 加载评论失败:', error)
+  } catch (e) {
+    console.error('加载评论失败:', e)
     comments.value = []
   }
 }
 
-// 提交顶层评论
-const submitComment = async () => {
-  if (!newComment.value.trim()) return
-  if (!authStore.user) {
-    alert('请先登录')
-    return
-  }
-
+// ===== 保存评论到 localStorage =====
+const saveComments = () => {
   try {
-    const response = await fetch('/api/comments', {
-      method: 'POST',
-      headers: getAuthHeader(),
-      body: JSON.stringify({
-        note_id: Number(props.noteId),
-        content: newComment.value.trim()
-      })
-    })
-
-    if (!response.ok) {
-      throw new Error('提交评论失败')
-    }
-
-    newComment.value = ''
-    await loadComments()
-    scrollToBottom()
-  } catch (error) {
-    console.error('❌ 提交评论失败:', error)
-    alert('提交失败，请重试')
+    const key = `comments_${props.noteId}`
+    localStorage.setItem(key, JSON.stringify(comments.value))
+  } catch (e) {
+    console.error('保存评论失败:', e)
   }
 }
 
-// 开始回复：记录目标评论 id，清空输入框，自动聚焦
-const onStartReply = (comment) => {
-  replyingTo.value = comment.id
-  replyContent.value = ''
-  nextTick(() => {
-    const textarea = document.querySelector('.reply-input-wrapper textarea')
-    textarea?.focus()
-  })
-}
+// ===== 提交评论 =====
+const submitComment = () => {
+  const content = newComment.value.trim()
+  if (!content) return
 
-// 取消回复
-const onCancelReply = () => {
-  replyingTo.value = null
-  replyContent.value = ''
-}
-
-// 提交回复：带上被回复评论的 id 作为 parent_id
-const onSubmitReply = async (parentComment) => {
-  if (!replyContent.value.trim()) return
-  if (!authStore.user) {
-    alert('请先登录')
-    return
+  const comment = {
+    id: Date.now(),
+    noteId: props.noteId,
+    author: authStore.user?.username || '匿名用户',
+    content: replyTarget.value ? `@${replyTarget.value.author} ${content}` : content,
+    created_at: new Date().toISOString(),
+    user_id: authStore.user?.id || 'anonymous',
+    reply_to: replyTarget.value?.id || null
   }
 
-  try {
-    const response = await fetch('/api/comments', {
-      method: 'POST',
-      headers: getAuthHeader(),
-      body: JSON.stringify({
-        note_id: Number(props.noteId),
-        content: replyContent.value.trim(),
-        parent_id: parentComment.id
-      })
-    })
+  comments.value.unshift(comment)
+  saveComments()
+  newComment.value = ''
+  replyTarget.value = null
 
-    if (!response.ok) {
-      throw new Error('提交回复失败')
-    }
-
-    replyContent.value = ''
-    replyingTo.value = null
-    await loadComments()   // 刷新列表，保持树形结构
-    scrollToBottom()
-  } catch (error) {
-    console.error('❌ 提交回复失败:', error)
-    alert('提交失败，请重试')
-  }
+  // 保持输入框焦点
+  textareaRef.value?.focus()
 }
 
-// 删除评论 —— 使用远程 DELETE 路由，带 id 查询参数兼容后端
-const onDelete = async (commentId) => {
+// ===== 删除评论 =====
+const deleteComment = (commentId) => {
   if (!confirm('确定要删除这条评论吗？')) return
 
-  try {
-    // 同时传路由参数和查询参数，兼容远程不同版本的 id 提取方式
-    const resp = await fetch(
-      '/api/comments/' + encodeURIComponent(commentId) + '?id=' + encodeURIComponent(commentId),
-      {
-        method: 'DELETE',
-        headers: getAuthHeader()
-      }
-    )
+  comments.value = comments.value.filter(c => c.id !== commentId)
+  saveComments()
+}
 
-    if (!resp.ok) {
-      let msg = '删除失败'
-      try {
-        const err = await resp.json()
-        if (err?.error) msg = err.error
-      } catch (_) {}
-      throw new Error(msg)
-    }
+// ===== 判断是否有权限删除 =====
+const canDelete = (comment) => {
+  const userId = authStore.user?.id
+  return userId && (comment.user_id === userId || authStore.user?.role === 'admin')
+}
 
-    await loadComments()
-  } catch (error) {
-    console.error('❌ 删除评论失败:', error)
-    alert('删除失败：' + (error.message || '请重试'))
+// ===== 回复评论 =====
+const replyToComment = (comment) => {
+  replyTarget.value = { id: comment.id, author: comment.author }
+  textareaRef.value?.focus()
+}
+
+const cancelReply = () => {
+  replyTarget.value = null
+}
+
+// ===== 插入表情包 =====
+const insertMeme = ({ placeholder, start, end }) => {
+  if (start >= 0 && end >= 0) {
+    const before = newComment.value.slice(0, start)
+    const after = newComment.value.slice(end)
+    newComment.value = before + placeholder + after
+  } else {
+    newComment.value += placeholder
   }
 }
 
-// 滚动到底部
-const scrollToBottom = () => {
-  nextTick(() => {
-    if (commentListRef.value) {
-      commentListRef.value.scrollTop = commentListRef.value.scrollHeight
-    }
-  })
+// ===== 格式化时间 =====
+const formatTime = (isoString) => {
+  if (!isoString) return '刚刚'
+  const date = new Date(isoString)
+  const now = new Date()
+  const diff = Math.floor((now - date) / 1000)
+
+  if (diff < 60) return '刚刚'
+  if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`
+  if (diff < 604800) return `${Math.floor(diff / 86400)}天前`
+  return date.toLocaleDateString('zh-CN')
 }
 
-// 通过 provide 把回复状态和回调注入递归子组件 CommentItem
-provide('commentContext', {
-  replyingTo,
-  replyContent,
-  currentUserId,
-  onStartReply,
-  onCancelReply,
-  onSubmitReply,
-  onDelete,
-  maskAuthor,
-  formatTime,
-  renderMarkdown
-})
+// ===== 点击外部关闭（不做特殊处理） =====
 
-// 暴露加载方法给父组件
-defineExpose({ loadComments })
-
-/** 从 localStorage 取 token，构造请求头 */
-function getAuthHeader() {
-  const headers = { 'Content-Type': 'application/json' }
-  try {
-    const stored = localStorage.getItem('auth')
-    if (stored) {
-      const { token } = JSON.parse(stored)
-      if (token) headers['Authorization'] = `Bearer ${token}`
-    }
-  } catch (_) {}
-  return headers
-}
-
+// ===== 生命周期 =====
 onMounted(() => {
   loadComments()
 })
+
+// ===== 导出 renderMeme 供模板使用 =====
+// 注意：renderMeme 已从 MemePicker 导入
 </script>
 
 <style scoped>
+/* ===== 评论容器 ===== */
 .comment-section {
   margin-top: 24px;
-  padding: 20px;
-  background: var(--bg-secondary, #f8f9fc);
-  border-radius: 12px;
-  border: 1px solid var(--border-color, #e8ecf1);
-}
-
-.comment-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.comment-header h4 {
-  margin: 0;
-  font-size: 16px;
-  color: var(--text-primary, #333);
-}
-
-.comment-count {
-  font-size: 14px;
-  color: var(--text-muted, #999);
-  font-weight: normal;
-}
-
-/* 评论输入 */
-.comment-input-wrapper {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.comment-avatar {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: #667eea;
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 14px;
-  flex-shrink: 0;
-}
-
-.comment-input-area {
-  flex: 1;
-  background: var(--bg-input, #ffffff);
-  border-radius: 10px;
-  border: 1px solid var(--border-color, #e8ecf1);
-  overflow: hidden;
-}
-
-.comment-input-area textarea {
-  width: 100%;
-  padding: 10px 14px;
-  border: none;
-  outline: none;
-  resize: vertical;
-  font-size: 14px;
-  font-family: inherit;
-  min-height: 50px;
-  background: transparent;
-  color: var(--text-primary, #333);
-  box-sizing: border-box;
-}
-
-.comment-input-area textarea::placeholder {
-  color: var(--text-light, #bbb);
-}
-
-.input-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px 10px;
+  padding-top: 20px;
   border-top: 1px solid var(--border-light, #f0f0f0);
 }
 
-.input-actions-left {
+/* ===== 评论列表 ===== */
+.comment-list {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
-.input-hint {
-  font-size: 12px;
-  color: var(--text-muted, #bbb);
-}
-
-.btn-submit {
-  padding: 6px 18px;
-  background: #667eea;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 13px;
+.comment-item {
+  padding: 14px 16px;
+  background: var(--bg-primary, #f8f9fa);
+  border-radius: 10px;
+  border: 1px solid var(--border-light, #f0f0f0);
   transition: background 0.2s;
 }
 
-.btn-submit:hover:not(:disabled) {
-  background: #5a6fd6;
+.comment-item:hover {
+  background: var(--bg-secondary, #fff);
 }
 
-.btn-submit:disabled {
-  background: #ccc;
-  cursor: not-allowed;
+/* ===== 评论头部 ===== */
+.comment-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
 }
 
-/* 评论列表 */
-.comment-list {
-  max-height: 500px;
-  overflow-y: auto;
+.comment-author {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary, #333);
 }
 
-/* 空状态 */
-.empty-comments {
+.comment-time {
+  font-size: 12px;
+  color: var(--text-muted, #999);
+  margin-left: auto;
+}
+
+.comment-delete {
+  background: none;
+  border: none;
+  color: var(--text-muted, #999);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 4px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.comment-delete:hover {
+  color: #e74c3c;
+  background: rgba(231, 76, 60, 0.1);
+}
+
+/* ===== 评论内容 ===== */
+.comment-text {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text-primary, #333);
+  word-wrap: break-word;
+  word-break: break-word;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+/* ===== 关键修复：评论中的表情包 ===== */
+.comment-text .meme-emoji {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 6px;
+  vertical-align: middle;
+  display: inline-block;
+  margin: 2px 3px;
+  border: 1px solid var(--border-light, #f0f0f0);
+  background: var(--bg-primary, #f8f9fa);
+}
+
+/* 确保所有图片不超过容器 */
+.comment-text img {
+  max-width: 100%;
+  height: auto;
+}
+
+.comment-text * {
+  max-width: 100%;
+}
+
+/* ===== 回复按钮 ===== */
+.comment-reply-btn {
+  margin-top: 8px;
+  padding: 4px 12px;
+  background: none;
+  border: none;
+  color: var(--accent-color, #667eea);
+  cursor: pointer;
+  font-size: 12px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.comment-reply-btn:hover {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+/* ===== 空状态 ===== */
+.comment-empty {
   text-align: center;
   padding: 30px 0;
   color: var(--text-muted, #999);
 }
 
-.empty-comments span {
-  font-size: 32px;
+.comment-empty .empty-icon {
+  font-size: 36px;
   display: block;
   margin-bottom: 8px;
 }
 
-.empty-comments p {
-  margin: 0;
+.comment-empty p {
   font-size: 14px;
+  margin: 0;
+}
+
+/* ===== 回复目标提示 ===== */
+.reply-target {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  background: rgba(102, 126, 234, 0.08);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--accent-color, #667eea);
+}
+
+.reply-cancel {
+  background: none;
+  border: none;
+  color: var(--text-muted, #999);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.reply-cancel:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* ===== 评论输入区域 ===== */
+.comment-input-area {
+  margin-top: 12px;
+  padding: 14px 16px 12px;
+  background: var(--bg-primary, #f8f9fa);
+  border-radius: 12px;
+  border: 1px solid var(--border-light, #f0f0f0);
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.comment-input-area:focus-within {
+
+}
+
+.comment-textarea {
+  width: 100%;
+  min-height: 56px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color, #e8ecf1);
+  border-radius: 8px;
+  resize: vertical;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--bg-secondary, #fff);
+  color: var(--text-primary, #333);
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.comment-textarea:focus {
+  outline: none;
+  border-color: var(--accent-color, #667eea);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.12);
+}
+
+.comment-textarea::placeholder {
+  color: var(--text-muted, #aaa);
+}
+
+.comment-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ===== 工具栏 ===== */
+.comment-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  gap: 8px;
+}
+
+.comment-toolbar .meme-picker {
+  flex-shrink: 0;
+}
+
+.comment-submit {
+  padding: 6px 20px;
+  background: var(--accent-color, #667eea);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.comment-submit:hover:not(:disabled) {
+  background: #5a6fd6;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.35);
+}
+
+.comment-submit:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.comment-submit:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ===== 暗色模式适配 ===== */
+[data-theme="dark"] .comment-item {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .comment-input-area {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+[data-theme="dark"] .comment-textarea {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .comment-textarea:focus {
+  border-color: var(--accent-color, #818cf8);
+}
+
+[data-theme="dark"] .reply-target {
+  background: rgba(102, 126, 234, 0.15);
+}
+
+[data-theme="dark"] .comment-text .meme-emoji {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 480px) {
+  .comment-item {
+    padding: 10px 12px;
+  }
+
+  .comment-text {
+    font-size: 14px;
+    line-height: 1.7;
+  }
+
+  /* 手机端表情包稍微缩小 */
+  .comment-text .meme-emoji {
+    width: 36px;
+    height: 36px;
+    margin: 1px 2px;
+  }
+
+  .comment-input-area {
+    padding: 10px 12px;
+  }
+
+  .comment-textarea {
+    min-height: 44px;
+    font-size: 15px;
+  }
+
+  .comment-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .comment-submit {
+    flex: 1;
+    text-align: center;
+    padding: 6px 12px;
+  }
+}
+
+/* ===== 减少动画偏好 ===== */
+@media (prefers-reduced-motion: reduce) {
+  .comment-item,
+  .comment-submit,
+  .comment-text .meme-emoji {
+    transition: none !important;
+  }
 }
 </style>
