@@ -24,7 +24,7 @@
             :title="meme.name"
             @click="insertMeme(meme)"
           >
-            <img :src="meme.url" :alt="meme.name" loading="lazy" />
+            <img :src="meme.url" :alt="meme.name" loading="lazy" referrerpolicy="no-referrer" />
           </button>
         </div>
       </div>
@@ -37,22 +37,23 @@
  * 表情包数据 + 渲染函数
  * 通过命名导出供父组件（CommentSection 等）共享使用
  */
+const supabaseUrl = 'https://oobyberpdpjzktzlbph.supabase.co/storage/v1/object/public/meme'
+
 export const memeEmojis = [
-  {
-    id: 'meme_1',
-    name: '表情包 1',
-    url: 'https://oobypberpdpizktzlbph.supabase.co/storage/v1/object/public/meme/005PeXV6ly1h08k6aich8j30sf0r4guq.jpg'
-  },
-  {
-    id: 'meme_2',
-    name: '吃瓜群众',
-    url: 'https://oobypberpdpizktzlbph.supabase.co/storage/v1/object/public/meme/005PeXV6ly1h08k6aqbk6j30sg0r4ajw.jpg'
-  },
-  {
-    id: 'meme_3',
-    name: '表情包 3',
-    url: 'https://oobypberpdpizktzlbph.supabase.co/storage/v1/object/public/meme/ceeb653ely8hcteqnv7jsj20hs0ho3z8.jpg'
-  }
+  { id: 'meme_01', name: '然后这又有什么卵用呢', url: `${supabaseUrl}/ff4608be7b001da624bdd4d076fe90d5.jpg` },
+  { id: 'meme_02', name: '表情包 2', url: `${supabaseUrl}/f5a44c4fa04bdfb0925238123da4bc66.jpg` },
+  { id: 'meme_03', name: '表情包 3', url: `${supabaseUrl}/e56d136230791d4e1ea2c5ec3c251d04.gif` },
+  { id: 'meme_04', name: '表情包 4', url: `${supabaseUrl}/dbb57a8a6364decda4c481834e55d41d.jpg` },
+  { id: 'meme_05', name: '表情包 5', url: `${supabaseUrl}/d4279a976f570199d361ec59c03fe6f1.jpg` },
+  { id: 'meme_06', name: '表情包 6', url: `${supabaseUrl}/786e55bed2bdf42068c6fb39bfda501d.gif` },
+  { id: 'meme_07', name: '表情包 7', url: `${supabaseUrl}/72d130b4074f74b9969aa421acda6f48.jpg` },
+  { id: 'meme_08', name: '表情包 8', url: `${supabaseUrl}/36107a539902b795e4bdde3a81c01326.jpg` },
+  { id: 'meme_09', name: '表情包 9', url: `${supabaseUrl}/2de502de9a0a26422116f05c77335dfc.jpg` },
+  { id: 'meme_10', name: '表情包 10', url: `${supabaseUrl}/22347a459ff127ea6e128a653ee2392c.gif` },
+  { id: 'meme_11', name: '表情包 11', url: `${supabaseUrl}/1a85cb72b7646a120aabc4c9549b52ed.jpg` },
+  { id: 'meme_12', name: '表情包 12', url: `${supabaseUrl}/14db09ffd83ffcca1b1a9f655c6ff569.jpg` },
+  { id: 'meme_13', name: '疯狂践踏偷懒的你', url: `${supabaseUrl}/053e7ebaa9b78d8ae48f2a1d5118cfe5.jpg` },
+  { id: 'meme_14', name: '表情包 14', url: `${supabaseUrl}/01bdb922f9f40f8ed1a0422fd4760801.gif` },
 ]
 
 /**
@@ -64,7 +65,7 @@ export const renderMeme = (text) => {
   return text.replace(/\[meme:([a-zA-Z0-9_]+)\]/g, (match, id) => {
     const meme = memeEmojis.find(m => m.id === id)
     if (!meme) return match
-    return `<img src="${meme.url}" alt="${meme.name}" class="meme-emoji" />`
+    return `<img src="${meme.url}" alt="${meme.name}" class="meme-emoji" referrerpolicy="no-referrer" />`
   })
 }
 
@@ -75,7 +76,6 @@ export default { name: 'MemePicker' }
 import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
 
 const props = defineProps({
-  // 父组件传入的 textarea DOM 元素引用，用于定位光标插入位置
   textareaRef: {
     type: [Object, null],
     default: null
@@ -91,13 +91,11 @@ const togglePanel = () => {
   showPanel.value = !showPanel.value
 }
 
-// 点击表情包：在 textarea 光标位置插入占位符 [meme:id]
 const insertMeme = (meme) => {
   const placeholder = `[meme:${meme.id}]`
   const textarea = props.textareaRef
 
   if (!textarea) {
-    // 无 textarea 引用时，通知父组件追加（start/end = -1 表示末尾追加）
     emit('insert', { placeholder, start: -1, end: -1 })
     showPanel.value = false
     return
@@ -110,7 +108,6 @@ const insertMeme = (meme) => {
 
   showPanel.value = false
 
-  // 重新聚焦并把光标移到占位符之后
   nextTick(() => {
     textarea.focus()
     const pos = start + placeholder.length
@@ -118,7 +115,6 @@ const insertMeme = (meme) => {
   })
 }
 
-// 点击外部关闭面板
 const handleClickOutside = (e) => {
   if (!pickerRef.value) return
   if (!pickerRef.value.contains(e.target)) {
@@ -165,7 +161,6 @@ onBeforeUnmount(() => {
   background: var(--accent-light, rgba(102, 126, 234, 0.12));
 }
 
-/* 浮动面板 */
 .meme-panel {
   position: absolute;
   bottom: calc(100% + 8px);
@@ -209,14 +204,32 @@ onBeforeUnmount(() => {
   color: var(--text-primary, #333);
 }
 
-/* 网格：每行 4 个 */
 .meme-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   padding: 10px;
-  max-height: 240px;
+  max-height: 72px;  /* 从 240px 增加到 320px，显示更多图片 */
   overflow-y: auto;
+}
+
+/* 滚动条样式优化（可选） */
+.meme-grid::-webkit-scrollbar {
+  width: 4px;
+}
+
+.meme-grid::-webkit-scrollbar-track {
+  background: var(--bg-primary, #f5f7fa);
+  border-radius: 2px;
+}
+
+.meme-grid::-webkit-scrollbar-thumb {
+  background: var(--border-color, #d0d5dd);
+  border-radius: 2px;
+}
+
+.meme-grid::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted, #999);
 }
 
 .meme-item {
@@ -249,7 +262,6 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 
-/* 面板展开/收起动画 */
 .meme-panel-enter-active,
 .meme-panel-leave-active {
   transition: opacity 0.2s var(--ease-soft, ease),
@@ -260,5 +272,31 @@ onBeforeUnmount(() => {
 .meme-panel-leave-to {
   opacity: 0;
   transform: translateY(6px) scale(0.96);
+}
+
+/* ============================================
+   关键修复：评论中显示的表情包大小
+   ============================================ */
+.meme-emoji {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 4px;
+  vertical-align: middle;
+  display: inline-block;
+}
+
+/* 可选：悬停效果 */
+.meme-emoji:hover {
+  transform: scale(1.08);
+  transition: transform 0.2s ease;
+}
+
+/* 可选：在小屏幕上调整大小 */
+@media (max-width: 480px) {
+  .meme-emoji {
+    width: 36px;
+    height: 36px;
+  }
 }
 </style>

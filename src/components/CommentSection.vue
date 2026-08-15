@@ -125,7 +125,7 @@ const submitComment = () => {
   const comment = {
     id: Date.now(),
     noteId: props.noteId,
-    author: authStore.user?.username || '匿名用户',
+    author: authStore.user?.displayName || '匿名用户',
     content: replyTarget.value ? `@${replyTarget.value.author} ${content}` : content,
     created_at: new Date().toISOString(),
     user_id: authStore.user?.id || 'anonymous',
