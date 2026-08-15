@@ -1,33 +1,16 @@
 <template>
   <div class="comment-section">
-    <!-- 评论列表 -->
+    <!-- 评论列表 - 使用递归组件 -->
     <div v-if="comments.length > 0" class="comment-list">
-      <div
-        v-for="comment in comments"
+      <CommentItem
+        v-for="comment in topLevelComments"
         :key="comment.id"
-        class="comment-item"
-      >
-        <div class="comment-header">
-          <span class="comment-author">{{ maskAuthor(comment.username) }}</span>
-          <span class="comment-time">{{ formatTime(comment.created_at) }}</span>
-          <button
-            v-if="canDelete(comment)"
-            @click="deleteComment(comment.id)"
-            class="comment-delete"
-            title="删除评论"
-          >
-            ×
-          </button>
-        </div>
-        <!-- 评论内容 - 表情包在这里渲染，自然换行 -->
-        <div class="comment-text" v-html="renderMeme(comment.content)"></div>
-        <button
-          @click="replyToComment(comment)"
-          class="comment-reply-btn"
-        >
-          💬 回复
-        </button>
-      </div>
+        :comment="comment"
+        :depth="0"
+        :current-user-id="authStore.user?.id || ''"
+        @reply="handleReplySubmit"
+        @delete="handleDelete"
+      />
     </div>
 
     <!-- 空状态 -->
@@ -57,9 +40,9 @@
         <button
           @click="submitComment"
           class="comment-submit"
-          :disabled="!newComment.trim()"
+          :disabled="!newComment.trim() || isSubmitting"
         >
-          发送
+          {{ isSubmitting ? '发送中...' : '发送' }}
         </button>
       </div>
     </div>
@@ -67,8 +50,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import CommentItem from './CommentItem.vue'
 import MemePicker, { renderMeme } from './MemePicker.vue'
 
 // ===== Props =====
@@ -88,8 +72,41 @@ const newComment = ref('')
 const textareaRef = ref(null)
 const replyTarget = ref(null) // { id, username }
 const isLoading = ref(false)
+const isSubmitting = ref(false)
 
-// ===== 从 localStorage 取 token，构造请求头 =====
+// ===== 计算属性：构建树形结构（楼中楼） =====
+const topLevelComments = computed(() => {
+  const map = new Map()
+  const roots = []
+
+  // 先建立映射
+  comments.value.forEach(c => {
+    map.set(c.id, { ...c, children: [] })
+  })
+
+  // 构建父子关系
+  comments.value.forEach(c => {
+    const node = map.get(c.id)
+    if (c.parent_id && map.has(c.parent_id)) {
+      const parent = map.get(c.parent_id)
+      parent.children.push(node)
+    } else {
+      roots.push(node)
+    }
+  })
+
+  // 按时间排序（最新的在前）
+  roots.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  roots.forEach(root => {
+    if (root.children?.length) {
+      root.children.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    }
+  })
+
+  return roots
+})
+
+// ===== 从 localStorage 取 token =====
 function getAuthHeader() {
   const headers = { 'Content-Type': 'application/json' }
   try {
@@ -102,7 +119,7 @@ function getAuthHeader() {
   return headers
 }
 
-// ===== 用户名脱敏：第 3~6 位字符替换为 * =====
+// ===== 用户名脱敏 =====
 const maskAuthor = (username) => {
   if (!username) return '匿名用户'
   if (username.length < 3) return username
@@ -110,11 +127,11 @@ const maskAuthor = (username) => {
   return username.slice(0, 2) + '*'.repeat(maskLen) + username.slice(2 + maskLen)
 }
 
-// ===== 从后端 API 加载评论 =====
+// ===== 加载评论 =====
 const loadComments = async () => {
   isLoading.value = true
   try {
-    const response = await fetch('/api/comments?noteId=' + props.noteId)
+    const response = await fetch(`/api/comments?noteId=${props.noteId}`)
     if (!response.ok) throw new Error('加载评论失败')
     const data = await response.json()
     comments.value = Array.isArray(data) ? data : []
@@ -126,15 +143,17 @@ const loadComments = async () => {
   }
 }
 
-// ===== 提交评论到后端 API =====
+// ===== 提交评论 =====
 const submitComment = async () => {
   const content = newComment.value.trim()
-  if (!content) return
+  if (!content || isSubmitting.value) return
 
   if (!authStore.user) {
     alert('请先登录')
     return
   }
+
+  isSubmitting.value = true
 
   try {
     const response = await fetch('/api/comments', {
@@ -159,11 +178,48 @@ const submitComment = async () => {
   } catch (e) {
     console.error('提交评论失败:', e)
     alert('提交失败：' + e.message)
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+// ===== 处理子评论的回复事件 =====
+const handleReplySubmit = async ({ parentId, content }) => {
+  if (!authStore.user) {
+    alert('请先登录')
+    return
+  }
+
+  if (isSubmitting.value) return
+  isSubmitting.value = true
+
+  try {
+    const response = await fetch('/api/comments', {
+      method: 'POST',
+      headers: getAuthHeader(),
+      body: JSON.stringify({
+        note_id: Number(props.noteId),
+        content: content,
+        parent_id: parentId
+      })
+    })
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.error || '回复失败')
+    }
+
+    await loadComments()
+  } catch (e) {
+    console.error('回复失败:', e)
+    alert('回复失败：' + e.message)
+  } finally {
+    isSubmitting.value = false
   }
 }
 
 // ===== 删除评论 =====
-const deleteComment = async (commentId) => {
+const handleDelete = async ({ commentId }) => {
   if (!confirm('确定要删除这条评论吗？')) return
 
   try {
@@ -185,13 +241,7 @@ const deleteComment = async (commentId) => {
   }
 }
 
-// ===== 判断是否有权限删除 =====
-const canDelete = (comment) => {
-  const userId = authStore.user?.id
-  return userId && (String(comment.user_id) === String(userId) || authStore.user?.role === 'admin')
-}
-
-// ===== 回复评论 =====
+// ===== 回复评论（顶层回复） =====
 const replyToComment = (comment) => {
   replyTarget.value = { id: comment.id, username: comment.username }
   textareaRef.value?.focus()
@@ -226,7 +276,12 @@ const formatTime = (isoString) => {
   return date.toLocaleDateString('zh-CN')
 }
 
-// ===== 暴露加载方法给父组件 =====
+// ===== 渲染内容（含表情包） =====
+const renderContent = (content) => {
+  return renderMeme(content)
+}
+
+// ===== 暴露方法给父组件 =====
 defineExpose({ loadComments })
 
 // ===== 生命周期 =====
@@ -247,104 +302,7 @@ onMounted(() => {
 .comment-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
   margin-bottom: 20px;
-}
-
-.comment-item {
-  padding: 14px 16px;
-  background: var(--bg-primary, #f8f9fa);
-  border-radius: 10px;
-  border: 1px solid var(--border-light, #f0f0f0);
-  transition: background 0.2s;
-}
-
-.comment-item:hover {
-  background: var(--bg-secondary, #fff);
-}
-
-/* ===== 评论头部 ===== */
-.comment-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 6px;
-}
-
-.comment-author {
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text-primary, #333);
-}
-
-.comment-time {
-  font-size: 12px;
-  color: var(--text-muted, #999);
-  margin-left: auto;
-}
-
-.comment-delete {
-  background: none;
-  border: none;
-  color: var(--text-muted, #999);
-  cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-  padding: 0 4px;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.comment-delete:hover {
-  color: #e74c3c;
-  background: rgba(231, 76, 60, 0.1);
-}
-
-/* ===== 评论内容 ===== */
-.comment-text {
-  font-size: 14px;
-  line-height: 1.8;
-  color: var(--text-primary, #333);
-  word-wrap: break-word;
-  word-break: break-word;
-  white-space: normal;
-  overflow-wrap: break-word;
-}
-
-/* ===== 关键修复：评论中的表情包（v-html 内容需用 :deep） ===== */
-.comment-text :deep(.meme-emoji) {
-  width: 80px;
-  height: 80px;
-  object-fit: cover;
-  border-radius: 6px;
-  vertical-align: middle;
-  display: inline-block;
-  margin: 2px 4px;
-  border: 1px solid var(--border-light, #f0f0f0);
-  background: var(--bg-primary, #f8f9fa);
-}
-
-/* 确保所有图片不超过容器 */
-.comment-text :deep(img) {
-  max-width: 100%;
-  height: auto;
-}
-
-/* ===== 回复按钮 ===== */
-.comment-reply-btn {
-  margin-top: 8px;
-  padding: 4px 12px;
-  background: none;
-  border: none;
-  color: var(--accent-color, #667eea);
-  cursor: pointer;
-  font-size: 12px;
-  border-radius: 4px;
-  transition: background 0.2s;
-}
-
-.comment-reply-btn:hover {
-  background: rgba(102, 126, 234, 0.1);
 }
 
 /* ===== 空状态 ===== */
@@ -401,10 +359,6 @@ onMounted(() => {
   border-radius: 12px;
   border: 1px solid var(--border-light, #f0f0f0);
   transition: border-color 0.3s, box-shadow 0.3s;
-}
-
-.comment-input-area:focus-within {
-
 }
 
 .comment-textarea {
@@ -482,11 +436,6 @@ onMounted(() => {
 }
 
 /* ===== 暗色模式适配 ===== */
-[data-theme="dark"] .comment-item {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.06);
-}
-
 [data-theme="dark"] .comment-input-area {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.06);
@@ -506,29 +455,8 @@ onMounted(() => {
   background: rgba(102, 126, 234, 0.15);
 }
 
-[data-theme="dark"] .comment-text :deep(.meme-emoji) {
-  border-color: rgba(255, 255, 255, 0.1);
-  background: rgba(255, 255, 255, 0.05);
-}
-
 /* ===== 响应式 ===== */
 @media (max-width: 480px) {
-  .comment-item {
-    padding: 10px 12px;
-  }
-
-  .comment-text {
-    font-size: 14px;
-    line-height: 1.7;
-  }
-
-  /* 手机端表情包 */
-  .comment-text :deep(.meme-emoji) {
-    width: 64px;
-    height: 64px;
-    margin: 1px 3px;
-  }
-
   .comment-input-area {
     padding: 10px 12px;
   }
@@ -551,9 +479,7 @@ onMounted(() => {
 
 /* ===== 减少动画偏好 ===== */
 @media (prefers-reduced-motion: reduce) {
-  .comment-item,
-  .comment-submit,
-  .comment-text :deep(.meme-emoji) {
+  .comment-submit {
     transition: none !important;
   }
 }
