@@ -37,7 +37,7 @@
  * 表情包数据 + 渲染函数
  * 通过命名导出供父组件（CommentSection 等）共享使用
  */
-const supabaseUrl = 'https://oobyberpdpjzktzlbph.supabase.co/storage/v1/object/public/meme'
+const supabaseUrl = 'https://oobypberpdpizktzlbph.supabase.co/storage/v1/object/public/meme'
 
 export const memeEmojis = [
   { id: 'meme_01', name: '然后这又有什么卵用呢', url: `${supabaseUrl}/ff4608be7b001da624bdd4d076fe90d5.jpg` },

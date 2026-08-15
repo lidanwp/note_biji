@@ -8,7 +8,7 @@
         class="comment-item"
       >
         <div class="comment-header">
-          <span class="comment-author">{{ comment.author }}</span>
+          <span class="comment-author">{{ maskAuthor(comment.username) }}</span>
           <span class="comment-time">{{ formatTime(comment.created_at) }}</span>
           <button
             v-if="canDelete(comment)"
@@ -38,7 +38,7 @@
 
     <!-- 回复目标提示 -->
     <div v-if="replyTarget" class="reply-target">
-      <span>回复 @{{ replyTarget.author }}</span>
+      <span>回复 @{{ maskAuthor(replyTarget.username) }}</span>
       <button @click="cancelReply" class="reply-cancel">取消</button>
     </div>
 
@@ -67,7 +67,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onBeforeUnmount, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import MemePicker, { renderMeme } from './MemePicker.vue'
 
@@ -86,78 +86,114 @@ const authStore = useAuthStore()
 const comments = ref([])
 const newComment = ref('')
 const textareaRef = ref(null)
-const replyTarget = ref(null) // { id, author }
+const replyTarget = ref(null) // { id, username }
 const isLoading = ref(false)
 
-// ===== 从 localStorage 加载评论 =====
-const loadComments = () => {
+// ===== 从 localStorage 取 token，构造请求头 =====
+function getAuthHeader() {
+  const headers = { 'Content-Type': 'application/json' }
   try {
-    const key = `comments_${props.noteId}`
-    const stored = localStorage.getItem(key)
+    const stored = localStorage.getItem('auth')
     if (stored) {
-      comments.value = JSON.parse(stored)
-    } else {
-      // 改为空数组，不预设示例数据
-      comments.value = []
-      // 不再保存，让用户自己创建第一条评论
+      const { token } = JSON.parse(stored)
+      if (token) headers['Authorization'] = `Bearer ${token}`
     }
+  } catch (_) {}
+  return headers
+}
+
+// ===== 用户名脱敏：第 3~6 位字符替换为 * =====
+const maskAuthor = (username) => {
+  if (!username) return '匿名用户'
+  if (username.length < 3) return username
+  const maskLen = Math.min(4, username.length - 2)
+  return username.slice(0, 2) + '*'.repeat(maskLen) + username.slice(2 + maskLen)
+}
+
+// ===== 从后端 API 加载评论 =====
+const loadComments = async () => {
+  isLoading.value = true
+  try {
+    const response = await fetch('/api/comments?noteId=' + props.noteId)
+    if (!response.ok) throw new Error('加载评论失败')
+    const data = await response.json()
+    comments.value = Array.isArray(data) ? data : []
   } catch (e) {
     console.error('加载评论失败:', e)
     comments.value = []
+  } finally {
+    isLoading.value = false
   }
 }
 
-// ===== 保存评论到 localStorage =====
-const saveComments = () => {
-  try {
-    const key = `comments_${props.noteId}`
-    localStorage.setItem(key, JSON.stringify(comments.value))
-  } catch (e) {
-    console.error('保存评论失败:', e)
-  }
-}
-
-// ===== 提交评论 =====
-const submitComment = () => {
+// ===== 提交评论到后端 API =====
+const submitComment = async () => {
   const content = newComment.value.trim()
   if (!content) return
 
-  const comment = {
-    id: Date.now(),
-    noteId: props.noteId,
-    author: authStore.user?.displayName || '匿名用户',
-    content: replyTarget.value ? `@${replyTarget.value.author} ${content}` : content,
-    created_at: new Date().toISOString(),
-    user_id: authStore.user?.id || 'anonymous',
-    reply_to: replyTarget.value?.id || null
+  if (!authStore.user) {
+    alert('请先登录')
+    return
   }
 
-  comments.value.unshift(comment)
-  saveComments()
-  newComment.value = ''
-  replyTarget.value = null
+  try {
+    const response = await fetch('/api/comments', {
+      method: 'POST',
+      headers: getAuthHeader(),
+      body: JSON.stringify({
+        note_id: Number(props.noteId),
+        content: content,
+        parent_id: replyTarget.value?.id || null
+      })
+    })
 
-  // 保持输入框焦点
-  textareaRef.value?.focus()
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.error || '提交评论失败')
+    }
+
+    newComment.value = ''
+    replyTarget.value = null
+    await loadComments()
+    textareaRef.value?.focus()
+  } catch (e) {
+    console.error('提交评论失败:', e)
+    alert('提交失败：' + e.message)
+  }
 }
 
 // ===== 删除评论 =====
-const deleteComment = (commentId) => {
+const deleteComment = async (commentId) => {
   if (!confirm('确定要删除这条评论吗？')) return
 
-  comments.value = comments.value.filter(c => c.id !== commentId)
-  saveComments()
+  try {
+    const response = await fetch('/api/comments', {
+      method: 'POST',
+      headers: getAuthHeader(),
+      body: JSON.stringify({ action: 'delete', id: commentId })
+    })
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.error || '删除失败')
+    }
+
+    await loadComments()
+  } catch (e) {
+    console.error('删除评论失败:', e)
+    alert('删除失败：' + e.message)
+  }
 }
 
 // ===== 判断是否有权限删除 =====
 const canDelete = (comment) => {
   const userId = authStore.user?.id
-  return userId && (comment.user_id === userId || authStore.user?.role === 'admin')
+  return userId && (String(comment.user_id) === String(userId) || authStore.user?.role === 'admin')
 }
 
 // ===== 回复评论 =====
 const replyToComment = (comment) => {
-  replyTarget.value = { id: comment.id, author: comment.author }
+  replyTarget.value = { id: comment.id, username: comment.username }
   textareaRef.value?.focus()
 }
 
@@ -190,15 +226,13 @@ const formatTime = (isoString) => {
   return date.toLocaleDateString('zh-CN')
 }
 
-// ===== 点击外部关闭（不做特殊处理） =====
+// ===== 暴露加载方法给父组件 =====
+defineExpose({ loadComments })
 
 // ===== 生命周期 =====
 onMounted(() => {
   loadComments()
 })
-
-// ===== 导出 renderMeme 供模板使用 =====
-// 注意：renderMeme 已从 MemePicker 导入
 </script>
 
 <style scoped>
@@ -277,27 +311,23 @@ onMounted(() => {
   overflow-wrap: break-word;
 }
 
-/* ===== 关键修复：评论中的表情包 ===== */
-.comment-text .meme-emoji {
-  width: 40px;
-  height: 40px;
+/* ===== 关键修复：评论中的表情包（v-html 内容需用 :deep） ===== */
+.comment-text :deep(.meme-emoji) {
+  width: 80px;
+  height: 80px;
   object-fit: cover;
   border-radius: 6px;
   vertical-align: middle;
   display: inline-block;
-  margin: 2px 3px;
+  margin: 2px 4px;
   border: 1px solid var(--border-light, #f0f0f0);
   background: var(--bg-primary, #f8f9fa);
 }
 
 /* 确保所有图片不超过容器 */
-.comment-text img {
+.comment-text :deep(img) {
   max-width: 100%;
   height: auto;
-}
-
-.comment-text * {
-  max-width: 100%;
 }
 
 /* ===== 回复按钮 ===== */
@@ -476,7 +506,7 @@ onMounted(() => {
   background: rgba(102, 126, 234, 0.15);
 }
 
-[data-theme="dark"] .comment-text .meme-emoji {
+[data-theme="dark"] .comment-text :deep(.meme-emoji) {
   border-color: rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.05);
 }
@@ -492,11 +522,11 @@ onMounted(() => {
     line-height: 1.7;
   }
 
-  /* 手机端表情包稍微缩小 */
-  .comment-text .meme-emoji {
-    width: 36px;
-    height: 36px;
-    margin: 1px 2px;
+  /* 手机端表情包 */
+  .comment-text :deep(.meme-emoji) {
+    width: 64px;
+    height: 64px;
+    margin: 1px 3px;
   }
 
   .comment-input-area {
@@ -523,7 +553,7 @@ onMounted(() => {
 @media (prefers-reduced-motion: reduce) {
   .comment-item,
   .comment-submit,
-  .comment-text .meme-emoji {
+  .comment-text :deep(.meme-emoji) {
     transition: none !important;
   }
 }

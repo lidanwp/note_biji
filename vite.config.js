@@ -4,7 +4,7 @@ import path from 'path'
 import http from 'http'
 import https from 'https'
 
-const supabaseUrl = 'https://oobyberpdpjzktzlbph.supabase.co'
+const supabaseUrl = 'https://oobypberpdpizktzlbph.supabase.co'
 const supabaseKey = 'sb_publishable_KacaVTayTEo0hWOyyMfw1Q_WSMdGKxQ'
 
 /**
@@ -29,7 +29,7 @@ function commentsDeleteProxy() {
         const targetPath = '/rest/v1/comments' + (req.url.split('?')[1] ? '?' + req.url.split('?')[1] : '')
 
         const options = {
-          hostname: 'oobyberpdpjzktzlbph.supabase.co',
+          hostname: 'oobypberpdpizktzlbph.supabase.co',
           path: targetPath,
           method: 'DELETE',
           headers: {
