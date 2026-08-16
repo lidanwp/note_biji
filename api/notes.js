@@ -27,7 +27,7 @@ export default async function handler(req, res) {
     // GET - 加载所有笔记
     if (req.method === 'GET') {
       console.log('开始请求 Supabase...')
-      const response = await fetch(`${supabaseUrl}/rest/v1/notes?select=*&order=date.desc`, {
+      const response = await fetch(`${supabaseUrl}/rest/v1/notes?select=id,title,category,date,view_count,useful_count,tags,created_at,user_id,username&order=date.desc`, {
         headers: {
           'apikey': supabaseKey,
           'Authorization': `Bearer ${supabaseKey}`,

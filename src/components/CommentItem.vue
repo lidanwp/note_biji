@@ -12,7 +12,6 @@
         <div class="comment-meta">
           <span class="comment-author">{{ displayName }}</span>
           <span class="comment-time">{{ formatTime(comment.created_at) }}</span>
-          <span v-if="parentAuthor" class="reply-to">回复 @{{ parentAuthorDisplay }}</span>
           <button class="btn-reply" @click="handleReply">回复</button>
           <button
             v-if="isOwner"

@@ -642,12 +642,33 @@ const loadNotes = async () => {
     toastError('加载笔记失败，请稍后重试')
   }
 }
+const loadNoteContent = async (noteId) => {
+  const response = await fetch(`/api/notes/${noteId}`)
+  return response.json()
+}
 
-const viewDetail = (note) => {
-  notesStore.incrementViewCount(note.id)
-  selectedNote.value = notesStore.getNoteById(note.id) || note
-  historyStore.addHistory(note)
+const viewDetail = async (note) => {
+  // 先显示笔记基本信息，让用户感觉快
+  selectedNote.value = { ...note, content: '加载中...' }
   document.body.style.overflow = 'hidden'
+  
+  // 如果 content 为空，单独加载
+  if (!note.content) {
+    try {
+      const fullNote = await loadNoteContent(note.id)
+      selectedNote.value = fullNote
+    } catch (e) {
+      console.error('加载笔记内容失败:', e)
+      toastError('加载内容失败，请稍后重试')
+      // 回退到已有数据
+      selectedNote.value = note
+    }
+  } else {
+    selectedNote.value = note
+  }
+  
+  notesStore.incrementViewCount(note.id)
+  historyStore.addHistory(note)
 }
 
 const closeDetail = () => {
