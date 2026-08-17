@@ -8,8 +8,25 @@ function getSegments(req) {
   return cleaned ? cleaned.split('/').filter(Boolean) : []
 }
 
+function getQuery(req) {
+  try {
+    const url = new URL(req.url || '/', 'http://localhost')
+    return Object.fromEntries(url.searchParams.entries())
+  } catch {
+    return {}
+  }
+}
+
 function getBody(req) {
-  return req.body || {}
+  if (req.body && typeof req.body === 'object') return req.body
+  if (typeof req.body === 'string') {
+    try {
+      return JSON.parse(req.body)
+    } catch {
+      return {}
+    }
+  }
+  return {}
 }
 
 async function handleLogin(req, res) {
@@ -311,7 +328,8 @@ async function handleChangePassword(req, res) {
 
 async function handleNotes(req, res) {
   const segments = getSegments(req)
-  const noteId = segments[1]
+  const query = getQuery(req)
+  const noteId = segments[1] || query.noteId || query.id
 
   if (req.method === 'GET' && !noteId) {
     const supabaseUrl = process.env.SUPABASE_URL
@@ -539,8 +557,9 @@ async function handleNotes(req, res) {
 
 async function handleComments(req, res) {
   const segments = getSegments(req)
-  const commentId = segments[1]
-  const { noteId } = req.query || {}
+  const query = getQuery(req)
+  const commentId = segments[1] || query.id
+  const noteId = query.noteId || query.note_id
 
   if (req.method === 'GET') {
     const supabaseUrl = process.env.SUPABASE_URL
@@ -583,6 +602,10 @@ async function handleComments(req, res) {
     }
 
     const body = getBody(req)
+    const rawQuery = getQuery(req)
+    if (!body.note_id && rawQuery.noteId) {
+      body.note_id = rawQuery.noteId
+    }
     const supabaseUrl = process.env.SUPABASE_URL
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
     const useKey = serviceKey
