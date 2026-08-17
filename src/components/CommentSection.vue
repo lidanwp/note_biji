@@ -25,6 +25,18 @@
       <button @click="cancelReply" class="reply-cancel">取消</button>
     </div>
 
+    <!-- 自定义确认弹窗 -->
+    <div v-if="confirmState.visible" class="confirm-overlay" @click.self="closeConfirm">
+      <div class="confirm-dialog" role="dialog" aria-modal="true">
+        <div class="confirm-title">{{ confirmState.title }}</div>
+        <div class="confirm-message">{{ confirmState.message }}</div>
+        <div class="confirm-actions">
+          <button class="confirm-cancel" @click="closeConfirm">取消</button>
+          <button class="confirm-ok" @click="confirmAction">确认</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 评论输入区域 -->
     <div class="comment-input-area">
       <textarea
@@ -54,6 +66,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import CommentItem from './CommentItem.vue'
 import MemePicker, { renderMeme } from './MemePicker.vue'
+import { toastWarning, toastError, toastSuccess } from '@/utils/toast'
 
 // ===== Props =====
 const props = defineProps({
@@ -73,6 +86,12 @@ const textareaRef = ref(null)
 const replyTarget = ref(null) // { id, username }
 const isLoading = ref(false)
 const isSubmitting = ref(false)
+const confirmState = ref({
+  visible: false,
+  title: '确认操作',
+  message: '',
+  action: null
+})
 
 // ===== 计算属性：构建树形结构（楼中楼） =====
 const topLevelComments = computed(() => {
@@ -144,12 +163,24 @@ const loadComments = async () => {
 }
 
 // ===== 提交评论 =====
+const closeConfirm = () => {
+  confirmState.value = { visible: false, title: '确认操作', message: '', action: null }
+}
+
+const confirmAction = async () => {
+  const action = confirmState.value.action
+  closeConfirm()
+  if (typeof action === 'function') {
+    await action()
+  }
+}
+
 const submitComment = async () => {
   const content = newComment.value.trim()
   if (!content || isSubmitting.value) return
 
   if (!authStore.user) {
-    alert('请先登录')
+    toastWarning('请先登录')
     return
   }
 
@@ -177,7 +208,7 @@ const submitComment = async () => {
     textareaRef.value?.focus()
   } catch (e) {
     console.error('提交评论失败:', e)
-    alert('提交失败：' + e.message)
+    toastError(e.message || '提交失败')
   } finally {
     isSubmitting.value = false
   }
@@ -186,7 +217,7 @@ const submitComment = async () => {
 // ===== 处理子评论的回复事件 =====
 const handleReplySubmit = async ({ parentId, content }) => {
   if (!authStore.user) {
-    alert('请先登录')
+    toastWarning('请先登录')
     return
   }
 
@@ -212,7 +243,7 @@ const handleReplySubmit = async ({ parentId, content }) => {
     await loadComments()
   } catch (e) {
     console.error('回复失败:', e)
-    alert('回复失败：' + e.message)
+    toastError(e.message || '回复失败')
   } finally {
     isSubmitting.value = false
   }
@@ -220,24 +251,30 @@ const handleReplySubmit = async ({ parentId, content }) => {
 
 // ===== 删除评论 =====
 const handleDelete = async ({ commentId }) => {
-  if (!confirm('确定要删除这条评论吗？')) return
+  confirmState.value = {
+    visible: true,
+    title: '删除评论',
+    message: '确定要删除这条评论吗？',
+    action: async () => {
+      try {
+        const response = await fetch('/api/comments', {
+          method: 'POST',
+          headers: getAuthHeader(),
+          body: JSON.stringify({ action: 'delete', id: commentId })
+        })
 
-  try {
-    const response = await fetch('/api/comments', {
-      method: 'POST',
-      headers: getAuthHeader(),
-      body: JSON.stringify({ action: 'delete', id: commentId })
-    })
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}))
+          throw new Error(err.error || '删除失败')
+        }
 
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({}))
-      throw new Error(err.error || '删除失败')
+        await loadComments()
+        toastSuccess('评论已删除')
+      } catch (e) {
+        console.error('删除评论失败:', e)
+        toastError(e.message || '删除失败')
+      }
     }
-
-    await loadComments()
-  } catch (e) {
-    console.error('删除评论失败:', e)
-    alert('删除失败：' + e.message)
   }
 }
 
@@ -321,6 +358,81 @@ onMounted(() => {
 .comment-empty p {
   font-size: 14px;
   margin: 0;
+}
+
+/* ===== 自定义确认弹窗 ===== */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 20px;
+}
+
+.confirm-dialog {
+  width: min(92vw, 420px);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 22px;
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.18);
+  padding: 22px 20px 18px;
+  animation: dialogIn 0.18s ease-out;
+}
+
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.confirm-title {
+  font-size: clamp(1.8rem, 3vw, 2.4rem);
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 12px;
+  line-height: 1.2;
+}
+
+.confirm-message {
+  font-size: 1.05rem;
+  color: #374151;
+  line-height: 1.7;
+  margin-bottom: 18px;
+  white-space: pre-wrap;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.confirm-cancel,
+.confirm-ok {
+  border: none;
+  background: transparent;
+  font-size: 1.05rem;
+  font-weight: 600;
+  padding: 10px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.confirm-cancel {
+  color: #4b5563;
+}
+
+.confirm-ok {
+  color: #111827;
 }
 
 /* ===== 回复目标提示 ===== */

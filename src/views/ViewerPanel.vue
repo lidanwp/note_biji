@@ -118,8 +118,8 @@
         </ul>
       </div>
       <div class="dashboard-card">
-        <h4>📊 过程组分布</h4>
-        <div v-for="(count, group) in processGroupStats" :key="group" class="progress-bar">
+        <h4>� 学习掌握度</h4>
+        <div v-for="(count, group) in learningMasteryStats" :key="group" class="progress-bar">
           <span>{{ group }}</span>
           <div class="bar"><div :style="{ width: count + '%' }"></div></div>
           <span class="bar-label">{{ count }}%</span>
@@ -338,10 +338,12 @@
         <div v-if="selectedNote.examScore != null || authStore.user" class="detail-progress">
           <div class="progress-header">
             <span class="progress-label">掌握度</span>
-            <span class="progress-percent">{{ getUserExamScore(selectedNote) }}%</span>
+            <span class="progress-number">{{ getUserExamScore(selectedNote) }}%</span>
           </div>
-          <div class="progress-track">
-            <div class="progress-fill" :style="{ width: getUserExamScore(selectedNote) + '%' }"></div>
+          <div class="progress-meter">
+            <div class="progress-track">
+              <div class="progress-fill" :style="{ width: getUserExamScore(selectedNote) + '%' }"></div>
+            </div>
           </div>
           <div class="detail-score-slider">
             <input type="range" min="0" max="100" :value="getUserExamScore(selectedNote)" @input="handleExamScoreInput" />
@@ -563,17 +565,25 @@ const hotTopics = computed(() => {
     .map(([name, count]) => ({ name, count }))
 })
 
-const processGroupStats = computed(() => {
-  const map = {}
-  const groups = ['启动', '规划', '执行', '监控', '收尾']
-  notesStore.notes.forEach(n => {
-    const found = groups.find(g => n.category?.includes(g))
-    if (found) map[found] = (map[found] || 0) + 1
-  })
-  const total = notesStore.notes.length || 1
-  return Object.fromEntries(
-    Object.entries(map).map(([k, v]) => [k, Math.round(v / total * 100)])
-  )
+const learningMasteryRows = computed(() => {
+  const currentUserId = authStore.user?.id
+
+  return notesStore.notes
+    .map(note => {
+      const rawScore = currentUserId && note.userExamScores?.[currentUserId] != null
+        ? Number(note.userExamScores[currentUserId])
+        : note.examScore != null
+          ? Number(note.examScore)
+          : null
+
+      return {
+        key: note.id,
+        title: note.title || '未命名笔记',
+        score: rawScore != null && Number.isFinite(rawScore) ? Math.max(0, Math.min(100, Math.round(rawScore))) : 0
+      }
+    })
+    .filter(item => item.title)
+    .slice(0, 5)
 })
 
 // ===== 方法 =====
@@ -772,8 +782,6 @@ const handleExamScoreInput = async (event) => {
       const errorData = await response.json().catch(() => ({ error: '更新掌握度失败' }))
       throw new Error(errorData.error || '更新掌握度失败')
     }
-
-    toastSuccess(`掌握度已更新为 ${score}%`)
   } catch (e) {
     console.error('更新掌握度失败:', e)
     toastError('掌握度更新失败，请稍后重试')
@@ -1944,12 +1952,19 @@ header {
   color: var(--text-primary);
 }
 
-/* 掌握度进度条：6px 高，靛蓝→紫渐变，右侧百分比 */
+/* 掌握度进度条：轻量版，去掉小人动画，减少卡顿 */
 .detail-progress {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.progress-header {
+  display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 14px;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .progress-label {
@@ -1958,26 +1973,100 @@ header {
   white-space: nowrap;
 }
 
+.progress-number {
+  font-size: 13px;
+  font-weight: 700;
+  color: #4f46e5;
+  white-space: nowrap;
+}
+
+.progress-meter {
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
 .progress-track {
+  position: relative;
   flex: 1;
-  height: 6px;
-  background: var(--border-light);
-  border-radius: 3px;
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 999px;
   overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.08);
 }
 
 .progress-fill {
   height: 100%;
   background: linear-gradient(90deg, #6366f1, #8b5cf6);
-  border-radius: 3px;
-  transition: width 0.3s ease;
+  border-radius: 999px;
+  transition: width 0.12s ease-out;
 }
 
-.progress-percent {
-  font-size: 13px;
-  font-weight: 600;
-  color: #6366f1;
-  white-space: nowrap;
+.detail-score-slider {
+  width: min(100%, 320px);
+}
+
+.detail-score-slider input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 28px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.detail-score-slider input[type="range"]::-webkit-slider-runnable-track {
+  height: 7px;
+  background: linear-gradient(90deg, #dfe3f9, #e9e7ff);
+  border-radius: 999px;
+}
+
+.detail-score-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #6366f1;
+  box-shadow: 0 3px 10px rgba(99, 102, 241, 0.18);
+}
+
+.detail-score-slider input[type="range"]::-moz-range-track {
+  height: 7px;
+  background: linear-gradient(90deg, #dfe3f9, #e9e7ff);
+  border-radius: 999px;
+  border: none;
+}
+
+.detail-score-slider input[type="range"]::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #6366f1;
+  box-shadow: 0 3px 10px rgba(99, 102, 241, 0.18);
+}
+
+.detail-score-slider input[type="range"]:focus {
+  outline: none;
+}
+
+@media (max-width: 640px) {
+  .detail-progress {
+    margin-top: 10px;
+    gap: 6px;
+  }
+
+  .progress-track {
+    height: 7px;
+  }
+
+  .detail-score-slider {
+    width: 100%;
+  }
 }
 
 .detail-case,
