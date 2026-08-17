@@ -58,7 +58,7 @@ const response = await fetch(`${supabaseUrl}/rest/v1/notes?select=id,title,categ
         // 判断是否为部分更新（仅更新计数，非全量保存）
         // updateViewCount 和 updateUsefulCount 只发 {id, viewCount} / {id, usefulCount}
         const isPartialUpdate =
-          (note.viewCount !== undefined || note.usefulCount !== undefined) &&
+          (note.viewCount !== undefined || note.usefulCount !== undefined || note.examScore !== undefined) &&
           note.title === undefined && note.content === undefined
 
         if (isPartialUpdate) {
@@ -67,6 +67,7 @@ const response = await fetch(`${supabaseUrl}/rest/v1/notes?select=id,title,categ
           const patchData = {}
           if (note.viewCount !== undefined) patchData.view_count = note.viewCount
           if (note.usefulCount !== undefined) patchData.useful_count = note.usefulCount
+          if (note.examScore !== undefined) patchData.exam_score = note.examScore
 
           const response = await fetch(`${supabaseUrl}/rest/v1/notes?id=eq.${note.id}&select=*`, {
             method: 'PATCH',

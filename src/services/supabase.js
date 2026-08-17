@@ -64,6 +64,8 @@ export const loadNotesFromCloud = async () => {
     date: row.date || '',
     viewCount: row.view_count || 0,
     usefulCount: row.useful_count || 0,
+    userId: row.user_id || null,
+    userExamScores: row.user_exam_scores || {},
     examMapping: row.exam_mapping || { relatedProcesses: [], typicalQuestions: [], commonPitfalls: [] },
     comparisonTable: row.comparison_table || { enabled: false, title: '', cols: [], rows: [] },
     memoryAids: row.memory_aids || [],

@@ -97,7 +97,7 @@
           <div class="card-body">
             <h3 class="card-title">{{ note.title }}</h3>
             <p class="card-summary">
-              {{ note.content ? stripHtml(note.content).slice(0, 100) + ((note.content?.length || 0) > 100 ? '...' : '') : (note.scenario ? note.scenario.slice(0, 100) + (note.scenario.length > 100 ? '...' : '') : '暂无内容') }}
+              {{ note.scenario ? note.scenario.slice(0, 100) + (note.scenario.length > 100 ? '...' : '') : '暂无内容' }}
             </p>
             
             <div v-if="note.tags?.length" class="card-tags">

@@ -138,7 +138,7 @@
         <!-- 中间：标题 + 内容摘要 -->
         <h3 class="card-title">{{ note.title }}</h3>
         <p class="card-summary">
-          {{ contentSummary(note.content, note.scenario) }}
+          {{ note.scenario ? note.scenario.slice(0, 100) + (note.scenario.length > 100 ? '...' : '') : '暂无内容' }}
         </p>
 
         <!-- 底部：分类（左，带小圆点）+ 日期 + 查看全文（右，带箭头） -->
@@ -335,12 +335,17 @@
           <span v-for="tag in selectedNote.tags" :key="tag" :class="['tag', tagColorClass(tag)]">#{{ tag }}</span>
         </div>
         
-        <div v-if="selectedNote.examScore != null" class="detail-progress">
-          <span class="progress-label">掌握度</span>
-          <div class="progress-track">
-            <div class="progress-fill" :style="{ width: (selectedNote.examScore || 0) + '%' }"></div>
+        <div v-if="selectedNote.examScore != null || authStore.user" class="detail-progress">
+          <div class="progress-header">
+            <span class="progress-label">掌握度</span>
+            <span class="progress-percent">{{ getUserExamScore(selectedNote) }}%</span>
           </div>
-          <span class="progress-percent">{{ selectedNote.examScore || 0 }}%</span>
+          <div class="progress-track">
+            <div class="progress-fill" :style="{ width: getUserExamScore(selectedNote) + '%' }"></div>
+          </div>
+          <div class="detail-score-slider">
+            <input type="range" min="0" max="100" :value="getUserExamScore(selectedNote)" @input="handleExamScoreInput" />
+          </div>
         </div>
         
         <div class="detail-actions">
@@ -580,12 +585,9 @@ const stripHtml = (content) => {
 }
 
 const contentSummary = (content, fallback = '') => {
-  const text = stripHtml(content)
   const fallbackText = stripHtml(fallback)
-  const sourceText = text || fallbackText
-  if (!sourceText) return '暂无内容'
-  // 过滤 Markdown 标题符号（#、##、### 等）
-  const cleanText = sourceText.replace(/^#{1,6}\s+/gm, '').trim()
+  if (!fallbackText) return '暂无内容'
+  const cleanText = fallbackText.replace(/^#{1,6}\s+/gm, '').trim()
   return cleanText.length > 100 ? cleanText.slice(0, 100) + '...' : cleanText
 }
 
@@ -650,20 +652,55 @@ const loadNoteContent = async (noteId) => {
   return response.json()
 }
 
+const loadUserProgress = async (noteId) => {
+  if (!authStore.user?.id) return null
+
+  try {
+    const response = await fetch(`/api/user-progress?noteId=${encodeURIComponent(noteId)}`, {
+      headers: {
+        'Authorization': `Bearer ${authStore.token || ''}`
+      }
+    })
+
+    if (!response.ok) return null
+    const data = await response.json()
+    return data.score != null ? Number(data.score) : null
+  } catch (e) {
+    console.error('加载用户掌握度失败:', e)
+    return null
+  }
+}
+
 const viewDetail = async (note) => {
   // 先显示笔记基本信息，让用户感觉快
-  selectedNote.value = { ...note, content: '加载中...' }
+  selectedNote.value = { ...note, content: '加载中...', userExamScores: note.userExamScores || {} }
   document.body.style.overflow = 'hidden'
+
+  if (authStore.user?.id) {
+    const myScore = await loadUserProgress(note.id)
+    if (myScore != null) {
+      selectedNote.value.userExamScores = {
+        ...(selectedNote.value.userExamScores || {}),
+        [authStore.user.id]: myScore
+      }
+      selectedNote.value.examScore = myScore
+    }
+  }
   
   // 如果 content 为空，单独加载
   if (!note.content) {
     try {
       const fullNote = await loadNoteContent(note.id)
-      selectedNote.value = fullNote
+      selectedNote.value = {
+        ...fullNote,
+        userExamScores: {
+          ...(fullNote.userExamScores || {}),
+          ...(selectedNote.value.userExamScores || {})
+        }
+      }
     } catch (e) {
       console.error('加载笔记内容失败:', e)
       toastError('加载内容失败，请稍后重试')
-      // 回退到已有数据
       selectedNote.value = note
     }
   } else {
@@ -680,6 +717,67 @@ const closeDetail = () => {
   // 重置滑动状态
   slideX.value = 0
   isSliding.value = false
+}
+
+const getUserExamScore = (note) => {
+  if (!note) return 0
+  const currentUserId = authStore.user?.id
+  if (!currentUserId) return 0
+
+  const userExamScores = note.userExamScores || {}
+  const score = userExamScores[currentUserId]
+  if (score != null) return Number(score) || 0
+  return 0
+}
+
+const handleExamScoreInput = async (event) => {
+  const score = Number(event.target.value)
+  if (!selectedNote.value) return
+
+  const currentUserId = authStore.user?.id
+  if (!currentUserId) {
+    toastWarning('请先登录后再记录自己的掌握度')
+    return
+  }
+
+  const nextUserScores = {
+    ...(selectedNote.value.userExamScores || {}),
+    [currentUserId]: score
+  }
+
+  selectedNote.value.userExamScores = nextUserScores
+  selectedNote.value.examScore = score
+
+  const noteIndex = notesStore.notes.findIndex(n => n.id === selectedNote.value.id)
+  if (noteIndex !== -1) {
+    notesStore.notes[noteIndex].userExamScores = nextUserScores
+    notesStore.notes[noteIndex].examScore = 0
+  }
+
+  try {
+    const response = await fetch('/api/user-progress', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authStore.token || ''}`
+      },
+      body: JSON.stringify({
+        noteId: selectedNote.value.id,
+        userId: currentUserId,
+        score
+      })
+    })
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: '更新掌握度失败' }))
+      throw new Error(errorData.error || '更新掌握度失败')
+    }
+
+    toastSuccess(`掌握度已更新为 ${score}%`)
+  } catch (e) {
+    console.error('更新掌握度失败:', e)
+    toastError('掌握度更新失败，请稍后重试')
+  }
 }
 
 // 滑动返回处理
