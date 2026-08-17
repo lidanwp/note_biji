@@ -138,7 +138,7 @@
         <!-- 中间：标题 + 内容摘要 -->
         <h3 class="card-title">{{ note.title }}</h3>
         <p class="card-summary">
-          {{ contentSummary(note.content) }}
+          {{ contentSummary(note.content, note.scenario) }}
         </p>
 
         <!-- 底部：分类（左，带小圆点）+ 日期 + 查看全文（右，带箭头） -->
@@ -272,7 +272,7 @@
           <p>{{ selectedNote.scenario }}</p>
         </div>
         
-        <div class="detail-content markdown-body" v-html="renderMarkdown(selectedNote.content)"></div>
+        <div class="detail-content markdown-body" v-html="renderMarkdown(selectedNote.content, selectedNote.scenario)"></div>
         
         <div v-if="selectedNote.caseStudy" class="detail-case">
           <h4>💡 实战案例</h4>
@@ -579,23 +579,26 @@ const stripHtml = (content) => {
   return tmp.textContent || tmp.innerText || ''
 }
 
-const contentSummary = (content) => {
+const contentSummary = (content, fallback = '') => {
   const text = stripHtml(content)
-  if (!text) return '暂无内容'
+  const fallbackText = stripHtml(fallback)
+  const sourceText = text || fallbackText
+  if (!sourceText) return '暂无内容'
   // 过滤 Markdown 标题符号（#、##、### 等）
-  const cleanText = text.replace(/^#{1,6}\s+/gm, '').trim()
+  const cleanText = sourceText.replace(/^#{1,6}\s+/gm, '').trim()
   return cleanText.length > 100 ? cleanText.slice(0, 100) + '...' : cleanText
 }
 
-const renderMarkdown = (content) => {
-  if (!content) return '<p>暂无内容</p>'
+const renderMarkdown = (content, fallback = '') => {
+  const resolved = content && String(content).trim() ? content : fallback
+  if (!resolved) return '<p>暂无内容</p>'
   try {
-    if (content.includes('<p>') || content.includes('<div>') || content.includes('<h')) {
-      return content
+    if (String(resolved).includes('<p>') || String(resolved).includes('<div>') || String(resolved).includes('<h')) {
+      return resolved
     }
-    return md.render(content)
+    return md.render(resolved)
   } catch (e) {
-    return content
+    return resolved
   }
 }
 

@@ -96,7 +96,9 @@
         <div v-for="note in paginatedNotes" :key="note.id" class="note-card" @click="editNote(note)">
           <div class="card-body">
             <h3 class="card-title">{{ note.title }}</h3>
-            <p class="card-summary">{{ note.content ? stripHtml(note.content).slice(0, 100) + ((note.content?.length || 0) > 100 ? '...' : '') : '暂无内容' }}</p>
+            <p class="card-summary">
+              {{ note.content ? stripHtml(note.content).slice(0, 100) + ((note.content?.length || 0) > 100 ? '...' : '') : (note.scenario ? note.scenario.slice(0, 100) + (note.scenario.length > 100 ? '...' : '') : '暂无内容') }}
+            </p>
             
             <div v-if="note.tags?.length" class="card-tags">
               <span v-for="tag in note.tags.slice(0, 3)" :key="tag" class="tag">#{{ tag }}</span>
