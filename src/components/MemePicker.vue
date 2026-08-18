@@ -165,12 +165,13 @@ onBeforeUnmount(() => {
   position: absolute;
   bottom: calc(100% + 8px);
   left: 0;
-  z-index: 1000;
+  z-index: 2000;
   width: 280px;
-  background: var(--bg-secondary, #fff);
-  border: 1px solid var(--border-color, #e8ecf1);
+  max-height: min(52vh, 300px);
+  background: #fff;
+  border: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
   overflow: hidden;
 }
 
@@ -208,28 +209,29 @@ onBeforeUnmount(() => {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
-  padding: 10px;
-  max-height: 72px;  /* 从 240px 增加到 320px，显示更多图片 */
+  padding: 8px;
+  max-height: min(46vh, 240px);
   overflow-y: auto;
+  background: #fff;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.7) transparent;
 }
 
-/* 滚动条样式优化（可选） */
 .meme-grid::-webkit-scrollbar {
-  width: 4px;
+  width: 6px;
 }
 
 .meme-grid::-webkit-scrollbar-track {
-  background: var(--bg-primary, #f5f7fa);
-  border-radius: 2px;
+  background: transparent;
 }
 
 .meme-grid::-webkit-scrollbar-thumb {
-  background: var(--border-color, #d0d5dd);
-  border-radius: 2px;
+  background: rgba(148, 163, 184, 0.6);
+  border-radius: 999px;
 }
 
 .meme-grid::-webkit-scrollbar-thumb:hover {
-  background: var(--text-muted, #999);
+  background: rgba(100, 116, 139, 0.7);
 }
 
 .meme-item {
@@ -239,24 +241,21 @@ onBeforeUnmount(() => {
   width: 100%;
   aspect-ratio: 1 / 1;
   padding: 2px;
-  border: 1px solid var(--border-light, #f0f0f0);
+  border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 6px;
-  background: var(--bg-primary, #f5f7fa);
+  background: #f8fafc;
   cursor: pointer;
-  transition: transform 0.15s var(--ease-soft, ease),
-              box-shadow 0.15s var(--ease-soft, ease),
-              border-color 0.15s var(--ease-soft, ease);
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
 .meme-item:hover {
-  border-color: var(--accent-color, #667eea);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px var(--ink-violet, rgba(102, 126, 234, 0.35));
+  border-color: rgba(148, 163, 184, 0.45);
+  background: #f1f5f9;
 }
 
 .meme-item img {
-  width: 60px;
-  height: 60px;
+  width: 58px;
+  height: 58px;
   object-fit: cover;
   border-radius: 4px;
   pointer-events: none;

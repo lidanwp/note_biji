@@ -130,18 +130,21 @@ const clearAll = () => {
 
 .btn-clear {
   font-size: 12px;
-  color: var(--text-muted, #999);
-  background: none;
-  border: none;
+  line-height: 1;
+  color: #d14a34;
+  background: transparent;
+  border: 1px solid rgba(209, 74, 52, 0.12);
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: all 0.2s;
+  padding: 5px 9px;
+  border-radius: 999px;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  font-weight: 500;
 }
 
 .btn-clear:hover {
-  color: #e74c3c;
-  background: rgba(231, 76, 60, 0.08);
+  color: #b73c2d;
+  background: rgba(209, 74, 52, 0.04);
+  border-color: rgba(209, 74, 52, 0.2);
 }
 
 .btn-close {

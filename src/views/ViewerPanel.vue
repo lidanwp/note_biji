@@ -1,5 +1,5 @@
 <template>
-  <div class="viewer-panel">
+  <div class="viewer-panel" :class="{ 'detail-open': !!selectedNote }">
     <!-- ===== 头部 ===== -->
     <header>
       <div class="header-left">
@@ -243,10 +243,15 @@
         @touchstart="handleTouchStart"
         @touchmove="handleTouchMove"
         @touchend="handleTouchEnd"
-        :style="{ transform: slideX !== 0 ? `translateX(${slideX}px)` : 'none', transition: isSliding ? 'none' : 'transform 0.3s ease' }"
+        @touchcancel="handleTouchEnd"
+        :style="{
+          transform: `translateX(${slideX}px)`,
+          opacity: panelOpacity,
+          transition: isSliding ? 'none' : 'transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.42s cubic-bezier(0.32, 0.72, 0, 1)'
+        }"
       >
         <div class="detail-header">
-          <button class="modal-back" @click="closeDetail">
+          <button class="modal-back" @click="closeDetail(true)">
             <svg viewBox="0 0 1024 1024" class="back-icon" aria-label="返回" xmlns="http://www.w3.org/2000/svg">
               <path d="M477.867 307.2V186.027c-10.24-51.2-52.907-20.48-52.907-20.48L139.947 414.72c-63.147 44.373-5.12 76.8-5.12 76.8l281.6 245.76c56.32 40.96 61.44-22.187 61.44-22.187V604.16C764.587 512 880.64 872.107 880.64 872.107c10.24 20.48 17.067 0 17.067 0C1008.64 332.8 477.867 307.2 477.867 307.2z" fill="#cdcdcd"/>
             </svg>
@@ -497,6 +502,11 @@ const startY = ref(0)
 const slideX = ref(0)
 const isSliding = ref(false)
 
+const panelOpacity = computed(() => {
+  const width = window.innerWidth || 1
+  return 1 - Math.min(Math.abs(slideX.value) / width, 1) * 0.9
+})
+
 // ===== 下拉选项数据 =====
 // 项目管理知识领域（概论、立项 + PMBOK 十大）
 const knowledgeAreaOptions = [
@@ -721,10 +731,23 @@ const viewDetail = async (note) => {
   historyStore.addHistory(note)
 }
 
-const closeDetail = () => {
+const closeDetail = (useAnimation = true) => {
+  if (!selectedNote.value) return
+
+  if (useAnimation) {
+    isSliding.value = true
+    slideX.value = window.innerWidth
+    setTimeout(() => {
+      selectedNote.value = null
+      document.body.style.overflow = ''
+      slideX.value = 0
+      isSliding.value = false
+    }, 420)
+    return
+  }
+
   selectedNote.value = null
   document.body.style.overflow = ''
-  // 重置滑动状态
   slideX.value = 0
   isSliding.value = false
 }
@@ -788,35 +811,44 @@ const handleExamScoreInput = async (event) => {
   }
 }
 
-// 滑动返回处理
+// iOS 侧滑返回：只在左边缘触发，且不干扰内容上下滚动
 const handleTouchStart = (e) => {
-  startX.value = e.touches[0].clientX
-  startY.value = e.touches[0].clientY
-  isSliding.value = false
+  const touch = e.touches[0]
+  startX.value = touch.clientX
+  startY.value = touch.clientY
+
+  if (touch.clientX <= 30) {
+    isSliding.value = true
+  } else {
+    isSliding.value = false
+  }
 }
 
 const handleTouchMove = (e) => {
-  const currentX = e.touches[0].clientX
-  const currentY = e.touches[0].clientY
-  const diffX = currentX - startX.value
-  const diffY = currentY - startY.value
-  
-  // 只有从左侧边缘开始滑动才生效，且主要是水平滑动
-  if (startX.value < 50 && diffX > 0 && Math.abs(diffX) > Math.abs(diffY) * 1.5) {
-    isSliding.value = true
-    // 限制最大滑动距离，添加阻尼效果
-    slideX.value = Math.min(diffX * 0.5, window.innerWidth * 0.6)
+  if (!isSliding.value) return
+
+  const touch = e.touches[0]
+  const diffX = touch.clientX - startX.value
+  const diffY = touch.clientY - startY.value
+
+  // 只有水平向右滑动且主方向是横向，才视为返回手势
+  if (diffX <= 0 || Math.abs(diffX) <= Math.abs(diffY) * 1.15) {
+    return
   }
+
+  // 配合原生 iOS 的阻尼感：更真实、更顺滑
+  const maxOffset = Math.min(window.innerWidth * 0.96, 420)
+  slideX.value = Math.min(diffX * 0.72, maxOffset)
+  if (e.cancelable) e.preventDefault()
 }
 
 const handleTouchEnd = () => {
   if (!isSliding.value) return
-  
-  // 判断是否超过阈值（屏幕宽度的30%）
-  if (slideX.value > window.innerWidth * 0.3) {
-    closeDetail()
+
+  const threshold = window.innerWidth * 0.35
+  if (slideX.value >= threshold) {
+    closeDetail(true)
   } else {
-    // 回弹
     isSliding.value = false
     slideX.value = 0
   }
@@ -922,6 +954,12 @@ onUnmounted(() => {
   background: var(--bg-primary);
   padding: 20px 18px;
   min-height: 100vh;
+  transition: filter 0.25s ease, transform 0.25s ease;
+}
+
+.viewer-panel.detail-open {
+  filter: brightness(0.68) saturate(0.8);
+  transform: scale(0.995);
 }
 
 /* ===== 头部 ===== */
@@ -1854,11 +1892,10 @@ header {
    ================================================================ */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: var(--bg-secondary);
+  inset: 0;
+  background: rgba(15, 23, 42, 0.56);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
   z-index: 1000;
   padding: 0;
   display: block;
@@ -1873,31 +1910,16 @@ header {
   height: 100%;
   max-width: 100%;
   max-height: 100%;
-  padding: 20px 24px 32px;
-  border-radius: 0;
-  box-shadow: none;
   box-sizing: border-box;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-}
-
-.modal-back {
-  position: fixed;
-  top: 20px;
-  left: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  cursor: pointer;
-  color: var(--text-primary);
-  width: 48px;
-  height: 48px;
+  touch-action: pan-y;
   padding: 0;
-  background: transparent;
-  border-radius: 8px;
+  border-radius: 0;
+  box-shadow: none;
   transition: all 0.15s ease;
   z-index: 1100;
+  border-left: 1px solid rgba(148, 163, 184, 0.18);
 }
 
 .modal-back:hover,
@@ -2004,13 +2026,18 @@ header {
 }
 
 .detail-score-slider {
-  width: min(100%, 320px);
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  margin-top: 2px;
 }
 
 .detail-score-slider input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  width: 100%;
+  width: 25%;
+  min-width: 110px;
+  max-width: 160px;
   height: 28px;
   background: transparent;
   cursor: pointer;
@@ -2066,6 +2093,11 @@ header {
 
   .detail-score-slider {
     width: 100%;
+  }
+
+  .detail-score-slider input[type="range"] {
+    width: 40%;
+    min-width: 100px;
   }
 }
 
