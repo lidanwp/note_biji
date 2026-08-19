@@ -16,7 +16,7 @@
           <button
             v-if="isOwner"
             class="btn-delete"
-            @click="handleDelete"
+            @click="handleDelete($event)"
           >
             删除
           </button>
@@ -222,8 +222,15 @@ function onReplyMemeInsert(_ref) {
   }
 }
 
-function handleDelete() {
-  emit('delete', { commentId: props.comment.id })
+function handleDelete(event) {
+  var rect = null
+  try {
+    var el = event.currentTarget || event.target
+    rect = el.getBoundingClientRect()
+  } catch (_) {
+    rect = null
+  }
+  emit('delete', { commentId: props.comment.id, rect })
 }
 </script>
 

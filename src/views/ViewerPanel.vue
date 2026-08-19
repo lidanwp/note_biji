@@ -958,7 +958,6 @@ onUnmounted(() => {
 }
 
 .viewer-panel.detail-open {
-  filter: brightness(0.68) saturate(0.8);
   transform: scale(0.995);
 }
 
@@ -1893,9 +1892,6 @@ header {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.56);
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
   z-index: 1000;
   padding: 0;
   display: block;
@@ -1922,6 +1918,26 @@ header {
   border-left: 1px solid rgba(148, 163, 184, 0.18);
 }
 
+.modal-back {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1200;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.22);
+  cursor: pointer;
+  padding: 0;
+}
+
 .modal-back:hover,
 .modal-back:active {
   color: #6366f1;
@@ -1935,6 +1951,7 @@ header {
 
 /* 详情内容样式 */
 .detail-header {
+  padding-top: 72px;
   margin-bottom: 24px;
 }
 

@@ -26,7 +26,20 @@
     </div>
 
     <!-- 自定义确认弹窗 -->
-    <div v-if="confirmState.visible" class="confirm-overlay" @click.self="closeConfirm">
+    <!-- 屏幕居中模式（点击删除时）: 直接 teleport 到 body，不渲染遮罩 -->
+    <teleport to="body" v-if="confirmState.visible && confirmState.position && confirmState.position.centered">
+      <div class="confirm-dialog" role="dialog" aria-modal="true" :style="dialogStyle">
+        <div class="confirm-title">{{ confirmState.title }}</div>
+        <div class="confirm-message">{{ confirmState.message }}</div>
+        <div class="confirm-actions">
+          <button class="confirm-cancel" @click="closeConfirm">取消</button>
+          <button class="confirm-ok" @click="confirmAction">确认</button>
+        </div>
+      </div>
+    </teleport>
+
+    <!-- 备用：无定位时（通常用于居中覆盖层）渲染遮罩 + 居中对话框 -->
+      <div v-else-if="confirmState.visible && !isDetail" class="confirm-overlay" @click.self="closeConfirm">
       <div class="confirm-dialog" role="dialog" aria-modal="true">
         <div class="confirm-title">{{ confirmState.title }}</div>
         <div class="confirm-message">{{ confirmState.message }}</div>
@@ -90,7 +103,8 @@ const confirmState = ref({
   visible: false,
   title: '确认操作',
   message: '',
-  action: null
+  action: null,
+  position: null
 })
 
 // ===== 计算属性：构建树形结构（楼中楼） =====
@@ -164,7 +178,7 @@ const loadComments = async () => {
 
 // ===== 提交评论 =====
 const closeConfirm = () => {
-  confirmState.value = { visible: false, title: '确认操作', message: '', action: null }
+  confirmState.value = { visible: false, title: '确认操作', message: '', action: null, position: null }
 }
 
 const confirmAction = async () => {
@@ -174,6 +188,29 @@ const confirmAction = async () => {
     await action()
   }
 }
+
+const dialogStyle = computed(() => {
+  if (!confirmState.value || !confirmState.value.visible) return {}
+  const pos = confirmState.value.position
+  // 屏幕居中模式
+  if (pos && pos.centered) {
+    return {
+      position: 'fixed',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)'
+    }
+  }
+  if (pos && typeof pos.top === 'number') {
+    return {
+      position: 'fixed',
+      top: `${pos.top}px`,
+      left: `${pos.left}px`,
+      transform: 'translate(-50%, -8px)'
+    }
+  }
+  return {}
+})
 
 const submitComment = async () => {
   const content = newComment.value.trim()
@@ -250,7 +287,10 @@ const handleReplySubmit = async ({ parentId, content }) => {
 }
 
 // ===== 删除评论 =====
-const handleDelete = async ({ commentId }) => {
+const handleDelete = async ({ commentId, rect }) => {
+  // 始终使用屏幕居中模式（无需遮罩）
+  var position = { centered: true }
+
   confirmState.value = {
     visible: true,
     title: '删除评论',
@@ -274,7 +314,8 @@ const handleDelete = async ({ commentId }) => {
         console.error('删除评论失败:', e)
         toastError(e.message || '删除失败')
       }
-    }
+    },
+    position
   }
 }
 
@@ -373,6 +414,11 @@ onMounted(() => {
   padding: 20px;
 }
 
+.confirm-overlay--transparent {
+  background: transparent !important;
+  backdrop-filter: none !important;
+}
+
 .confirm-dialog {
   width: min(92vw, 420px);
   background: rgba(255, 255, 255, 0.96);
@@ -386,11 +432,9 @@ onMounted(() => {
 @keyframes dialogIn {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.98);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
   }
 }
 
