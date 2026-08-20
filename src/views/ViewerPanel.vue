@@ -118,7 +118,7 @@
         </ul>
       </div>
       <div class="dashboard-card">
-        <h4>� 学习掌握度</h4>
+        <h4>📊 学习掌握度</h4>
         <div v-for="(count, group) in learningMasteryStats" :key="group" class="progress-bar">
           <span>{{ group }}</span>
           <div class="bar"><div :style="{ width: count + '%' }"></div></div>
@@ -235,6 +235,21 @@
       <span class="scroll-knob" ref="scrollKnob"></span>
     </div>
 
+    <!-- ================================================================
+         返回按钮用 Teleport 移到 body，解决 fixed 定位失效问题
+    ================================================================ -->
+    <Teleport to="body">
+      <button 
+        v-if="selectedNote" 
+        class="modal-back" 
+        @click="closeDetail(true)"
+      >
+        <svg viewBox="0 0 1024 1024" class="back-icon" aria-label="返回" xmlns="http://www.w3.org/2000/svg">
+          <path d="M477.867 307.2V186.027c-10.24-51.2-52.907-20.48-52.907-20.48L139.947 414.72c-63.147 44.373-5.12 76.8-5.12 76.8l281.6 245.76c56.32 40.96 61.44-22.187 61.44-22.187V604.16C764.587 512 880.64 872.107 880.64 872.107c10.24 20.48 17.067 0 17.067 0C1008.64 332.8 477.867 307.2 477.867 307.2z" fill="#cdcdcd"/>
+        </svg>
+      </button>
+    </Teleport>
+
     <!-- ===== 笔记详情弹窗 - 全屏铺开 ===== -->
     <div v-if="selectedNote" class="modal-overlay" @click="closeDetail">
       <div 
@@ -250,118 +265,118 @@
           transition: isSliding ? 'none' : 'transform 0.42s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.42s cubic-bezier(0.32, 0.72, 0, 1)'
         }"
       >
-        <div class="detail-header">
-          <button class="modal-back" @click="closeDetail(true)">
-            <svg viewBox="0 0 1024 1024" class="back-icon" aria-label="返回" xmlns="http://www.w3.org/2000/svg">
-              <path d="M477.867 307.2V186.027c-10.24-51.2-52.907-20.48-52.907-20.48L139.947 414.72c-63.147 44.373-5.12 76.8-5.12 76.8l281.6 245.76c56.32 40.96 61.44-22.187 61.44-22.187V604.16C764.587 512 880.64 872.107 880.64 872.107c10.24 20.48 17.067 0 17.067 0C1008.64 332.8 477.867 307.2 477.867 307.2z" fill="#cdcdcd"/>
-            </svg>
-          </button>
-          <div class="detail-meta-row">
-            <span class="detail-category">{{ selectedNote.category }}</span>
-            <span class="detail-time">
-              📅 {{ selectedNote.date }}<template v-if="selectedNote.viewCount"> · 👁️ {{ selectedNote.viewCount }}次</template>
-            </span>
+        <template v-if="selectedNote">
+          <div class="detail-header">
+            <div class="detail-meta-row">
+              <span class="detail-category">{{ selectedNote.category }}</span>
+              <span class="detail-time">
+                📅 {{ selectedNote.date }}<template v-if="selectedNote.viewCount"> · 👁️ {{ selectedNote.viewCount }}次</template>
+              </span>
+            </div>
+            <h2 class="detail-title">{{ selectedNote.title }}</h2>
           </div>
-          <h2 class="detail-title">{{ selectedNote.title }}</h2>
-        </div>
-        
-        <div v-if="selectedNote.keyPoints?.length" class="detail-keypoints">
-          <h4>💡 核心要点</h4>
-          <ul>
-            <li v-for="(point, idx) in selectedNote.keyPoints" :key="idx">{{ point }}</li>
-          </ul>
-        </div>
-        
-        <div v-if="selectedNote.scenario" class="detail-scenario">
-          <h4>📌 适用场景</h4>
-          <p>{{ selectedNote.scenario }}</p>
-        </div>
-        
-        <div class="detail-content markdown-body" v-html="renderMarkdown(selectedNote.content, selectedNote.scenario)"></div>
-        
-        <div v-if="selectedNote.caseStudy" class="detail-case">
-          <h4>💡 实战案例</h4>
-          <div class="case-content markdown-body" v-html="renderMarkdown(selectedNote.caseStudy)"></div>
-        </div>
-        
-        <div v-if="examMode && selectedNote.examMapping" class="detail-exam">
-          <h4>🎯 考点专项</h4>
-          <div v-if="selectedNote.examMapping.relatedProcesses?.length" class="detail-exam-item">
-            <span class="exam-label">📋 关联过程组：</span>
-            <span class="process-tag" v-for="p in selectedNote.examMapping.relatedProcesses" :key="p">{{ p }}</span>
-          </div>
-          <div v-if="selectedNote.examMapping.typicalQuestions?.length" class="detail-exam-item">
-            <span class="exam-label">📝 典型考法：</span>
+          
+          <div v-if="selectedNote.keyPoints?.length" class="detail-keypoints">
+            <h4>💡 核心要点</h4>
             <ul>
-              <li v-for="q in selectedNote.examMapping.typicalQuestions" :key="q">{{ q }}</li>
+              <li v-for="(point, idx) in selectedNote.keyPoints" :key="idx">{{ point }}</li>
             </ul>
           </div>
-          <div v-if="selectedNote.examMapping.commonPitfalls?.length" class="detail-exam-item pitfall">
-            <span class="exam-label">⚠️ 常见陷阱：</span>
-            <ul>
-              <li v-for="p in selectedNote.examMapping.commonPitfalls" :key="p">{{ p }}</li>
-            </ul>
+          
+          <div v-if="selectedNote.scenario" class="detail-scenario">
+            <h4>📌 适用场景</h4>
+            <p>{{ selectedNote.scenario }}</p>
           </div>
-          <div v-if="selectedNote.comparisonTable?.enabled" class="comparison-box">
-            <h5>📊 {{ selectedNote.comparisonTable.title || '易混对比' }}</h5>
-            <table>
-              <thead>
-                <tr>
-                  <th>对比项</th>
-                  <th v-for="col in selectedNote.comparisonTable.cols" :key="col">{{ col }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="row in selectedNote.comparisonTable.rows" :key="row.label">
-                  <td><strong>{{ row.label }}</strong></td>
-                  <td v-for="col in selectedNote.comparisonTable.cols" :key="col">{{ row.values[col] || '-' }}</td>
-                </tr>
-              </tbody>
-            </table>
+          
+          <div class="detail-content markdown-body" v-html="renderMarkdown(selectedNote.content, selectedNote.scenario)"></div>
+          
+          <div v-if="selectedNote.caseStudy" class="detail-case">
+            <h4>💡 实战案例</h4>
+            <div class="case-content markdown-body" v-html="renderMarkdown(selectedNote.caseStudy)"></div>
           </div>
-          <div v-if="selectedNote.memoryAids?.length" class="memory-box">
-            <div v-for="(item, index) in selectedNote.memoryAids" :key="index" class="memory-item">{{ item }}</div>
-          </div>
-        </div>
-        
-        <div v-if="selectedNote.attachments?.length" class="detail-attachments">
-          <h4>🎵 录音文件</h4>
-          <div class="audio-list">
-            <AudioPlayer
-              v-for="(file, idx) in selectedNote.attachments"
-              :key="idx"
-              :src="file.url"
-              :name="file.name"
-            />
-          </div>
-        </div>
-        
-        <div v-if="selectedNote.tags?.length" class="detail-tags">
-          <span v-for="tag in selectedNote.tags" :key="tag" :class="['tag', tagColorClass(tag)]">#{{ tag }}</span>
-        </div>
-        
-        <div v-if="selectedNote.examScore != null || authStore.user" class="detail-progress">
-          <div class="progress-header">
-            <span class="progress-label">掌握度</span>
-            <span class="progress-number">{{ getUserExamScore(selectedNote) }}%</span>
-          </div>
-          <div class="progress-meter">
-            <div class="progress-track">
-              <div class="progress-fill" :style="{ width: getUserExamScore(selectedNote) + '%' }"></div>
+          
+          <div v-if="examMode && selectedNote.examMapping" class="detail-exam">
+            <h4>🎯 考点专项</h4>
+            <div v-if="selectedNote.examMapping.relatedProcesses?.length" class="detail-exam-item">
+              <span class="exam-label">📋 关联过程组：</span>
+              <span class="process-tag" v-for="p in selectedNote.examMapping.relatedProcesses" :key="p">{{ p }}</span>
+            </div>
+            <div v-if="selectedNote.examMapping.typicalQuestions?.length" class="detail-exam-item">
+              <span class="exam-label">📝 典型考法：</span>
+              <ul>
+                <li v-for="q in selectedNote.examMapping.typicalQuestions" :key="q">{{ q }}</li>
+              </ul>
+            </div>
+            <div v-if="selectedNote.examMapping.commonPitfalls?.length" class="detail-exam-item pitfall">
+              <span class="exam-label">⚠️ 常见陷阱：</span>
+              <ul>
+                <li v-for="p in selectedNote.examMapping.commonPitfalls" :key="p">{{ p }}</li>
+              </ul>
+            </div>
+            <div v-if="selectedNote.comparisonTable?.enabled" class="comparison-box">
+              <h5>📊 {{ selectedNote.comparisonTable.title || '易混对比' }}</h5>
+              <table>
+                <thead>
+                  <tr>
+                    <th>对比项</th>
+                    <th v-for="col in selectedNote.comparisonTable.cols" :key="col">{{ col }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="row in selectedNote.comparisonTable.rows" :key="row.label">
+                    <td><strong>{{ row.label }}</strong></td>
+                    <td v-for="col in selectedNote.comparisonTable.cols" :key="col">{{ row.values[col] || '-' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div v-if="selectedNote.memoryAids?.length" class="memory-box">
+              <div v-for="(item, index) in selectedNote.memoryAids" :key="index" class="memory-item">{{ item }}</div>
             </div>
           </div>
-          <div class="detail-score-slider">
-            <input type="range" min="0" max="100" :value="getUserExamScore(selectedNote)" @input="handleExamScoreInput" />
+          
+          <div v-if="selectedNote.attachments?.length" class="detail-attachments">
+            <h4>🎵 录音文件</h4>
+            <div class="audio-list">
+              <AudioPlayer
+                v-for="(file, idx) in selectedNote.attachments"
+                :key="idx"
+                :src="file.url"
+                :name="file.name"
+              />
+            </div>
           </div>
-        </div>
-        
-        <div class="detail-actions">
-          <button @click="markUseful(selectedNote)" class="btn-useful">
-            👍 有用 ({{ selectedNote.usefulCount || 0 }})
-          </button>
-        </div>
-        
-        <CommentSection :noteId="String(selectedNote.id)" />
+          
+          <div v-if="selectedNote.tags?.length" class="detail-tags">
+            <span v-for="tag in selectedNote.tags" :key="tag" :class="['tag', tagColorClass(tag)]">#{{ tag }}</span>
+          </div>
+          
+          <div
+            v-if="selectedNote && (selectedNote.examScore != null || authStore.user)"
+            class="detail-progress"
+          >
+            <div class="progress-header">
+              <span class="progress-label">掌握度</span>
+              <span class="progress-number">{{ getUserExamScore(selectedNote) }}%</span>
+            </div>
+            <div class="progress-meter">
+              <div class="progress-track">
+                <div class="progress-fill" :style="{ width: getUserExamScore(selectedNote) + '%' }"></div>
+              </div>
+            </div>
+            <div class="detail-score-slider">
+              <input type="range" min="0" max="100" :value="getUserExamScore(selectedNote)" @input="handleExamScoreInput" />
+            </div>
+          </div>
+          
+          <div class="detail-actions">
+            <button @click="markUseful(selectedNote)" class="btn-useful">
+              👍 有用 ({{ selectedNote.usefulCount || 0 }})
+            </button>
+          </div>
+          
+          <CommentSection :noteId="selectedNote ? String(selectedNote.id) : ''" />
+        </template>
       </div>
     </div>
     
@@ -375,8 +390,8 @@
 
 <script setup>
 import SettingsPanel from '@/components/SettingsPanel.vue'
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { useRouter, useRoute, onBeforeRouteLeave } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
 import { useNotesStore } from '../stores/notes'
 import MarkdownIt from 'markdown-it'
@@ -445,7 +460,6 @@ function handleGridMouseMove(e) {
     rafPending = false
     if (!lastHoverCard) return
     const r = lastHoverCard.getBoundingClientRect()
-    // 用无单位 0-100，便于 tilt 计算；光晕位置用 calc(* 1%) 还原
     lastHoverCard.style.setProperty('--mx', String((e.clientX - r.left) / r.width * 100))
     lastHoverCard.style.setProperty('--my', String((e.clientY - r.top) / r.height * 100))
   })
@@ -460,10 +474,8 @@ function handleGridMouseLeave() {
 }
 
 function handleListClickRipple(e) {
-  // 筛选标签点击 → 墨渍涟漪
   const fc = e.target.closest('.filter-cs')
   if (fc) { spawnInkRipple(e, fc); return }
-  // 笔记卡片点击 → 彩色波纹（作为“查看全文”打开反馈）
   const card = e.target.closest('.note-card')
   if (card) spawnInkRipple(e, card)
 }
@@ -485,13 +497,12 @@ function handleScroll() {
   }
 }
 
-// 公告条：测量容器宽度，让文字从右边缘进入并向左无缝滚动
 function syncTicker() {
   const box = tickerRef.value
   const track = tickerTrackRef.value
   if (!box || !track) return
   const containerW = box.clientWidth
-  const trackW = track.scrollWidth // 双份内容总宽
+  const trackW = track.scrollWidth
   box.style.setProperty('--ticker-from', containerW + 'px')
   box.style.setProperty('--ticker-to', (containerW - trackW) + 'px')
 }
@@ -508,7 +519,6 @@ const panelOpacity = computed(() => {
 })
 
 // ===== 下拉选项数据 =====
-// 项目管理知识领域（概论、立项 + PMBOK 十大）
 const knowledgeAreaOptions = [
   { value: '', label: '📚 全部知识领域' },
   { value: '项目管理概论', label: '📖 项目管理概论' },
@@ -525,7 +535,6 @@ const knowledgeAreaOptions = [
   { value: '干系人管理', label: '🤝 干系人管理' },
 ]
 
-// 标签按知识领域分配颜色
 const TAG_COLOR_MAP = {
   '整合管理': 'tag-green',
   '范围管理': 'tag-blue',
@@ -546,7 +555,6 @@ const tagColorClass = (tag) => TAG_COLOR_MAP[tag] || 'tag-default'
 const totalViews = computed(() => notesStore.totalViews)
 const totalCharacters = computed(() => notesStore.totalCharacters)
 
-// 数字格式化：超 1 万显示为 X.XW，超 1 千显示为 X.XK
 const formatNum = (n) => {
   if (!n) return '0'
   if (n >= 10000) return (n / 10000).toFixed(1) + 'W'
@@ -575,25 +583,27 @@ const hotTopics = computed(() => {
     .map(([name, count]) => ({ name, count }))
 })
 
-const learningMasteryRows = computed(() => {
+const learningMasteryStats = computed(() => {
   const currentUserId = authStore.user?.id
 
-  return notesStore.notes
-    .map(note => {
+  const result = {}
+  notesStore.notes
+    .filter(Boolean)
+    .slice(0, 5)
+    .forEach(note => {
       const rawScore = currentUserId && note.userExamScores?.[currentUserId] != null
         ? Number(note.userExamScores[currentUserId])
         : note.examScore != null
           ? Number(note.examScore)
           : null
 
-      return {
-        key: note.id,
-        title: note.title || '未命名笔记',
-        score: rawScore != null && Number.isFinite(rawScore) ? Math.max(0, Math.min(100, Math.round(rawScore))) : 0
-      }
+      const score = rawScore != null && Number.isFinite(rawScore)
+        ? Math.max(0, Math.min(100, Math.round(rawScore)))
+        : 0
+
+      result[note.title || '未命名'] = score
     })
-    .filter(item => item.title)
-    .slice(0, 5)
+  return result
 })
 
 // ===== 方法 =====
@@ -647,9 +657,7 @@ const closeUserMenu = () => {
 }
 
 const handleClickOutside = (e) => {
-  // 检查是否点击在触发器按钮上
   if (userBtnRef.value && userBtnRef.value.contains(e.target)) return
-  // 检查是否点击在下拉菜单上（通过 Teleport 渲染到 body）
   if (dropdownMenuRef.value && dropdownMenuRef.value.contains(e.target)) return
   showUserMenu.value = false
 }
@@ -667,6 +675,7 @@ const loadNotes = async () => {
     toastError('加载笔记失败，请稍后重试')
   }
 }
+
 const loadNoteContent = async (noteId) => {
   const response = await fetch(`/api/notes/${noteId}`)
   return response.json()
@@ -674,14 +683,12 @@ const loadNoteContent = async (noteId) => {
 
 const loadUserProgress = async (noteId) => {
   if (!authStore.user?.id) return null
-
   try {
     const response = await fetch(`/api/user-progress?noteId=${encodeURIComponent(noteId)}`, {
       headers: {
         'Authorization': `Bearer ${authStore.token || ''}`
       }
     })
-
     if (!response.ok) return null
     const data = await response.json()
     return data.score != null ? Number(data.score) : null
@@ -691,13 +698,49 @@ const loadUserProgress = async (noteId) => {
   }
 }
 
+// 🆕 改动：滚动到顶部的函数，多次尝试确保生效
+const scrollDetailToTop = () => {
+  const detailEl = document.querySelector('.modal-detail')
+  if (!detailEl) return
+
+  detailEl.scrollTop = 0
+
+  requestAnimationFrame(() => {
+    const el = document.querySelector('.modal-detail')
+    if (el) el.scrollTop = 0
+  })
+
+  setTimeout(() => {
+    const el = document.querySelector('.modal-detail')
+    if (el) el.scrollTop = 0
+  }, 100)
+
+  setTimeout(() => {
+    const el = document.querySelector('.modal-detail')
+    if (el) el.scrollTop = 0
+  }, 300)
+}
+
+// 🆕 改动：viewDetail 增加滚动重置和防御检查
 const viewDetail = async (note) => {
-  // 先显示笔记基本信息，让用户感觉快
+  // 如果已有打开的详情，先关闭（无动画），防止滚动位置残留
+  if (selectedNote.value) {
+    selectedNote.value = null
+    document.body.style.overflow = ''
+    slideX.value = 0
+    isSliding.value = false
+  }
+
   selectedNote.value = { ...note, content: '加载中...', userExamScores: note.userExamScores || {} }
   document.body.style.overflow = 'hidden'
 
+  // 等待 DOM 更新后，滚动到顶部
+  await nextTick()
+  scrollDetailToTop()
+
   if (authStore.user?.id) {
     const myScore = await loadUserProgress(note.id)
+    if (!selectedNote.value) return
     if (myScore != null) {
       selectedNote.value.userExamScores = {
         ...(selectedNote.value.userExamScores || {}),
@@ -706,11 +749,11 @@ const viewDetail = async (note) => {
       selectedNote.value.examScore = myScore
     }
   }
-  
-  // 如果 content 为空，单独加载
+
   if (!note.content) {
     try {
       const fullNote = await loadNoteContent(note.id)
+      if (!selectedNote.value) return
       selectedNote.value = {
         ...fullNote,
         userExamScores: {
@@ -718,54 +761,68 @@ const viewDetail = async (note) => {
           ...(selectedNote.value.userExamScores || {})
         }
       }
+      await nextTick()
+      scrollDetailToTop()
     } catch (e) {
       console.error('加载笔记内容失败:', e)
       toastError('加载内容失败，请稍后重试')
+      if (!selectedNote.value) return
       selectedNote.value = note
+      await nextTick()
+      scrollDetailToTop()
     }
   } else {
+    if (!selectedNote.value) return
     selectedNote.value = note
+    await nextTick()
+    scrollDetailToTop()
   }
-  
+
   notesStore.incrementViewCount(note.id)
   historyStore.addHistory(note)
 }
 
+// 🆕 改动：关闭详情时重置所有状态，并重置滚动位置
 const closeDetail = (useAnimation = true) => {
   if (!selectedNote.value) return
+
+  // 关闭前先滚动到顶部，清除残留滚动位置
+  scrollDetailToTop()
 
   if (useAnimation) {
     isSliding.value = true
     slideX.value = window.innerWidth
     setTimeout(() => {
       selectedNote.value = null
-      document.body.style.overflow = ''
       slideX.value = 0
       isSliding.value = false
+      document.body.style.overflow = ''
     }, 420)
     return
   }
 
   selectedNote.value = null
-  document.body.style.overflow = ''
   slideX.value = 0
   isSliding.value = false
+  document.body.style.overflow = ''
 }
 
 const getUserExamScore = (note) => {
-  if (!note) return 0
+  if (!note || typeof note !== 'object') return 0
+
   const currentUserId = authStore.user?.id
   if (!currentUserId) return 0
 
   const userExamScores = note.userExamScores || {}
   const score = userExamScores[currentUserId]
-  if (score != null) return Number(score) || 0
+
+  if (score != null && !isNaN(Number(score))) return Number(score)
   return 0
 }
 
 const handleExamScoreInput = async (event) => {
-  const score = Number(event.target.value)
   if (!selectedNote.value) return
+  const score = Number(event.target.value)
 
   const currentUserId = authStore.user?.id
   if (!currentUserId) {
@@ -777,7 +834,6 @@ const handleExamScoreInput = async (event) => {
     ...(selectedNote.value.userExamScores || {}),
     [currentUserId]: score
   }
-
   selectedNote.value.userExamScores = nextUserScores
   selectedNote.value.examScore = score
 
@@ -800,7 +856,6 @@ const handleExamScoreInput = async (event) => {
         score
       })
     })
-
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: '更新掌握度失败' }))
       throw new Error(errorData.error || '更新掌握度失败')
@@ -811,12 +866,11 @@ const handleExamScoreInput = async (event) => {
   }
 }
 
-// iOS 侧滑返回：只在左边缘触发，且不干扰内容上下滚动
+// iOS 侧滑返回
 const handleTouchStart = (e) => {
   const touch = e.touches[0]
   startX.value = touch.clientX
   startY.value = touch.clientY
-
   if (touch.clientX <= 30) {
     isSliding.value = true
   } else {
@@ -826,17 +880,12 @@ const handleTouchStart = (e) => {
 
 const handleTouchMove = (e) => {
   if (!isSliding.value) return
-
   const touch = e.touches[0]
   const diffX = touch.clientX - startX.value
   const diffY = touch.clientY - startY.value
-
-  // 只有水平向右滑动且主方向是横向，才视为返回手势
   if (diffX <= 0 || Math.abs(diffX) <= Math.abs(diffY) * 1.15) {
     return
   }
-
-  // 配合原生 iOS 的阻尼感：更真实、更顺滑
   const maxOffset = Math.min(window.innerWidth * 0.96, 420)
   slideX.value = Math.min(diffX * 0.72, maxOffset)
   if (e.cancelable) e.preventDefault()
@@ -844,7 +893,6 @@ const handleTouchMove = (e) => {
 
 const handleTouchEnd = () => {
   if (!isSliding.value) return
-
   const threshold = window.innerWidth * 0.35
   if (slideX.value >= threshold) {
     closeDetail(true)
@@ -861,7 +909,6 @@ const markUseful = (note) => {
 
 const openNoteById = (noteId) => {
   if (!noteId || notesStore.notes.length === 0) return
-  
   const note = notesStore.getNoteById(parseInt(noteId)) || notesStore.notes.find(n => String(n.id) === String(noteId))
   if (note) {
     viewDetail(note)
@@ -887,6 +934,13 @@ const logout = () => {
   router.push('/login')
 }
 
+onBeforeRouteLeave(() => {
+  selectedNote.value = null
+  document.body.style.overflow = ''
+  slideX.value = 0
+  isSliding.value = false
+})
+
 onMounted(async () => {
   if (authStore.user?.role !== 'viewer') {
     router.push('/admin')
@@ -904,7 +958,6 @@ onMounted(async () => {
   
   document.addEventListener('click', handleClickOutside)
 
-  // 动效交互绑定（事件委托，避免逐卡片绑监听）
   const grid = document.querySelector('.note-grid')
   if (grid) {
     grid.addEventListener('mousemove', handleGridMouseMove)
@@ -912,20 +965,18 @@ onMounted(async () => {
   }
   document.addEventListener('click', handleListClickRipple)
   window.addEventListener('scroll', handleScroll, { passive: true })
-  // 滚动时更新下拉菜单位置
   window.addEventListener('scroll', () => {
     if (showUserMenu.value) updateUserMenuPosition()
   }, { passive: true })
   window.addEventListener('resize', () => {
     if (showUserMenu.value) updateUserMenuPosition()
   })
-  // 公告条起始位置：挂载 + 窗口变化 + 字体加载后各测一次
   syncTicker()
   window.addEventListener('resize', syncTicker)
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(syncTicker)
   }
-  handleScroll() // 初始定位
+  handleScroll()
 })
 
 watch(() => route.query.noteId, (newNoteId) => {
@@ -946,6 +997,10 @@ onUnmounted(() => {
   window.removeEventListener('scroll', handleScroll)
   window.removeEventListener('resize', syncTicker)
   document.body.style.overflow = ''
+  
+  selectedNote.value = null
+  slideX.value = 0
+  isSliding.value = false
 })
 </script>
 
@@ -973,7 +1028,6 @@ header {
   margin-bottom: 12px;
   position: sticky;
   top: 0;
-  /* 高于筛选区 .filter-wrap(200)/.filter-cs(210)，保证 sticky header 始终在筛选项之上 */
   z-index: 500;
 }
 
@@ -1116,7 +1170,6 @@ header {
   display: flex;
   align-items: center;
   margin: 0 14px;
-  /* 左右渐隐遮罩，滚动进出更柔和 */
   -webkit-mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
   mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent);
 }
@@ -1125,7 +1178,6 @@ header {
   display: inline-flex;
   white-space: nowrap;
   will-change: transform;
-  /* 从容器右边缘进入，向左平移一个轨道宽度（双份内容宽）后回到等效位置 → 首尾无缝 */
   animation: ticker-scroll 20s linear infinite;
 }
 
@@ -1152,7 +1204,6 @@ header {
   margin-bottom: 12px;
 }
 
-/* 轻量化统计标签 */
 .stat-mini {
   display: inline-flex;
   align-items: baseline;
@@ -1181,7 +1232,6 @@ header {
   flex: 1;
 }
 
-/* 图标按钮（历史、设置） */
 .stat-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -1207,7 +1257,6 @@ header {
   border-color: #6366f1;
 }
 
-/* 前 3 个统计项：呼吸脉动效果 */
 .stat-mini:nth-child(-n+3) .stat-val {
   animation: val-pulse 3.2s ease-in-out infinite;
 }
@@ -1224,13 +1273,11 @@ header {
   z-index: 200;
 }
 
-/* 搜索框容器 */
 .search-field {
   position: relative;
   margin-bottom: 8px;
 }
 
-/* 搜索框与筛选行之间的极浅分隔线 */
 .filter-wrap::after {
   content: "";
   display: block;
@@ -1266,7 +1313,6 @@ header {
   position: relative;
 }
 
-/* 左右渐变遮罩，提示可横向滚动 */
 .filter-row::before,
 .filter-row::after {
   content: "";
@@ -1293,14 +1339,12 @@ header {
   min-width: 0;
   position: relative;
   z-index: 210;
-  /* 与 .cs-trigger 的 border-radius 对齐，让 :hover / .is-active 的 box-shadow 跟随圆角 */
   border-radius: 10px;
   transition: transform .3s var(--ease-out-quint),
               box-shadow .3s var(--ease-soft),
               margin-left .3s var(--ease-soft);
 }
 
-/* 悬停：上浮放大 + 兄弟间微微拉开 */
 .filter-row:hover .filter-cs { margin-left: 4px; }
 .filter-row .filter-cs:first-child { margin-left: 0; }
 .filter-cs:hover {
@@ -1308,13 +1352,11 @@ header {
   box-shadow: 0 3px 10px var(--ink-violet);
 }
 
-/* 选中态：发光胶囊高亮 */
 .filter-cs.is-active {
   box-shadow: 0 0 0 2px var(--accent-color),
               0 0 16px var(--ink-violet);
 }
 
-/* 考试模式切换 */
 .exam-toggle {
   display: flex;
   align-items: center;
@@ -1476,7 +1518,6 @@ header {
   border: 1px solid rgba(0,0,0,0.04);
 }
 
-/* 左侧紫蓝渐变色条 */
 .note-card::before {
   content: "";
   position: absolute;
@@ -1496,7 +1537,6 @@ header {
   width: 5px;
 }
 
-/* 鼠标光晕：跟随鼠标的柔和径向光 */
 .note-card::after {
   content: "";
   position: absolute;
@@ -1510,7 +1550,6 @@ header {
   z-index: 0;
 }
 
-/* 悬停：朝鼠标方向 3D 倾斜（纸张被提起一角）+ 上浮 */
 .note-card:hover {
   transform: perspective(900px)
              rotateX(calc((var(--my) - 50) / 12 * -1deg))
@@ -1524,7 +1563,6 @@ header {
   transform: scale(0.98);
 }
 
-/* 卡片顶部：进度 */
 .card-header-row {
   display: flex;
   justify-content: flex-end;
@@ -1573,7 +1611,6 @@ header {
   border-radius: 12px;
 }
 
-/* 卡片中间：标题 + 摘要 */
 .card-title {
   margin: 14px 16px 8px 20px;
   color: var(--text-primary);
@@ -1594,7 +1631,6 @@ header {
   margin: 0 16px 14px 20px;
 }
 
-/* 卡片底部 */
 .card-footer {
   display: flex;
   justify-content: space-between;
@@ -1603,7 +1639,6 @@ header {
   background: transparent;
 }
 
-/* 底部左侧：分类带小圆点 */
 .card-footer-left {
   display: flex;
   align-items: center;
@@ -1624,7 +1659,7 @@ header {
 }
 
 .category-tag {
-  display: none; /* 旧的标签样式已被 cat-dot + cat-name 替代 */
+  display: none;
 }
 
 .card-footer-right {
@@ -1657,7 +1692,6 @@ header {
   transition: transform 0.2s;
 }
 
-/* 查看全文：悬停时渐显 + 帷幕细线从中间向两端展开（仅悬停设备） */
 @media (hover: hover) {
   .view-link {
     position: relative;
@@ -1678,7 +1712,6 @@ header {
   .note-card:hover .view-link::after { width: 22px; }
 }
 
-/* ===== 考试模式附加详情 ===== */
 .card-exam-details {
   padding: 12px 16px;
   background: var(--bg-primary);
@@ -1799,7 +1832,6 @@ header {
   color: #667eea;
 }
 
-/* ===== 空状态 ===== */
 .empty {
   grid-column: 1/-1;
   text-align: center;
@@ -1821,7 +1853,6 @@ header {
   font-size: 14px;
 }
 
-/* ===== 骨架屏加载 ===== */
 .skeleton-grid {
   display: grid;
   grid-template-columns: 1fr;
@@ -1887,7 +1918,7 @@ header {
 }
 
 /* ================================================================
-   ===== 详情弹窗 - 全屏铺开版（核心修改） =====
+   ===== 详情弹窗 - 全屏铺开版 =====
    ================================================================ */
 .modal-overlay {
   position: fixed;
@@ -1898,7 +1929,6 @@ header {
   overflow: hidden;
 }
 
-/* 整体容器：电脑端直接占满全屏，背景用次要色 */
 .modal-detail {
   position: relative;
   background: var(--bg-secondary);
@@ -1918,6 +1948,9 @@ header {
   border-left: 1px solid rgba(148, 163, 184, 0.18);
 }
 
+/* ================================================================
+    .modal-back 样式 - 独立于任何父级，固定在视口，纯图标
+   ================================================================ */
 .modal-back {
   position: fixed;
   top: 20px;
@@ -1926,27 +1959,30 @@ header {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: auto;
+  height: auto;
   border: none;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.85);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.22);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
   cursor: pointer;
   padding: 0;
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
-.modal-back:hover,
+.modal-back:hover {
+  opacity: 0.7;
+  transform: translateX(-4px);
+}
+
 .modal-back:active {
-  color: #6366f1;
-  transform: translateX(-2px);
+  transform: scale(0.92);
 }
 
 .back-icon {
   width: 32px;
   height: 32px;
+  display: block;
 }
 
 /* 详情内容样式 */
@@ -1955,7 +1991,6 @@ header {
   margin-bottom: 24px;
 }
 
-/* 顶部元信息：分类胶囊 + 时间戳，flex 同行，下方分割线 */
 .detail-meta-row {
   display: flex;
   align-items: center;
@@ -1982,7 +2017,6 @@ header {
   color: var(--text-muted);
 }
 
-/* 标题：32px / 700，底部留白 8px */
 .detail-title {
   margin: 0 0 8px;
   font-size: 32px;
@@ -1991,7 +2025,6 @@ header {
   color: var(--text-primary);
 }
 
-/* 掌握度进度条：轻量版，去掉小人动画，减少卡顿 */
 .detail-progress {
   display: flex;
   flex-direction: column;
@@ -2133,7 +2166,6 @@ header {
   color: var(--text-primary);
 }
 
-/* 核心要点：浅灰蓝卡片 + 左侧 4px 紫色竖条 + 菱形符号 */
 .detail-keypoints {
   background: #eef2ff;
   border-left: 4px solid #667eea;
@@ -2175,7 +2207,6 @@ header {
   line-height: 1.7;
 }
 
-/* 适用场景：浅黄卡片 + 黄边 + 深褐字 */
 .detail-scenario {
   background: #fffbeb;
   border: 1px solid #fde68a;
@@ -2216,7 +2247,6 @@ header {
   color: #c0392b;
 }
 
-/* 正文区域：16px / 行高 1.9 / 段落间距 18px */
 .detail-content {
   font-size: 16px;
   line-height: 1.9;
@@ -2236,7 +2266,6 @@ header {
   font-weight: 600;
 }
 
-/* 二级标题：22px，底部 2px 浅灰分割线，上下 40/16 */
 .detail-content :deep(h2) {
   font-size: 22px;
   margin: 40px 0 16px;
@@ -2246,7 +2275,6 @@ header {
   font-weight: 600;
 }
 
-/* 三级标题：18px，上下 28/12 */
 .detail-content :deep(h3) {
   font-size: 18px;
   margin: 28px 0 12px;
@@ -2287,7 +2315,6 @@ header {
   color: var(--text-muted);
 }
 
-/* 表格：宽度 100%，首列自然宽度不堆叠 */
 .detail-content :deep(table) {
   border-collapse: collapse;
   width: 100%;
@@ -2448,7 +2475,6 @@ header {
   gap: 4px;
 }
 
-/* 标签区域：底部，分割线隔开，胶囊样式 + 知识领域配色 + 悬停上浮 */
 .detail-tags {
   display: flex;
   flex-wrap: wrap;
@@ -2473,7 +2499,6 @@ header {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
 }
 
-/* 知识领域配色 */
 .tag-default { background: var(--border-color); color: var(--text-secondary); }
 .tag-green { background: #dcfce7; color: #166534; }
 .tag-blue { background: #dbeafe; color: #1e40af; }
@@ -2509,7 +2534,6 @@ header {
   background: #5a6fd6;
 }
 
-/* ===== 响应式 ===== */
 @media (min-width: 768px) {
   .viewer-panel {
     padding: 24px;
@@ -2521,7 +2545,6 @@ header {
   }
 }
 
-/* ===== 右侧滚动进度光带 ===== */
 .scroll-rail {
   position: fixed;
   right: 10px;
@@ -2554,7 +2577,6 @@ header {
   100% { opacity: 0; transform: translate(-50%, -50%) scale(2.2); }
 }
 
-/* ===== 无障碍：尊重「减少动态」偏好 ===== */
 @media (prefers-reduced-motion: reduce) {
   .stat-mini:nth-child(-n+3) .stat-val,
   .search-field:hover::after,
@@ -2573,19 +2595,16 @@ header {
   }
 }
 
-/* 手机端：内容宽度自适应，阅读区内边距缩小 */
 @media (max-width: 767px) {
   .viewer-panel {
     padding: 16px 14px;
   }
 
-  /* 搜索框更圆润 */
   .search-input {
     padding: 14px 18px;
     font-size: 15px;
   }
 
-  /* 统计徽章：更紧凑 */
   .stats-bar {
     gap: 6px;
     margin-bottom: 12px;
@@ -2600,7 +2619,6 @@ header {
     font-size: 11px;
   }
 
-  /* 公告条：手机端收窄高度与字号，仅在剩余空间内滚动，不撑破 header */
   .header-ticker {
     height: 22px;
     margin: 0 8px;
@@ -2610,7 +2628,6 @@ header {
     font-size: 12px;
   }
 
-  /* 筛选行：支持横向滚动 */
   .filter-row {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
@@ -2626,7 +2643,6 @@ header {
     display: none;
   }
 
-  /* 笔记卡片：增加间距 */
   .note-grid {
     gap: 14px;
   }
@@ -2692,11 +2708,6 @@ header {
     line-height: 1.6;
   }
 
-  .detail-case,
-  .detail-attachments,
-  .detail-exam {
-  }
-
   .case-content {
     padding: 10px 12px;
     font-size: 16px;
@@ -2753,7 +2764,6 @@ header {
     margin: 20px 0 10px;
   }
 
-  /* 骨架屏适配 */
   .skeleton-grid {
     gap: 14px;
   }
@@ -2765,7 +2775,6 @@ header {
 </style>
 
 <style>
-/* ===== 墨渍涟漪（JS 动态创建，需放在非 scoped 块） ===== */
 .ink-ripple {
   position: absolute;
   width: 24px;
@@ -2784,7 +2793,6 @@ header {
   to { transform: translate(-50%, -50%) scale(14); opacity: 0; }
 }
 
-/* ===== 暗色模式：核心要点 & 适用场景卡片 ===== */
 [data-theme="dark"] .detail-keypoints {
   background: rgba(102, 126, 234, 0.12);
   border-left-color: #818cf8;
