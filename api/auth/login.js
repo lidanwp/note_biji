@@ -63,6 +63,30 @@ export default async function handler(req, res) {
       console.error('获取用户扩展信息失败:', err)
     }
 
+    // 优化：将 role/displayName 写回 Supabase user_metadata（非阻塞，不影响登录响应）
+    const needUpdateMetadata = profile && (
+      !session.user.user_metadata?.role ||
+      !session.user.user_metadata?.display_name
+    )
+    if (needUpdateMetadata) {
+      // 异步更新，不 await，让登录响应更快
+      fetch(`${supabaseUrl}/auth/v1/user`, {
+        method: 'PUT',
+        headers: {
+          'apikey': supabaseKey,
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          data: {
+            ...(session.user.user_metadata || {}),
+            role: profile.role || 'viewer',
+            display_name: profile.display_name || session.user.email
+          }
+        })
+      }).catch(e => console.error('更新 user_metadata 失败（不影响登录）:', e.message))
+    }
+
     return res.status(200).json({
       user: {
         id: session.user.id,

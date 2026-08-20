@@ -79,13 +79,33 @@ export default async function handler(req, res) {
       return res.status(status || 401).json({ error: verifyError })
     }
 
+    // 优化：优先从 JWT user_metadata 提取 role（一次请求搞定）
+    // 只有当 user_metadata 中没有 role 时才回退查询 users 表
+    const jwtRole = user?.user_metadata?.role
+    const jwtDisplayName = user?.user_metadata?.display_name
+
+    if (jwtRole && jwtDisplayName) {
+      // 快速路径：JWT 已包含所有必要信息，无需二次查询
+      // 缓存 30 秒，token 不会在短时间内失效
+      res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60')
+      return res.json({
+        user: {
+          id: user.id,
+          email: user.email,
+          displayName: jwtDisplayName,
+          role: jwtRole
+        }
+      })
+    }
+
+    // 回退路径：查询 users 表获取完整 profile
     const profile = await getUserProfile(user.id, token).catch(() => null)
     return res.json({
       user: {
         id: user.id,
         email: user.email,
-        displayName: profile?.display_name || user.email,
-        role: profile?.role || 'viewer'
+        displayName: profile?.display_name || jwtDisplayName || user.email,
+        role: profile?.role || jwtRole || 'viewer'
       }
     })
   } catch (error) {
