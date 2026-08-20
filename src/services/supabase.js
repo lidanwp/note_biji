@@ -1,16 +1,9 @@
-import { createClient } from '@supabase/supabase-js'
+// 注意：前端不再直接使用 @supabase/supabase-js
+// 所有数据操作通过 Vercel API 代理（/api/*）进行
+// 仅保留 supabaseUrl 常量用于 Storage 图片直传（由后端签名）
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://oobypberpdpizktzlbph.supabase.co'
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'sb_publishable_KacaVTayTEo0hWOyyMfw1Q_WSMdGKxQ'
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    flowType: 'pkce',
-    detectSessionInUrl: true,
-    persistSession: true,
-    autoRefreshToken: true
-  }
-})
+/** Supabase Storage 公共 URL 基础路径 */
+export const supabaseUrl = 'https://oobypberpdpizktzlbph.supabase.co'
 
 export const getSiteUrl = () => {
   if (typeof window !== 'undefined') {

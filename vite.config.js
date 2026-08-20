@@ -83,9 +83,6 @@ export default defineConfig({
           if (id.includes('node_modules/markdown-it')) {
             return 'markdown'
           }
-          if (id.includes('node_modules/@supabase')) {
-            return 'supabase'
-          }
           // md-editor-v3 + shiki 语言包 - 体积很大但仅在编辑页使用
           if (id.includes('node_modules/md-editor-v3') || id.includes('node_modules/@shiki') || id.includes('node_modules/shiki')) {
             return 'editor'
