@@ -752,9 +752,20 @@ const viewDetail = async (note) => {
   await nextTick()
   scrollDetailToTop()
 
-  if (authStore.user?.id) {
-    const myScore = await loadUserProgress(note.id)
+  // ==== 并行加载：用户掌握度 + 笔记完整内容（如果需要） ====
+  const needFullContent = !note.content || String(note.content).length < 200
+  const hasUser = !!authStore.user?.id
+
+  const progressPromise = hasUser ? loadUserProgress(note.id) : Promise.resolve(null)
+  const contentPromise = needFullContent ? loadNoteContent(note.id) : Promise.resolve(null)
+
+  try {
+    // 两个请求并行执行
+    const [myScore, fullNote] = await Promise.all([progressPromise, contentPromise])
+
     if (!selectedNote.value) return
+
+    // 合并掌握度
     if (myScore != null) {
       selectedNote.value.userExamScores = {
         ...(selectedNote.value.userExamScores || {}),
@@ -762,12 +773,9 @@ const viewDetail = async (note) => {
       }
       selectedNote.value.examScore = myScore
     }
-  }
 
-  if (!note.content) {
-    try {
-      const fullNote = await loadNoteContent(note.id)
-      if (!selectedNote.value) return
+    // 合并完整内容
+    if (fullNote) {
       selectedNote.value = {
         ...fullNote,
         userExamScores: {
@@ -777,15 +785,10 @@ const viewDetail = async (note) => {
       }
       await nextTick()
       scrollDetailToTop()
-    } catch (e) {
-      console.error('加载笔记内容失败:', e)
-      toastError('加载内容失败，请稍后重试')
-      if (!selectedNote.value) return
-      selectedNote.value = note
-      await nextTick()
-      scrollDetailToTop()
     }
-  } else {
+  } catch (e) {
+    console.error('加载笔记内容失败:', e)
+    toastError('加载内容失败，请稍后重试')
     if (!selectedNote.value) return
     selectedNote.value = note
     await nextTick()

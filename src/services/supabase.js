@@ -36,9 +36,19 @@ function getAuthHeaders() {
   return headers
 }
 
-// 加载笔记
-export const loadNotesFromCloud = async () => {
-  const response = await fetch('/api/notes', {
+// 加载笔记（轻量列表模式，只取卡片所需字段）
+// 支持内存缓存，避免重复请求
+let notesCache = null
+let notesCacheTime = 0
+const NOTES_CACHE_TTL = 10000 // 10 秒内存缓存
+
+export const loadNotesFromCloud = async (options = {}) => {
+  // 强制刷新时跳过缓存
+  if (!options.force && notesCache && (Date.now() - notesCacheTime) < NOTES_CACHE_TTL) {
+    return notesCache
+  }
+
+  const response = await fetch('/api/notes?mode=list', {
     method: 'GET',
     headers: getAuthHeaders()
   })
@@ -50,7 +60,7 @@ export const loadNotesFromCloud = async () => {
 
   const data = await response.json()
   
-  return data.map(row => ({
+  const result = data.map(row => ({
     id: row.id,
     title: row.title || '',
     category: row.category || '',
@@ -70,14 +80,25 @@ export const loadNotesFromCloud = async () => {
     comparisonTable: row.comparison_table || { enabled: false, title: '', cols: [], rows: [] },
     memoryAids: row.memory_aids || [],
     examScore: row.exam_score || 0,
-    // 阶段上下文感知 + 知识图谱依赖推理（检索服务使用）
     phase: row.phase || null,
     relatedNotes: row.related_notes || []
   }))
+
+  // 存入缓存
+  notesCache = result
+  notesCacheTime = Date.now()
+  return result
+}
+
+// 清除笔记缓存（保存/删除后调用）
+export const invalidateNotesCache = () => {
+  notesCache = null
+  notesCacheTime = 0
 }
 
 // 保存笔记（单条）
 export const saveNoteToCloud = async (note) => {
+  invalidateNotesCache()
   const response = await fetch('/api/notes', {
     method: 'POST',
     headers: getAuthHeaders(),
@@ -94,6 +115,7 @@ export const saveNoteToCloud = async (note) => {
 
 // 批量保存
 export const saveNotesToCloud = async (notes) => {
+  invalidateNotesCache()
   const response = await fetch('/api/notes', {
     method: 'POST',
     headers: getAuthHeaders(),
@@ -110,6 +132,7 @@ export const saveNotesToCloud = async (notes) => {
 
 // 删除笔记
 export const deleteNoteFromCloud = async (id) => {
+  invalidateNotesCache()
   const response = await fetch(`/api/notes/${id}`, {
     method: 'DELETE',
     headers: getAuthHeaders()

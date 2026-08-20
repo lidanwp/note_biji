@@ -29,8 +29,15 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
+    // 轻量列表：不带 content/caseStudy，大幅减小载荷
+    const isListMode = req.query?.mode === 'list'
+
     try {
-      const response = await fetch(`${supabaseUrl}/rest/v1/notes?select=id,title,category,date,view_count,useful_count,tags,created_at,user_id,key_points,scenario,content,case_study,attachments,exam_mapping,comparison_table,memory_aids,exam_score,phase,related_notes&order=date.desc`, {
+      const select = isListMode
+        ? 'id,title,category,date,view_count,useful_count,tags,created_at,user_id,key_points,scenario,exam_score,phase,related_notes'
+        : 'id,title,category,date,view_count,useful_count,tags,created_at,user_id,key_points,scenario,content,case_study,attachments,exam_mapping,comparison_table,memory_aids,exam_score,phase,related_notes'
+
+      const response = await fetch(`${supabaseUrl}/rest/v1/notes?select=${encodeURIComponent(select)}&order=date.desc`, {
         headers: {
           apikey: supabaseKey,
           Authorization: `Bearer ${supabaseKey}`,
@@ -42,7 +49,17 @@ export default async function handler(req, res) {
         throw new Error(`Supabase 请求失败: ${response.status}`)
       }
 
-      return res.status(200).json(await response.json())
+      const data = await response.json()
+      // 列表模式：裁剪 content/caseStudy 到前 200 字符，避免传输大量 HTML
+      const processed = isListMode ? data.map(n => ({
+        ...n,
+        content: n.content ? String(n.content).slice(0, 200) : '',
+        case_study: n.case_study ? String(n.case_study).slice(0, 200) : ''
+      })) : data
+
+      // 缓存 30 秒（Serverless 冷启动 + Supabase 响应时间远大于此，客户端可复用）
+      res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=600')
+      return res.status(200).json(processed)
     } catch (error) {
       console.error('notes GET error:', error)
       return res.status(500).json({ error: error.message })
