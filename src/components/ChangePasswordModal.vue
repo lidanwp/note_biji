@@ -12,9 +12,11 @@
             <div class="cp-form-group">
               <label>旧密码</label>
               <input 
+                ref="oldPasswordRef"
                 type="password" 
                 v-model="oldPassword" 
                 placeholder="请输入旧密码"
+                autocomplete="off"
                 class="cp-input"
                 @keyup.enter="handleSubmit"
               />
@@ -23,9 +25,11 @@
             <div class="cp-form-group">
               <label>新密码</label>
               <input 
+                ref="newPasswordRef"
                 type="password" 
                 v-model="newPassword" 
                 placeholder="请输入新密码（至少6位）"
+                autocomplete="off"
                 class="cp-input"
                 @keyup.enter="handleSubmit"
               />
@@ -34,9 +38,11 @@
             <div class="cp-form-group">
               <label>确认新密码</label>
               <input 
+                ref="confirmPasswordRef"
                 type="password" 
                 v-model="confirmPassword" 
                 placeholder="请再次输入新密码"
+                autocomplete="off"
                 class="cp-input"
                 @keyup.enter="handleSubmit"
               />
@@ -62,7 +68,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 
 const props = defineProps({
   visible: { type: Boolean, default: false },
@@ -92,6 +98,30 @@ const resetForm = () => {
   confirmPassword.value = ''
   errorMessage.value = ''
 }
+
+const oldPasswordRef = ref(null)
+const newPasswordRef = ref(null)
+const confirmPasswordRef = ref(null)
+
+// 打开弹窗时强制清空三个输入框，防止浏览器自动填充
+const clearAllFields = () => {
+  oldPassword.value = ''
+  newPassword.value = ''
+  confirmPassword.value = ''
+  if (oldPasswordRef.value) oldPasswordRef.value.value = ''
+  if (newPasswordRef.value) newPasswordRef.value.value = ''
+  if (confirmPasswordRef.value) confirmPasswordRef.value.value = ''
+}
+
+watch(() => props.visible, (val) => {
+  if (!val) return
+  resetForm()
+  nextTick(() => {
+    clearAllFields()
+    // 延迟再清一次，覆盖浏览器较晚触发的自动填充
+    setTimeout(clearAllFields, 120)
+  })
+})
 
 const handleSubmit = async () => {
   errorMessage.value = ''

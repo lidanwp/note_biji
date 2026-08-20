@@ -427,6 +427,7 @@ onMounted(() => {
   box-shadow: 0 18px 46px rgba(15, 23, 42, 0.18);
   padding: 22px 20px 18px;
   animation: dialogIn 0.18s ease-out;
+  z-index: 9999;
 }
 
 @keyframes dialogIn {

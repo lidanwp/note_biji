@@ -135,20 +135,20 @@
         class="note-card"
         @click="viewDetail(note)"
       >
-        <!-- 中间：标题 + 内容摘要 -->
         <h3 class="card-title">{{ note.title }}</h3>
+        <!-- ===== 修复：卡片摘要显示 ===== -->
         <p class="card-summary">
-          {{ note.scenario ? note.scenario.slice(0, 100) + (note.scenario.length > 100 ? '...' : '') : '暂无内容' }}
+          {{ getNoteSummary(note) }}
         </p>
 
-        <!-- 底部：分类（左，带小圆点）+ 日期 + 查看全文（右，带箭头） -->
+        <!-- 底部：分类 + 日期 + 查看全文 -->
         <div class="card-footer">
           <div class="card-footer-left">
             <span class="cat-dot"></span>
             <span class="cat-name">{{ note.category || '未分类' }}</span>
           </div>
           <div class="card-footer-right">
-            <span class="card-date">{{ note.date }}</span>
+            <span class="card-date">{{ note.date || '未知日期' }}</span>
             <span class="view-link">查看全文 <span class="arrow-icon">→</span></span>
           </div>
         </div>
@@ -235,9 +235,7 @@
       <span class="scroll-knob" ref="scrollKnob"></span>
     </div>
 
-    <!-- ================================================================
-         返回按钮用 Teleport 移到 body，解决 fixed 定位失效问题
-    ================================================================ -->
+    <!-- ===== 返回按钮 ===== -->
     <Teleport to="body">
       <button 
         v-if="selectedNote" 
@@ -250,7 +248,7 @@
       </button>
     </Teleport>
 
-    <!-- ===== 笔记详情弹窗 - 全屏铺开 ===== -->
+    <!-- ===== 笔记详情弹窗 ===== -->
     <div v-if="selectedNote" class="modal-overlay" @click="closeDetail">
       <div 
         class="modal-detail" 
@@ -431,7 +429,7 @@ const scrollKnob = ref(null)
 const tickerRef = ref(null)
 const tickerTrackRef = ref(null)
 
-// ===== 动效交互（鼠标光晕/3D倾斜 + 墨渍涟漪 + 滚动进度光带） =====
+// ===== 动效交互 =====
 let rafPending = false
 let lastHoverCard = null
 let burstLocked = false
@@ -606,6 +604,32 @@ const learningMasteryStats = computed(() => {
   return result
 })
 
+// ===== 新增：获取卡片摘要 =====
+const getNoteSummary = (note) => {
+  // 1. 优先使用 scenario
+  if (note.scenario && note.scenario.trim()) {
+    const cleanText = note.scenario.replace(/^#{1,6}\s+/gm, '').trim()
+    return cleanText.length > 120 ? cleanText.slice(0, 120) + '...' : cleanText
+  }
+  
+  // 2. 其次使用 content 提取纯文本
+  if (note.content && note.content.trim()) {
+    const cleanText = stripHtml(note.content)
+      .replace(/^#{1,6}\s+/gm, '')
+      .trim()
+    if (cleanText) {
+      return cleanText.length > 120 ? cleanText.slice(0, 120) + '...' : cleanText
+    }
+  }
+  
+  // 3. 最后使用 keyPoints 或 fallback
+  if (note.keyPoints && note.keyPoints.length > 0) {
+    return note.keyPoints[0].length > 120 ? note.keyPoints[0].slice(0, 120) + '...' : note.keyPoints[0]
+  }
+  
+  return '暂无内容摘要'
+}
+
 // ===== 方法 =====
 const stripHtml = (content) => {
   if (!content) return ''
@@ -698,43 +722,33 @@ const loadUserProgress = async (noteId) => {
   }
 }
 
-// 🆕 改动：滚动到顶部的函数，多次尝试确保生效
+// ===== 滚动到顶部 =====
 const scrollDetailToTop = () => {
-  const detailEl = document.querySelector('.modal-detail')
-  if (!detailEl) return
-
-  detailEl.scrollTop = 0
-
-  requestAnimationFrame(() => {
-    const el = document.querySelector('.modal-detail')
-    if (el) el.scrollTop = 0
+  nextTick(() => {
+    const detailEl = document.querySelector('.modal-detail')
+    if (detailEl) {
+      detailEl.scrollTop = 0
+    }
   })
-
-  setTimeout(() => {
-    const el = document.querySelector('.modal-detail')
-    if (el) el.scrollTop = 0
-  }, 100)
-
-  setTimeout(() => {
-    const el = document.querySelector('.modal-detail')
-    if (el) el.scrollTop = 0
-  }, 300)
 }
 
-// 🆕 改动：viewDetail 增加滚动重置和防御检查
+// ===== viewDetail =====
 const viewDetail = async (note) => {
-  // 如果已有打开的详情，先关闭（无动画），防止滚动位置残留
+  if (selectedNote.value && selectedNote.value.id === note.id) {
+    return
+  }
+
   if (selectedNote.value) {
     selectedNote.value = null
     document.body.style.overflow = ''
     slideX.value = 0
     isSliding.value = false
+    await new Promise(resolve => requestAnimationFrame(resolve))
   }
 
   selectedNote.value = { ...note, content: '加载中...', userExamScores: note.userExamScores || {} }
   document.body.style.overflow = 'hidden'
 
-  // 等待 DOM 更新后，滚动到顶部
   await nextTick()
   scrollDetailToTop()
 
@@ -782,12 +796,9 @@ const viewDetail = async (note) => {
   historyStore.addHistory(note)
 }
 
-// 🆕 改动：关闭详情时重置所有状态，并重置滚动位置
+// ===== closeDetail =====
 const closeDetail = (useAnimation = true) => {
   if (!selectedNote.value) return
-
-  // 关闭前先滚动到顶部，清除残留滚动位置
-  scrollDetailToTop()
 
   if (useAnimation) {
     isSliding.value = true
@@ -1012,9 +1023,9 @@ onUnmounted(() => {
   transition: filter 0.25s ease, transform 0.25s ease;
 }
 
-.viewer-panel.detail-open {
-  transform: scale(0.995);
-}
+/* 已移除 detail-open 的 transform 缩放：
+ * transform 会让 .viewer-panel 成为其内部 position:fixed 后代(.modal-overlay)的包含块，
+ * 导致手机端全屏详情弹窗脱离视口定位，长内容滚动时底部被裁切、显示不完全 */
 
 /* ===== 头部 ===== */
 header {
@@ -1629,6 +1640,7 @@ header {
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin: 0 16px 14px 20px;
+  min-height: 44px;
 }
 
 .card-footer {
@@ -1987,7 +1999,7 @@ header {
 
 /* 详情内容样式 */
 .detail-header {
-  padding-top: 72px;
+  padding-top: 20px;
   margin-bottom: 24px;
 }
 
@@ -2543,6 +2555,28 @@ header {
     grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
     gap: 24px;
   }
+
+  .detail-header {
+    padding-top: 32px;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .modal-detail {
+    padding: 0 24px 40px;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .modal-back {
+    top: 24px;
+    left: 24px;
+  }
+
+  .back-icon {
+    width: 32px;
+    height: 32px;
+  }
 }
 
 .scroll-rail {
@@ -2675,8 +2709,56 @@ header {
     grid-template-columns: 1fr;
   }
 
+  /* ===== 移动端详情弹窗修复 ===== */
   .modal-detail {
-    padding: 12px 12px 30px;
+    padding: 0 12px 30px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    height: 100vh;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* 移动端返回按钮 - 纯SVG，无背景无圆角 */
+  .modal-back {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 1200;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: auto;
+    border: none;
+    background: transparent !important;
+    box-shadow: none !important;
+    cursor: pointer;
+    padding: 0;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .modal-back:hover {
+    opacity: 0.7;
+    transform: translateX(-4px);
+  }
+
+  .modal-back:active {
+    transform: scale(0.92);
+  }
+
+  .back-icon {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* 详情内容顶部留出返回按钮空间 */
+  .detail-header {
+    padding-top: 50px;
+    padding-left: 8px;
+    padding-right: 8px;
   }
 
   .detail-title {
@@ -2764,6 +2846,28 @@ header {
     margin: 20px 0 10px;
   }
 
+  .detail-content :deep(table),
+  .case-content :deep(table),
+  .comparison-box table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  .detail-content :deep(th),
+  .detail-content :deep(td),
+  .case-content :deep(th),
+  .case-content :deep(td),
+  .comparison-box th,
+  .comparison-box td {
+    white-space: normal;
+    min-width: 80px;
+    max-width: 200px;
+    word-break: break-word;
+  }
+
   .skeleton-grid {
     gap: 14px;
   }
@@ -2771,10 +2875,101 @@ header {
   .skeleton-card {
     padding: 14px;
   }
-}
-</style>
 
-<style>
+  /* 确保所有内容块正常显示 */
+  .detail-keypoints,
+  .detail-scenario,
+  .detail-content,
+  .detail-case,
+  .detail-exam,
+  .detail-attachments,
+  .detail-tags,
+  .detail-actions,
+  .detail-progress {
+    width: 100%;
+    box-sizing: border-box;
+    overflow: visible;
+  }
+
+  /* 评论组件容器确保可见 */
+  .detail-actions + * {
+    width: 100%;
+    box-sizing: border-box;
+    overflow: visible;
+    margin-top: 16px;
+  }
+
+  /* 修复掌握度滑块 */
+  .detail-score-slider input[type="range"] {
+    width: 100%;
+    max-width: 100%;
+    min-width: 80px;
+  }
+
+  /* 修复底部边距，确保评论可见 */
+  .modal-detail > *:last-child {
+    margin-bottom: 40px;
+  }
+}
+
+/* 修复 iOS Safari 安全区域 */
+@supports (padding: max(0px)) {
+  .modal-detail {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-bottom: max(30px, env(safe-area-inset-bottom));
+  }
+
+  @media (max-width: 767px) {
+    .modal-back {
+      top: max(12px, env(safe-area-inset-top));
+      left: max(12px, env(safe-area-inset-left));
+    }
+  }
+}
+
+/* 小屏手机（< 380px） */
+@media (max-width: 380px) {
+  .detail-header {
+    padding-top: 44px;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+
+  .detail-title {
+    font-size: 20px;
+  }
+
+  .detail-keypoints {
+    padding: 10px 12px;
+    margin: 12px 0 12px;
+  }
+
+  .detail-keypoints li {
+    font-size: 13px;
+    padding-left: 16px;
+  }
+
+  .modal-back {
+    top: 8px;
+    left: 8px;
+  }
+
+  .back-icon {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* 修复弹窗打开时 body 滚动锁定 */
+body:has(.modal-overlay) {
+  overflow: hidden !important;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+}
+
+/* ===== 墨渍涟漪效果 ===== */
 .ink-ripple {
   position: absolute;
   width: 24px;
