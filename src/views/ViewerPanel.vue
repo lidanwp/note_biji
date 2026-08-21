@@ -195,10 +195,10 @@
               {{ item }}
             </div>
           </div>
-          <div v-if="note.examScore != null" class="mastery-bar">
+          <div v-if="getUserExamScore(note) != null" class="mastery-bar">
             <span>掌握度</span>
-            <div class="bar"><div :style="{ width: note.examScore + '%' }"></div></div>
-            <span class="score">{{ note.examScore }}%</span>
+            <div class="bar"><div :style="{ width: getUserExamScore(note) + '%' }"></div></div>
+            <span class="score">{{ getUserExamScore(note) }}%</span>
           </div>
         </div>
       </div>
@@ -765,23 +765,31 @@ const viewDetail = async (note) => {
 
     if (!selectedNote.value) return
 
-    // 合并掌握度
+    // 合并掌握度：先保存待合并的个人分，避免 fullNote 展开后把 examScore 冲掉
+    const mergedUserExamScores = {
+      ...(selectedNote.value.userExamScores || {}),
+      ...(myScore != null ? { [authStore.user.id]: myScore } : {})
+    }
+    const personalExamScore =
+      (authStore.user?.id && mergedUserExamScores[authStore.user.id] != null)
+        ? Number(mergedUserExamScores[authStore.user.id])
+        : null
+
     if (myScore != null) {
-      selectedNote.value.userExamScores = {
-        ...(selectedNote.value.userExamScores || {}),
-        [authStore.user.id]: myScore
-      }
-      selectedNote.value.examScore = myScore
+      selectedNote.value.userExamScores = mergedUserExamScores
+      selectedNote.value.examScore = personalExamScore
     }
 
-    // 合并完整内容
+    // 合并完整内容：显式保留已合并的 userExamScores 与个人 examScore
     if (fullNote) {
       selectedNote.value = {
         ...fullNote,
         userExamScores: {
           ...(fullNote.userExamScores || {}),
-          ...(selectedNote.value.userExamScores || {})
-        }
+          ...mergedUserExamScores
+        },
+        // 个人掌握度优先，无个人分才退回全局默认 examScore
+        examScore: personalExamScore != null ? personalExamScore : fullNote.examScore
       }
       await nextTick()
       scrollDetailToTop()
@@ -821,17 +829,31 @@ const closeDetail = (useAnimation = true) => {
   document.body.style.overflow = ''
 }
 
+/**
+ * 获取笔记展示用的掌握度分数（列表卡 / 详情滑块共用）。
+ * 优先级：
+ *  1. 已登录且有个人掌握度 → 返回 userExamScores[uid]
+ *  2. 笔记自带全局 examScore（notes 表默认值）→ 返回 examScore
+ *  3. 以上都没有 → 返回 null（调用方 v-if 判断后不渲染 mastery-bar）
+ */
 const getUserExamScore = (note) => {
-  if (!note || typeof note !== 'object') return 0
+  if (!note || typeof note !== 'object') return null
 
   const currentUserId = authStore.user?.id
-  if (!currentUserId) return 0
+  if (currentUserId) {
+    const userExamScores = note.userExamScores || {}
+    const personalScore = userExamScores[currentUserId]
+    if (personalScore != null && !isNaN(Number(personalScore))) {
+      return Number(personalScore)
+    }
+  }
 
-  const userExamScores = note.userExamScores || {}
-  const score = userExamScores[currentUserId]
+  const globalScore = note.examScore
+  if (globalScore != null && !isNaN(Number(globalScore))) {
+    return Number(globalScore)
+  }
 
-  if (score != null && !isNaN(Number(score))) return Number(score)
-  return 0
+  return null
 }
 
 const handleExamScoreInput = async (event) => {
@@ -854,7 +876,9 @@ const handleExamScoreInput = async (event) => {
   const noteIndex = notesStore.notes.findIndex(n => n.id === selectedNote.value.id)
   if (noteIndex !== -1) {
     notesStore.notes[noteIndex].userExamScores = nextUserScores
-    notesStore.notes[noteIndex].examScore = 0
+    // 列表卡片的 examScore 改为显示当前用户的个人掌握度（与 getUserExamScore 一致），
+    // 不再清零（清零会破坏未登录用户看到的全局 examScore）。
+    notesStore.notes[noteIndex].examScore = score
   }
 
   try {
@@ -2917,10 +2941,10 @@ header {
     margin-top: 16px;
   }
 
-  /* 修复掌握度滑块 */
+  /* 修复掌握度滑块：手机端缩短至一半 */
   .detail-score-slider input[type="range"] {
-    width: 100%;
-    max-width: 100%;
+    width: 50%;
+    max-width: 50%;
     min-width: 80px;
   }
 
