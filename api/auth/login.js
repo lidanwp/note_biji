@@ -1,3 +1,5 @@
+import { fetchWithTimeout } from '../_lib/supabase-auth.js'
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -27,7 +29,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const authResponse = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+    const authResponse = await fetchWithTimeout(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
       method: 'POST',
       headers: {
         'apikey': supabaseKey,
@@ -46,7 +48,7 @@ export default async function handler(req, res) {
     let profile = null
 
     try {
-      const profileResponse = await fetch(
+      const profileResponse = await fetchWithTimeout(
         `${supabaseUrl}/rest/v1/users?user_id=eq.${encodeURIComponent(session.user.id)}&select=*`,
         {
           headers: {
@@ -71,7 +73,7 @@ export default async function handler(req, res) {
     )
     if (needUpdateMetadata) {
       try {
-        await fetch(`${supabaseUrl}/auth/v1/user`, {
+        await fetchWithTimeout(`${supabaseUrl}/auth/v1/user`, {
           method: 'PUT',
           headers: {
             'apikey': supabaseKey,

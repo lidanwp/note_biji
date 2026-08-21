@@ -3,6 +3,20 @@
  * 使用 Supabase JWT 验证替代自定义 session 验证
  */
 
+/**
+ * 带超时的 fetch（AbortController 实现）
+ * 超时后真正 abort 请求释放 socket，完成后自动清理 timer
+ * @param {string} url
+ * @param {Object} options - fetch options
+ * @param {number} timeout - 超时毫秒，默认 8000（Vercel Hobby 10s 硬超时留余量）
+ */
+export function fetchWithTimeout(url, options = {}, timeout = 8000) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeout)
+  return fetch(url, { ...options, signal: controller.signal })
+    .finally(() => clearTimeout(timer))
+}
+
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
 
@@ -17,7 +31,7 @@ export async function verifyJwtToken(token) {
   }
 
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${supabaseUrl}/auth/v1/user`,
       {
         headers: {
@@ -51,8 +65,8 @@ export async function getUserProfile(userId, userToken) {
   try {
     // 使用用户自己的 token 查询，避免 RLS 拒绝
     const authHeader = userToken ? `Bearer ${userToken}` : `Bearer ${supabaseKey}`
-    
-    const response = await fetch(
+
+    const response = await fetchWithTimeout(
       `${supabaseUrl}/rest/v1/users?user_id=eq.${encodeURIComponent(userId)}&select=id,user_id,display_name,role,created_at`,
       {
         headers: {
@@ -65,7 +79,7 @@ export async function getUserProfile(userId, userToken) {
     if (!response.ok) {
       // 如果用用户 token 失败，尝试用 service role key（如果有的话）
       if (process.env.SUPABASE_SERVICE_ROLE_KEY && userToken) {
-        const fallbackRes = await fetch(
+        const fallbackRes = await fetchWithTimeout(
           `${supabaseUrl}/rest/v1/users?user_id=eq.${encodeURIComponent(userId)}&select=id,user_id,display_name,role,created_at`,
           {
             headers: {
