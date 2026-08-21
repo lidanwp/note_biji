@@ -260,6 +260,11 @@
             </div>
 
             <div class="form-group">
+              <label>📋 过程组</label>
+              <CustomSelect v-model="form.category" :options="processGroupOptions" placeholder="请选择过程组" @change="autoSaveDraft" />
+            </div>
+
+            <div class="form-group">
               <label>💡 核心要点 <span class="required">*</span></label>
               <div class="keypoints-editor">
                 <div v-for="(point, index) in form.keyPoints" :key="index" class="keypoint-item">
@@ -457,6 +462,7 @@ import { toastSuccess, toastError, toastInfo, toastWarning } from '../utils/toas
 import { migrateNote } from '../utils/noteMigrate'
 import { uploadAudioFile, deleteAudioFile } from '../services/supabase'
 import { loadFullNote } from '../services/supabase'
+import { saveNoteToCloud } from '../services/supabase'
 import ChangePasswordModal from '../components/ChangePasswordModal.vue'
 
 const router = useRouter()
@@ -491,6 +497,10 @@ const tabs = [
 ]
 
 const processGroups = ['启动过程组', '规划过程组', '执行过程组', '监控过程组', '收尾过程组']
+const processGroupOptions = [
+  { value: '', label: '不指定' },
+  ...processGroups.map(g => ({ value: g, label: g }))
+]
 
 const toolbars = [
   'bold', 'underline', 'italic', 'strikeThrough', 'title',
@@ -1080,7 +1090,7 @@ const saveNote = async () => {
   const keyPoints = form.keyPoints.filter(p => p.trim())
 
   const noteData = {
-    id: form.id || Date.now(),
+    id: form.id || (Date.now() * 1000 + Math.floor(Math.random() * 1000)),
     title: form.title.trim(),
     category: form.category,
     keyPoints: keyPoints,
@@ -1113,7 +1123,13 @@ const saveNote = async () => {
     notesStore.addNote(noteData)
   }
 
-  await saveNotes()
+  try {
+    await saveNoteToCloud(noteData)
+    toastSuccess('保存成功')
+  } catch (e) {
+    toastError('保存失败，请稍后重试')
+    throw e
+  }
   clearDraft()
   closeModal()
   resetForm()
