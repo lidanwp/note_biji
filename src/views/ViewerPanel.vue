@@ -581,9 +581,16 @@ const hotTopics = computed(() => {
     .map(([name, count]) => ({ name, count }))
 })
 
+// 十大知识领域固定展示顺序
+const KNOWLEDGE_AREAS = [
+  '整合管理', '范围管理', '进度管理', '成本管理', '质量管理',
+  '资源管理', '沟通管理', '风险管理', '采购管理', '干系人管理'
+]
+
 const learningMasteryStats = computed(() => {
   const stats = {}
 
+  // 遍历全部笔记（不限数量），按知识领域（category）聚合
   notesStore.notes.forEach(note => {
     if (!note) return
 
@@ -591,7 +598,6 @@ const learningMasteryStats = computed(() => {
     const rawScore = getUserExamScore(note)
     const score = rawScore != null ? rawScore : 0
 
-    // 按知识领域（category）聚合；无笔记的分类自然不会出现
     const category = note.category || '未分类'
     if (!stats[category]) {
       stats[category] = { total: 0, count: 0 }
@@ -600,10 +606,18 @@ const learningMasteryStats = computed(() => {
     stats[category].count += 1
   })
 
-  // 计算每个知识领域的平均掌握度
+  // 按十大知识领域固定顺序输出；只显示有笔记的领域
+  // （不在十大领域内但有笔记的分类追加在末尾，避免数据丢失）
   const result = {}
+  KNOWLEDGE_AREAS.forEach(cat => {
+    if (stats[cat] && stats[cat].count > 0) {
+      result[cat] = Math.round(stats[cat].total / stats[cat].count)
+    }
+  })
   Object.keys(stats).forEach(cat => {
-    result[cat] = Math.round(stats[cat].total / stats[cat].count)
+    if (!KNOWLEDGE_AREAS.includes(cat) && stats[cat].count > 0) {
+      result[cat] = Math.round(stats[cat].total / stats[cat].count)
+    }
   })
 
   return result
