@@ -29,14 +29,31 @@ export default async function handler(req, res) {
   }
 
   try {
-    const authResponse = await fetchWithTimeout(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
-      method: 'POST',
-      headers: {
-        'apikey': supabaseKey,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ email, password })
-    })
+    let authResponse
+    try {
+      // 登录 token 请求：5 秒超时（让用户更快得到反馈，而非干等 8 秒）
+      authResponse = await fetchWithTimeout(
+        `${supabaseUrl}/auth/v1/token?grant_type=password`,
+        {
+          method: 'POST',
+          headers: {
+            'apikey': supabaseKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ email, password })
+        },
+        5000
+      )
+    } catch (e) {
+      // 超时（AbortError）单独处理，返回可区分的 code
+      if (e.name === 'AbortError') {
+        return res.status(504).json({
+          error: '请求超时，请点击重试',
+          code: 'TIMEOUT'
+        })
+      }
+      throw e  // 其他网络错误走外层 catch
+    }
 
     if (!authResponse.ok) {
       const errorData = await authResponse.json().catch(() => ({}))

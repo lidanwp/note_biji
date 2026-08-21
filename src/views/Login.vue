@@ -70,10 +70,10 @@
         </div>
 
         <div class="btn-wrapper">
-          <button 
-            type="submit" 
-            :disabled="!email || !password || loading || loginSuccess" 
-            class="login-btn" 
+          <button
+            type="submit"
+            :disabled="!email || !password || loading || loginSuccess"
+            class="login-btn"
             :class="{
               'loading': loading,
               'success': loginSuccess
@@ -82,18 +82,29 @@
             <span v-if="!loading && !loginSuccess" class="btn-content">
               <span class="btn-text">登录</span>
             </span>
-            
+
             <span v-if="loading && !loginSuccess" class="btn-content loading-content">
               <span class="spinner-ring">
                 <span class="spinner"></span>
               </span>
               <span class="loading-text">正在登录...</span>
             </span>
-            
+
             <span v-if="loginSuccess" class="btn-content success-content">
               <span class="success-icon">✅</span>
               <span class="success-text">登录成功</span>
             </span>
+          </button>
+
+          <!-- 超时重试按钮：保留用户输入，一键重试 -->
+          <button
+            v-if="isTimeout"
+            type="button"
+            class="retry-btn"
+            @click="retryLogin"
+          >
+            <span class="retry-icon">🔄</span>
+            <span>连接超时，点击重试</span>
           </button>
         </div>
 
@@ -244,6 +255,8 @@ const navigateByRole = (role) => {
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+const isTimeout = ref(false)
+
 const handleLogin = async () => {
   if (!email.value || !password.value) {
     triggerShake()
@@ -260,6 +273,7 @@ const handleLogin = async () => {
 
   loading.value = true
   loginSuccess.value = false
+  isTimeout.value = false
 
   try {
     const result = await authStore.login(email.value, password.value)
@@ -267,22 +281,33 @@ const handleLogin = async () => {
     if (result.success) {
       loading.value = false
       loginSuccess.value = true
-      
+
       createStarsRain()
-      
+
       setTimeout(() => {
         navigateByRole(result.role)
       }, 1500)
     } else {
       loading.value = false
-      triggerShake()
-      showErrorToast(result.message)
+      // 超时：保留输入，显示可点击的重试按钮
+      if (result.code === 'TIMEOUT') {
+        isTimeout.value = true
+      } else {
+        triggerShake()
+        showErrorToast(result.message)
+      }
     }
   } catch (e) {
     loading.value = false
     triggerShake()
     showErrorToast('登录过程中发生错误，请重试')
   }
+}
+
+// 超时后的重试：直接重新调用登录（此时 Vercel 实例已被激活）
+const retryLogin = () => {
+  isTimeout.value = false
+  handleLogin()
 }
 
 onMounted(() => {
@@ -525,9 +550,44 @@ h1 {
 }
 
 .btn-wrapper {
-  height: 56px;
+  min-height: 56px;
   margin-top: 12px;
   position: relative;
+}
+
+.retry-btn {
+  width: 100%;
+  height: 50px;
+  margin-top: 10px;
+  background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+  border: 2px solid #F59E0B;
+  border-radius: 100px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #92400E;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  animation: btnSlideIn 0.4s ease-out forwards;
+}
+
+.retry-btn:hover {
+  background: linear-gradient(135deg, #FDE68A, #FCD34D);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);
+}
+
+.retry-btn:active {
+  transform: scale(0.98);
+}
+
+.retry-icon {
+  font-size: 18px;
+  display: inline-block;
+  animation: spin 2s linear infinite;
 }
 
 .login-btn {

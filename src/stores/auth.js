@@ -30,15 +30,20 @@ export const useAuthStore = defineStore('auth', () => {
         user.value = data.user
         token.value = data.token
         isLoggedIn.value = true
-        localStorage.setItem('auth', JSON.stringify({ 
-          user: data.user, 
+        localStorage.setItem('auth', JSON.stringify({
+          user: data.user,
           token: data.token,
-          expiresIn: data.expiresIn 
+          expiresIn: data.expiresIn
         }))
         return { success: true, role: data.user.role }
       }
 
-      return { success: false, message: data.error || '邮箱或密码错误' }
+      // 透传 code（前端可据 code 区分超时 / 密码错误 / 网络错误等场景）
+      return {
+        success: false,
+        message: data.error || '邮箱或密码错误',
+        code: data.code || null
+      }
     } catch (e) {
       console.error('登录请求失败:', e)
       return { success: false, message: '网络错误，请稍后重试' }
