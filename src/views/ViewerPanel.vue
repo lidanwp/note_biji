@@ -581,42 +581,46 @@ const hotTopics = computed(() => {
     .map(([name, count]) => ({ name, count }))
 })
 
-// 十大知识领域固定展示顺序
+// 知识领域固定展示顺序（概论、立项 + PMBOK 十大，与 AdminPanel 保存口径一致）
 const KNOWLEDGE_AREAS = [
+  '项目管理概论', '项目立项管理',
   '整合管理', '范围管理', '进度管理', '成本管理', '质量管理',
   '资源管理', '沟通管理', '风险管理', '采购管理', '干系人管理'
 ]
 
+// 从笔记 tags 中识别知识领域（AdminPanel 保存时把知识领域写入 tags）
+// 注意：category 存的是过程组（如"项目管理/执行阶段"），不能用于知识领域聚合
+const getNoteKnowledgeArea = (note) => {
+  const tags = note.tags || []
+  return tags.find(t => KNOWLEDGE_AREAS.includes(t)) || null
+}
+
 const learningMasteryStats = computed(() => {
   const stats = {}
 
-  // 遍历全部笔记（不限数量），按知识领域（category）聚合
+  // 遍历全部笔记（不限数量），按知识领域（tags 中识别）聚合
   notesStore.notes.forEach(note => {
     if (!note) return
+
+    const area = getNoteKnowledgeArea(note)
+    if (!area) return  // 未标注知识领域的笔记不参与聚合
 
     // 与详情滑块/列表卡统一口径：个人掌握度优先，兜底全局 examScore，都没有记 0
     const rawScore = getUserExamScore(note)
     const score = rawScore != null ? rawScore : 0
 
-    const category = note.category || '未分类'
-    if (!stats[category]) {
-      stats[category] = { total: 0, count: 0 }
+    if (!stats[area]) {
+      stats[area] = { total: 0, count: 0 }
     }
-    stats[category].total += score
-    stats[category].count += 1
+    stats[area].total += score
+    stats[area].count += 1
   })
 
-  // 按十大知识领域固定顺序输出；只显示有笔记的领域
-  // （不在十大领域内但有笔记的分类追加在末尾，避免数据丢失）
+  // 按知识领域固定顺序输出；只显示有笔记的领域
   const result = {}
-  KNOWLEDGE_AREAS.forEach(cat => {
-    if (stats[cat] && stats[cat].count > 0) {
-      result[cat] = Math.round(stats[cat].total / stats[cat].count)
-    }
-  })
-  Object.keys(stats).forEach(cat => {
-    if (!KNOWLEDGE_AREAS.includes(cat) && stats[cat].count > 0) {
-      result[cat] = Math.round(stats[cat].total / stats[cat].count)
+  KNOWLEDGE_AREAS.forEach(area => {
+    if (stats[area] && stats[area].count > 0) {
+      result[area] = Math.round(stats[area].total / stats[area].count)
     }
   })
 
