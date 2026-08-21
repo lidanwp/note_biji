@@ -35,6 +35,36 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
+    // 批量模式：一次返回当前用户所有笔记的掌握度（用于首页 Dashboard 聚合）
+    if (req.query?.all === 'true') {
+      try {
+        const response = await fetch(
+          `${supabaseUrl}/rest/v1/user_note_progress?user_id=eq.${encodeURIComponent(currentUserId)}&select=note_id,score`,
+          {
+            headers: {
+              apikey: supabaseKey,
+              Authorization: `Bearer ${supabaseKey}`,
+              'Content-Type': 'application/json'
+            }
+          }
+        )
+
+        if (!response.ok) {
+          throw new Error(`查询失败: ${response.status}`)
+        }
+
+        const rows = await response.json()
+        const scores = {}
+        ;(rows || []).forEach(row => {
+          scores[String(row.note_id)] = Number(row.score)
+        })
+        res.setHeader('Cache-Control', 'public, s-maxage=10, stale-while-revalidate=60')
+        return res.status(200).json({ scores })
+      } catch (error) {
+        return res.status(500).json({ error: error.message || '查询失败' })
+      }
+    }
+
     const noteId = req.query?.noteId
     if (!noteId) {
       return res.status(400).json({ error: '缺少 noteId' })

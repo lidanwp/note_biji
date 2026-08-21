@@ -582,21 +582,16 @@ const hotTopics = computed(() => {
 })
 
 const learningMasteryStats = computed(() => {
-  const currentUserId = authStore.user?.id
   const stats = {}
 
   notesStore.notes.forEach(note => {
     if (!note) return
 
-    // 获取该笔记的个人掌握度（优先 userExamScores，兜底 examScore）
-    let score = 0
-    if (currentUserId && note.userExamScores?.[currentUserId] != null) {
-      score = Number(note.userExamScores[currentUserId])
-    } else if (note.examScore != null) {
-      score = Number(note.examScore)
-    }
+    // 与详情滑块/列表卡统一口径：个人掌握度优先，兜底全局 examScore，都没有记 0
+    const rawScore = getUserExamScore(note)
+    const score = rawScore != null ? rawScore : 0
 
-    // 按分类聚合
+    // 按知识领域（category）聚合；无笔记的分类自然不会出现
     const category = note.category || '未分类'
     if (!stats[category]) {
       stats[category] = { total: 0, count: 0 }
@@ -605,7 +600,7 @@ const learningMasteryStats = computed(() => {
     stats[category].count += 1
   })
 
-  // 计算每个分类的平均掌握度
+  // 计算每个知识领域的平均掌握度
   const result = {}
   Object.keys(stats).forEach(cat => {
     result[cat] = Math.round(stats[cat].total / stats[cat].count)
@@ -729,6 +724,35 @@ const loadUserProgress = async (noteId) => {
   } catch (e) {
     console.error('加载用户掌握度失败:', e)
     return null
+  }
+}
+
+// 批量拉取当前用户所有笔记的掌握度，并合并进 notesStore.notes
+// 解决：列表接口不带个人掌握度，导致 Dashboard/列表卡只显示全局 examScore 的问题
+const loadAllUserProgress = async () => {
+  if (!authStore.user?.id) return
+  try {
+    const response = await fetch('/api/user-progress?all=true', {
+      headers: {
+        'Authorization': `Bearer ${authStore.token || ''}`
+      }
+    })
+    if (!response.ok) return
+    const data = await response.json()
+    const scores = data.scores || {}
+    const currentUserId = authStore.user.id
+
+    notesStore.notes.forEach(note => {
+      const score = scores[String(note.id)]
+      if (score != null && !isNaN(Number(score))) {
+        note.userExamScores = {
+          ...(note.userExamScores || {}),
+          [currentUserId]: Number(score)
+        }
+      }
+    })
+  } catch (e) {
+    console.error('批量加载用户掌握度失败:', e)
   }
 }
 
@@ -1010,6 +1034,9 @@ onMounted(async () => {
     router.push('/admin')
     return
   }
+
+  // 批量拉取个人掌握度并合并进列表（Dashboard/列表卡展示真实个人分数）
+  await loadAllUserProgress()
 
   const noteId = route.query.noteId
   if (noteId) {
