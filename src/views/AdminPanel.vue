@@ -231,6 +231,10 @@
         </div>
 
         <div class="modal-body">
+          <div v-if="editingLoading" class="loading-overlay" style="position:absolute;z-index:10;background:rgba(255,255,255,0.85)">
+            <div class="loading-spinner"></div>
+            <p>加载笔记内容...</p>
+          </div>
           <div class="tabs">
             <button 
               v-for="tab in tabs" 
@@ -452,6 +456,7 @@ import Pagination from '../components/Pagination.vue'
 import { toastSuccess, toastError, toastInfo, toastWarning } from '../utils/toast'
 import { migrateNote } from '../utils/noteMigrate'
 import { uploadAudioFile, deleteAudioFile } from '../services/supabase'
+import { loadFullNote } from '../services/supabase'
 import ChangePasswordModal from '../components/ChangePasswordModal.vue'
 
 const router = useRouter()
@@ -478,6 +483,7 @@ const draftKey = ref('note_draft')
 const hasDraft = ref(false)
 const saveTimer = ref(null)
 const isSaving = ref(false)
+const editingLoading = ref(false)
 
 const tabs = [
   { key: 'basic', label: '📝 基础信息' },
@@ -784,7 +790,43 @@ const openAddModal = () => {
   activeTab.value = 'basic'
 }
 
-const editNote = (note) => {
+const populateFormFromNote = (noteData) => {
+  if (!noteData.examMapping) {
+    noteData.examMapping = { relatedProcesses: [], typicalQuestions: [], commonPitfalls: [] }
+  }
+  if (!noteData.comparisonTable) {
+    noteData.comparisonTable = { enabled: false, title: '', cols: [], rows: [] }
+  }
+  if (!noteData.memoryAids || !Array.isArray(noteData.memoryAids)) {
+    noteData.memoryAids = []
+  }
+  if (noteData.examScore == null) {
+    noteData.examScore = 0
+  }
+
+  form.id = noteData.id
+  form.title = noteData.title || ''
+  form.category = noteData.category || ''
+  form.knowledgeArea = (noteData.tags || []).find(t => KNOWLEDGE_AREAS.includes(t)) || ''
+  form.keyPoints = noteData.keyPoints || []
+  form.scenario = noteData.scenario || ''
+  form.content = noteData.content || ''
+  form.caseStudy = noteData.caseStudy || ''
+  const _noteTags = (noteData.tags || []).filter(t => !KNOWLEDGE_AREAS.includes(t))
+  form.tags = _noteTags
+  form.tagsInput = _noteTags.join(', ')
+  form.attachments = noteData.attachments || []
+  form.newAttachment = ''
+  form.date = noteData.date || ''
+  form.viewCount = noteData.viewCount || 0
+  form.usefulCount = noteData.usefulCount || 0
+  form.examMapping = noteData.examMapping
+  form.comparisonTable = noteData.comparisonTable
+  form.memoryAids = noteData.memoryAids || []
+  form.examScore = noteData.examScore
+}
+
+const editNote = async (note) => {
   const draftTime = getDraftTime()
   if (draftTime) {
     const stored = localStorage.getItem(draftKey.value)
@@ -810,44 +852,24 @@ const editNote = (note) => {
       } catch (e) {}
     }
   }
-  
+
   isEditMode.value = true
-  const noteData = JSON.parse(JSON.stringify(note))
-  
-  if (!noteData.examMapping) {
-    noteData.examMapping = { relatedProcesses: [], typicalQuestions: [], commonPitfalls: [] }
+  editingLoading.value = true
+
+  try {
+    // 优先从完整详情接口加载（绕过列表 mode=list 的 content/caseStudy 裁剪）
+    const fullNote = await loadFullNote(note.id)
+    populateFormFromNote(fullNote)
+  } catch (e) {
+    console.error('加载完整笔记失败，回退到列表数据:', e)
+    // 网络失败时回退到列表数据（标题/分类等基本信息仍可用）
+    toastWarning('加载完整内容失败，部分字段可能为空')
+    const noteData = JSON.parse(JSON.stringify(note))
+    populateFormFromNote(noteData)
+  } finally {
+    editingLoading.value = false
   }
-  if (!noteData.comparisonTable) {
-    noteData.comparisonTable = { enabled: false, title: '', cols: [], rows: [] }
-  }
-  if (!noteData.memoryAids || !Array.isArray(noteData.memoryAids)) {
-    noteData.memoryAids = []
-  }
-  if (noteData.examScore == null) {
-    noteData.examScore = 0
-  }
-  
-  form.id = noteData.id
-  form.title = noteData.title || ''
-  form.category = noteData.category || ''
-  form.knowledgeArea = (noteData.tags || []).find(t => KNOWLEDGE_AREAS.includes(t)) || ''
-  form.keyPoints = noteData.keyPoints || []
-  form.scenario = noteData.scenario || ''
-  form.content = noteData.content || ''
-  form.caseStudy = noteData.caseStudy || ''
-  const _noteTags = (noteData.tags || []).filter(t => !KNOWLEDGE_AREAS.includes(t))
-  form.tags = _noteTags
-  form.tagsInput = _noteTags.join(', ')
-  form.attachments = noteData.attachments || []
-  form.newAttachment = ''
-  form.date = noteData.date || ''
-  form.viewCount = noteData.viewCount || 0
-  form.usefulCount = noteData.usefulCount || 0
-  form.examMapping = noteData.examMapping
-  form.comparisonTable = noteData.comparisonTable
-  form.memoryAids = noteData.memoryAids || []
-  form.examScore = noteData.examScore
-  
+
   showModal.value = true
   activeTab.value = 'basic'
 }
@@ -1880,6 +1902,7 @@ header {
   padding: 24px 32px;
   overflow-y: auto;
   flex: 1;
+  position: relative;
 }
 
 .modal-footer {

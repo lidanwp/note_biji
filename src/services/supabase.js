@@ -83,6 +83,38 @@ export const loadNotesFromCloud = async (options = {}) => {
   return result
 }
 
+// 加载单条笔记完整内容（用于编辑回显，绕过列表 mode=list 的裁剪）
+export const loadFullNote = async (noteId) => {
+  const response = await fetch(`/api/notes/${noteId}`, {
+    headers: getAuthHeaders()
+  })
+  if (!response.ok) {
+    throw new Error(`加载笔记失败: ${response.status}`)
+  }
+  const data = await response.json()
+  return {
+    id: data.id,
+    title: data.title || '',
+    category: data.category || '',
+    keyPoints: data.keyPoints || [],
+    scenario: data.scenario || '',
+    content: data.content || '',
+    caseStudy: data.caseStudy || '',
+    tags: data.tags || [],
+    attachments: data.attachments || [],
+    date: data.date || '',
+    viewCount: data.viewCount || 0,
+    usefulCount: data.usefulCount || 0,
+    examMapping: data.examMapping || { relatedProcesses: [], typicalQuestions: [], commonPitfalls: [] },
+    comparisonTable: data.comparisonTable || { enabled: false, title: '', cols: [], rows: [] },
+    memoryAids: data.memoryAids || [],
+    examScore: data.examScore || 0,
+    phase: data.phase || null,
+    relatedNotes: data.relatedNotes || [],
+    userExamScores: data.userExamScores || {}
+  }
+}
+
 // 清除笔记缓存（保存/删除后调用）
 export const invalidateNotesCache = () => {
   notesCache = null
