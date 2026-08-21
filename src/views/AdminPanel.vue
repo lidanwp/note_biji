@@ -1190,14 +1190,29 @@ const logout = () => {
 
 // ===== 生命周期 =====
 onMounted(async () => {
+  // 冷启动（未登录但 localStorage 有 token）：并行校验会话 + 加载笔记
+  // 登录后直接进入：isLoggedIn 已为 true，跳过校验只加载笔记
+  if (!authStore.isLoggedIn) {
+    const [authOk] = await Promise.all([
+      authStore.checkAuth(),
+      loadNotes().catch(() => {})  // 显式吞错：loadNotes 失败不应中断角色校验
+    ])
+    if (!authOk) {
+      router.push('/login')
+      return
+    }
+  } else {
+    await loadNotes().catch(() => {})
+  }
+
+  // 角色校验（保证执行，即使 loadNotes 失败）
   if (authStore.user?.role !== 'admin') {
     router.push('/viewer')
     return
   }
-  await loadNotes()
-  
+
   document.addEventListener('click', handleClickOutside)
-  
+
   // 滚动时更新下拉菜单位置
   window.addEventListener('scroll', () => {
     if (showUserMenu.value) updateUserMenuPosition()

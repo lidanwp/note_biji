@@ -76,59 +76,35 @@ export default async function handler(req, res) {
     const safeScore = Math.max(0, Math.min(100, Number(score)))
 
     try {
-      const response = await fetch(`${supabaseUrl}/rest/v1/user_note_progress?user_id=eq.${encodeURIComponent(currentUserId)}&note_id=eq.${encodeURIComponent(String(noteId))}&select=*`, {
-        headers: {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json'
-        }
-      })
-
-      const existingRows = await response.json()
-      const payload = {
-        user_id: currentUserId,
-        note_id: String(noteId),
-        score: safeScore,
-        updated_at: new Date().toISOString()
-      }
-
-      if (existingRows && existingRows.length > 0) {
-        const patchRes = await fetch(`${supabaseUrl}/rest/v1/user_note_progress?id=eq.${existingRows[0].id}&select=*`, {
-          method: 'PATCH',
+      // UPSERT：一次请求完成插入或更新（依赖 UNIQUE(user_id, note_id) 约束）
+      // resolution=merge-duplicates + on_conflict 指定冲突列
+      const response = await fetch(
+        `${supabaseUrl}/rest/v1/user_note_progress?on_conflict=user_id,note_id&select=score`,
+        {
+          method: 'POST',
           headers: {
             apikey: supabaseKey,
             Authorization: `Bearer ${supabaseKey}`,
             'Content-Type': 'application/json',
-            Prefer: 'return=representation'
+            Prefer: 'return=representation,resolution=merge-duplicates'
           },
-          body: JSON.stringify(payload)
-        })
-
-        if (!patchRes.ok) {
-          throw new Error(`更新失败: ${patchRes.status}`)
+          body: JSON.stringify({
+            user_id: currentUserId,
+            note_id: String(noteId),
+            score: safeScore,
+            updated_at: new Date().toISOString()
+          })
         }
+      )
 
-        const patched = await patchRes.json()
-        return res.status(200).json({ score: patched[0]?.score ?? safeScore })
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '')
+        console.error('upsert progress failed:', response.status, errText)
+        throw new Error(`保存失败: ${response.status}`)
       }
 
-      const insertRes = await fetch(`${supabaseUrl}/rest/v1/user_note_progress?select=*`, {
-        method: 'POST',
-        headers: {
-          apikey: supabaseKey,
-          Authorization: `Bearer ${supabaseKey}`,
-          'Content-Type': 'application/json',
-          Prefer: 'return=representation'
-        },
-        body: JSON.stringify(payload)
-      })
-
-      if (!insertRes.ok) {
-        throw new Error(`插入失败: ${insertRes.status}`)
-      }
-
-      const inserted = await insertRes.json()
-      return res.status(200).json({ score: inserted[0]?.score ?? safeScore })
+      const result = await response.json()
+      return res.status(200).json({ score: result[0]?.score ?? safeScore })
     } catch (error) {
       return res.status(500).json({ error: error.message || '保存失败' })
     }

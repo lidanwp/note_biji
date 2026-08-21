@@ -92,6 +92,7 @@ export async function getUserProfile(userId, userToken) {
 
 /**
  * 完整验证流程：JWT 验证 + 获取用户信息
+ * 优化：优先从 user_metadata 读取 role/display_name，命中则免查 users 表（省一次网络请求）
  * @param {Object} req - HTTP 请求对象
  * @returns {Object} - { user, profile, error }
  */
@@ -104,14 +105,31 @@ export async function requireAuth(req) {
   }
 
   const { user, error: verifyError, status } = await verifyJwtToken(token)
-  
+
   if (verifyError) {
     return { error: verifyError, status }
   }
 
+  // Fast path：JWT user_metadata 已包含 role + display_name → 免查 users 表
+  const jwtRole = user?.user_metadata?.role
+  const jwtDisplayName = user?.user_metadata?.display_name
+
+  if (jwtRole && jwtDisplayName) {
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        displayName: jwtDisplayName,
+        role: jwtRole
+      },
+      profile: null
+    }
+  }
+
+  // Fallback：metadata 缺失（老用户未经过 login.js 回写），查 users 表
   const profile = await getUserProfile(user.id)
 
-  return { 
+  return {
     user: {
       id: user.id,
       email: user.email,

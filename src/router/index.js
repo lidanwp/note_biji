@@ -52,41 +52,34 @@ const router = createRouter({
   routes
 })
 
-router.beforeEach(async (to, from, next) => {
+router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
 
-  // public 路由（如邮箱验证回调）跳过登录检查，避免卡在 checkAuth
-  if (!to.meta.public) {
-    await authStore.checkAuth()
-  }
-
-  if (to.meta.requiresAuth) {
-    if (!authStore.isLoggedIn) {
-      next('/login')
+  // 已登录：无需重复 verify，直接放行（登录后跳转或会话仍有效）
+  if (authStore.isLoggedIn) {
+    // 已登录用户访问登录/注册页 → 按角色跳转
+    if (to.path === '/login' || to.path === '/register') {
+      if (authStore.user?.role === 'admin') next('/admin')
+      else next('/viewer')
       return
     }
-    
-    const requiredRole = to.meta.requiredRole
-    if (requiredRole && authStore.user?.role !== requiredRole) {
-      if (authStore.user?.role === 'admin') {
-        next('/admin')
-      } else {
-        next('/viewer')
-      }
-      return
-    }
-  }
-  
-  // ⭐ 已登录用户访问登录页或注册页 → 根据角色跳转
-  if ((to.path === '/login' || to.path === '/register') && authStore.isLoggedIn) {
-    if (authStore.user?.role === 'admin') {
-      next('/admin')
-    } else {
-      next('/viewer')
-    }
+    next()
     return
   }
-  
+
+  // 未登录访问受保护路由：检查 localStorage 是否有 token
+  // 有 token → 乐观放行，由页面组件并行做 checkAuth + 加载数据（避免守卫串行阻塞）
+  // 无 token → 跳登录
+  if (to.meta.requiresAuth) {
+    const stored = localStorage.getItem('auth')
+    if (stored) {
+      next()
+      return
+    }
+    next('/login')
+    return
+  }
+
   next()
 })
 
