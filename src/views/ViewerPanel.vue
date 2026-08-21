@@ -583,24 +583,34 @@ const hotTopics = computed(() => {
 
 const learningMasteryStats = computed(() => {
   const currentUserId = authStore.user?.id
+  const stats = {}
 
+  notesStore.notes.forEach(note => {
+    if (!note) return
+
+    // 获取该笔记的个人掌握度（优先 userExamScores，兜底 examScore）
+    let score = 0
+    if (currentUserId && note.userExamScores?.[currentUserId] != null) {
+      score = Number(note.userExamScores[currentUserId])
+    } else if (note.examScore != null) {
+      score = Number(note.examScore)
+    }
+
+    // 按分类聚合
+    const category = note.category || '未分类'
+    if (!stats[category]) {
+      stats[category] = { total: 0, count: 0 }
+    }
+    stats[category].total += score
+    stats[category].count += 1
+  })
+
+  // 计算每个分类的平均掌握度
   const result = {}
-  notesStore.notes
-    .filter(Boolean)
-    .slice(0, 5)
-    .forEach(note => {
-      const rawScore = currentUserId && note.userExamScores?.[currentUserId] != null
-        ? Number(note.userExamScores[currentUserId])
-        : note.examScore != null
-          ? Number(note.examScore)
-          : null
+  Object.keys(stats).forEach(cat => {
+    result[cat] = Math.round(stats[cat].total / stats[cat].count)
+  })
 
-      const score = rawScore != null && Number.isFinite(rawScore)
-        ? Math.max(0, Math.min(100, Math.round(rawScore)))
-        : 0
-
-      result[note.title || '未命名'] = score
-    })
   return result
 })
 
