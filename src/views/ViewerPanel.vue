@@ -392,20 +392,41 @@
               @click="scrollDetailTo('tags')"
               title="跳到标签/评论区"
             >
-              <!-- 纯 SVG 标签图标：stroke=currentColor，通过 color 属性统一控制明暗模式颜色 -->
+              <!-- 基于 public/标签.svg 图层_1 主体路径重绘：去掉隐藏层 Layer_2 与渐变 → 统一 currentColor 单色分层透明度呈现，保留形状比例与挂孔别针 -->
               <svg
                 class="float-action-icon"
-                viewBox="0 0 24 24"
+                viewBox="0 0 128 128"
                 fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
+                stroke="none"
+                xmlns="http://www.w3.org/2000/svg"
                 aria-hidden="true"
                 focusable="false"
               >
-                <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-                <circle cx="7" cy="7" r="1.4" fill="currentColor" stroke="none"/>
+                <!-- 最底层：书签（橙色渐变原 SVGID_1）→ 不透明主层 currentColor -->
+                <path
+                  fill="currentColor"
+                  fill-opacity="1"
+                  d="M29.89,30.91l-9.2,19.88c-0.6,1.8-0.35,4.67,0.53,6.35l33.88,64.58c0.88,1.69,3.05,2.37,4.77,1.52l33.78-16.69c1.73-0.85,2.43-2.95,1.54-4.64L61.31,37.34c-0.89-1.68-3.14-3.56-4.99-4.15l-21.97-4.46C32.49,28.13,30.49,29.11,29.89,30.91z"
+                />
+                <!-- 上中层：黄标签（原 SVGID_3 亮黄）→ 同色 88% 透明度层叠，形成层次 -->
+                <path
+                  fill="currentColor"
+                  fill-opacity="0.86"
+                  d="M115,88.25L63.47,29.96c-1.35-1.51-4.13-2.87-6.16-3l-23.46,1.18c-2.03-0.13-3.8,1.43-3.93,3.46l-4.04,23.15c-0.13,2.03,0.88,4.96,2.23,6.48l51.52,58.29c1.34,1.52,3.72,1.66,5.24,0.32l29.8-26.35C116.2,92.15,116.35,89.78,115,88.25z"
+                />
+                <!-- 上层：别针（原棕 SVGID_4）→ 同色 70% 透明度层叠 -->
+                <path
+                  fill="currentColor"
+                  fill-opacity="0.7"
+                  d="M25.31,4.33c-4.17,0-7.98,1.99-10.38,5.47c-3.12,4.52-3.27,10.74-0.4,16.65c2.94,6.06,6.33,10.99,10.07,14.64l0.5,0.48l1.66-2.92l-0.3-0.29c-3.41-3.32-6.29-7.55-9.08-13.3c-2.39-4.94-2.34-9.84,0.16-13.46c1.8-2.61,4.66-4.1,7.78-4.1c0.29,0,0.57,0.01,0.87,0.04c5.64,0.5,11.05,5.56,14.84,13.89c3.84,8.42,4.92,15.76,2.9,19.62c-0.9,1.72-1.86,2.37-4.12,2.79l-0.45,0.08l0.01,0.46c0,0.03,0.02,0.7,0.2,1.3c0.18,0.59,0.44,1.04,0.46,1.06l0.19,0.32l0.36-0.07c3.08-0.56,4.75-1.77,6.16-4.46c2.5-4.79,1.47-12.95-2.83-22.4C43.92,20.12,37.57,14.39,30.76,13.79C29.91,13.72,29.61,13.69,29.05,13.69L25.31,4.33L25.31,4.33z"
+                />
+                <!-- 挂孔圆（原黄标签中心挂孔）→ 挖空：用背景色反色半透明叠一个小白圆，兼容任何背景色 -->
+                <circle cx="44.68" cy="44.19" r="5.25" fill="rgba(255,255,255,0.85)" stroke="currentColor" stroke-opacity="0.15" stroke-width="1" />
+                <!-- 书签主体的左上方挂孔小圆（橙色部分中心）与主体对齐 -->
+                <circle cx="35.65" cy="44.0" r="4.2" fill="rgba(255,255,255,0.72)" stroke="currentColor" stroke-opacity="0.1" stroke-width="0.8" />
+                <!-- 原图底部 #F29600 两个装饰短弧线 → 用 currentColor 画细线 -->
+                <path d="M39.57,45.8" fill="none" stroke="currentColor" stroke-opacity="0.55" stroke-width="1.96" stroke-linecap="round"/>
+                <path d="M25.82,39.97" fill="none" stroke="currentColor" stroke-opacity="0.55" stroke-width="1.96" stroke-linecap="round"/>
               </svg>
             </button>
           </div>
