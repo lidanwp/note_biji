@@ -47,8 +47,8 @@ export default async function handler(req, res) {
         throw new Error(`Supabase 请求失败: ${response.status}`)
       }
 
-      // 评论数据较小，缓存 15 秒足够覆盖多数阅读场景
-      res.setHeader('Cache-Control', 'public, s-maxage=15, stale-while-revalidate=120')
+      // 评论是实时性数据，不缓存，确保提交/删除后立即刷新
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
       return res.status(200).json(await response.json())
     } catch (error) {
       console.error('comments GET error:', error)
