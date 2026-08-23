@@ -78,12 +78,15 @@
       v-if="showSettings" 
       @close="showSettings = false" 
     />
-    <!-- 👇 历史记录面板 -->
-    <HistoryPanel 
-      v-if="showHistoryPanel" 
-      @close="showHistoryPanel = false" 
-      class="history-section"
-    />
+    <!-- 👇 历史记录面板（带遮罩，点击遮罩关闭） -->
+    <teleport to="body" v-if="showHistoryPanel">
+      <div class="panel-overlay" @click.self="showHistoryPanel = false">
+        <HistoryPanel
+          @close="showHistoryPanel = false"
+          class="history-section history-floating"
+        />
+      </div>
+    </teleport>
     <!-- ===== 搜索 + 筛选行 ===== -->
     <div class="filter-wrap">
       <div class="search-field">
@@ -1173,6 +1176,51 @@ header {
 .history-section {
   margin-bottom: 16px;
   animation: slideDown 0.3s ease;
+}
+
+/* ===== 面板遮罩（用于阅读历史等浮动面板） ===== */
+.panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  z-index: 900;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 70px 16px 16px;
+  animation: overlayIn 0.2s ease;
+}
+
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 悬浮模式的阅读历史：限制宽度、移除底部 margin */
+.history-floating {
+  width: min(92vw, 720px);
+  margin-bottom: 0 !important;
+  max-height: calc(100vh - 100px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.history-floating :deep(.history-list) {
+  max-height: none;
+  flex: 1;
+}
+
+@media (max-width: 767px) {
+  .panel-overlay {
+    padding: 64px 10px 10px;
+  }
+  .history-floating {
+    width: 100%;
+    max-height: calc(100vh - 80px);
+  }
 }
 
 @keyframes slideDown {
