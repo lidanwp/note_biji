@@ -3,9 +3,9 @@
     <div class="history-header">
       <h4>📜 阅读历史</h4>
       <div class="header-actions">
-        <button 
-          v-if="historyStore.history.length > 0" 
-          @click="clearAll" 
+        <button
+          v-if="historyStore.history.length > 0"
+          @click="clearAll"
           class="btn-clear"
         >
           清空全部
@@ -43,10 +43,25 @@
         </div>
       </div>
     </div>
+
+    <!-- 自定义确认弹窗：teleport 到 body，带模糊遮罩 -->
+    <teleport to="body" v-if="confirmState.visible">
+      <div class="confirm-overlay" @click.self="closeConfirm">
+        <div class="confirm-dialog" role="dialog" aria-modal="true">
+          <div class="confirm-title">{{ confirmState.title }}</div>
+          <div class="confirm-message">{{ confirmState.message }}</div>
+          <div class="confirm-actions">
+            <button class="confirm-cancel" @click="closeConfirm">取消</button>
+            <button class="confirm-ok" @click="confirmAction">确认</button>
+          </div>
+        </div>
+      </div>
+    </teleport>
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useHistoryStore } from '@/stores/history'
 import { useRouter } from 'vue-router'
 
@@ -57,6 +72,40 @@ const emit = defineEmits(['close'])
 const historyStore = useHistoryStore()
 const router = useRouter()
 
+// ===== 自定义确认弹窗状态 =====
+const confirmState = ref({
+  visible: false,
+  title: '确认操作',
+  message: '',
+  action: null
+})
+
+const openConfirm = (title, message, action) => {
+  confirmState.value = {
+    visible: true,
+    title,
+    message,
+    action
+  }
+}
+
+const closeConfirm = () => {
+  confirmState.value = {
+    visible: false,
+    title: '确认操作',
+    message: '',
+    action: null
+  }
+}
+
+const confirmAction = () => {
+  const action = confirmState.value.action
+  closeConfirm()
+  if (typeof action === 'function') {
+    action()
+  }
+}
+
 // ===== 方法 =====
 const formatTime = (timestamp) => {
   if (!timestamp) return ''
@@ -66,22 +115,20 @@ const formatTime = (timestamp) => {
 
 const goToNote = (item) => {
   // 跳转到笔记详情页，并传递笔记数据
-  // 方式一：通过路由 query 传递 id，在 ViewerPanel 中根据 id 查找
   router.push({ path: '/viewer', query: { noteId: item.id, from: 'history' } })
-  
-  // 方式二：如果 ViewerPanel 支持通过 id 加载，也可以用这种方式
-  // 关闭面板
   emit('close')
 }
 
 const removeItem = (noteId) => {
-  historyStore.removeHistory(noteId)
+  openConfirm('移除记录', '确定要移除这条阅读历史吗？', () => {
+    historyStore.removeHistory(noteId)
+  })
 }
 
 const clearAll = () => {
-  if (confirm('确定要清空所有阅读历史吗？')) {
+  openConfirm('清空历史', '确定要清空所有阅读历史吗？', () => {
     historyStore.clearHistory()
-  }
+  })
 }
 </script>
 
@@ -294,6 +341,104 @@ const clearAll = () => {
 
 .btn-remove:hover {
   color: #e74c3c;
+}
+
+/* ===== 自定义确认弹窗 ===== */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+}
+
+.confirm-dialog {
+  width: min(92vw, 420px);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 22px;
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.18);
+  padding: 22px 20px 18px;
+  animation: dialogIn 0.18s ease-out;
+}
+
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.confirm-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.confirm-message {
+  font-size: 14px;
+  color: #475569;
+  line-height: 1.6;
+  margin-bottom: 22px;
+  text-align: center;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.confirm-cancel {
+  flex: 1;
+  padding: 11px 16px;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s;
+}
+
+.confirm-cancel:hover {
+  background: #f1f5f9;
+}
+
+.confirm-cancel:active {
+  transform: scale(0.97);
+}
+
+.confirm-ok {
+  flex: 1;
+  padding: 11px 16px;
+  border-radius: 14px;
+  border: none;
+  background: #d14a34;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s;
+}
+
+.confirm-ok:hover {
+  background: #b73c2d;
+}
+
+.confirm-ok:active {
+  transform: scale(0.97);
 }
 
 /* ===== 暗色主题适配 ===== */

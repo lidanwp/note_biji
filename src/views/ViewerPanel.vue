@@ -550,9 +550,9 @@ const TAG_COLOR_MAP = {
 const tagColorClass = (tag) => TAG_COLOR_MAP[tag] || 'tag-default'
 
 // ===== 计算属性 =====
-// 直接使用 store 暴露的 ref/计算属性，避免在组件中再包一层 computed
-const totalViews = notesStore.totalViews
-const totalCharacters = notesStore.totalCharacters
+// 使用 computed 保持响应式，确保 notesStore 数据更新后模板重新渲染
+const totalViews = computed(() => notesStore.totalViews)
+const totalCharacters = computed(() => notesStore.totalCharacters)
 
 const formatNum = (n) => {
   // 支持传入原始数字或 Vue 的 ref/computed（自动解包）
