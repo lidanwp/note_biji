@@ -567,11 +567,12 @@ const formKnowledgeAreaOptions = [
 ]
 
 // ===== 计算属性 =====
-const totalViews = computed(() => notesStore.totalViews)
-const filteredNotes = computed(() => notesStore.filteredNotes)
-const paginatedNotes = computed(() => notesStore.paginatedNotes)
-const totalNotes = computed(() => notesStore.totalNotes)
-const isLoading = computed(() => notesStore.isLoading)
+// 直接使用 store 暴露的 ref/计算属性，避免在组件中再包一层 computed
+const totalViews = notesStore.totalViews
+const filteredNotes = notesStore.filteredNotes
+const paginatedNotes = notesStore.paginatedNotes
+const totalNotes = notesStore.totalNotes
+const isLoading = notesStore.isLoading
 
 const updateUserMenuPosition = () => {
   if (!userBtnRef.value) return

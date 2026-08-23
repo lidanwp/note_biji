@@ -76,13 +76,26 @@ export const useNotesStore = defineStore('notes', () => {
   })
 
   const totalCharacters = computed(() => {
+    // 使用后端计算的 _textLength 字段（基于完整内容，不受列表模式截断影响）
+    // 如果 _textLength 不存在（旧数据），则回退到前端计算
     return notes.value.reduce((sum, n) => {
+      if (n._textLength != null) {
+        return sum + n._textLength
+      }
+      // 回退方案：基于当前可用字段计算（可能因列表模式截断而不准确）
+      const title = n.title || ''
       const content = n.content || ''
       const caseStudy = n.caseStudy || ''
-      // 去除HTML标签和markdown语法，只计算纯文本字数
-      const cleanContent = content.replace(/<[^>]*>/g, '').replace(/[#*`>\-\[\]()]/g, '')
-      const cleanCaseStudy = caseStudy.replace(/<[^>]*>/g, '').replace(/[#*`>\-\[\]()]/g, '')
-      return sum + cleanContent.length + cleanCaseStudy.length
+      const scenario = n.scenario || ''
+      const keyPoints = (n.keyPoints || []).join(' ')
+      const memoryAids = (n.memoryAids || []).join(' ')
+
+      const combined = [title, content, caseStudy, scenario, keyPoints, memoryAids].map(p =>
+        String(p || '').replace(/<[^>]*>/g, '').replace(/[#*`>\-\[\]()]/g, '')
+      ).join(' ')
+
+      const cleaned = combined.replace(/\s+/g, ' ').trim()
+      return sum + (cleaned ? cleaned.length : 0)
     }, 0)
   })
 

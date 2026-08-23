@@ -550,14 +550,18 @@ const TAG_COLOR_MAP = {
 const tagColorClass = (tag) => TAG_COLOR_MAP[tag] || 'tag-default'
 
 // ===== 计算属性 =====
-const totalViews = computed(() => notesStore.totalViews)
-const totalCharacters = computed(() => notesStore.totalCharacters)
+// 直接使用 store 暴露的 ref/计算属性，避免在组件中再包一层 computed
+const totalViews = notesStore.totalViews
+const totalCharacters = notesStore.totalCharacters
 
 const formatNum = (n) => {
-  if (!n) return '0'
-  if (n >= 10000) return (n / 10000).toFixed(1) + 'W'
-  if (n >= 1000) return (n / 1000).toFixed(1) + 'K'
-  return String(n)
+  // 支持传入原始数字或 Vue 的 ref/computed（自动解包）
+  const raw = (n && typeof n === 'object' && 'value' in n) ? n.value : n
+  const num = Number(raw) || 0
+  if (num === 0) return '0'
+  if (num >= 10000) return (num / 10000).toFixed(1).replace(/\.0$/, '') + 'W'
+  if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K'
+  return String(num)
 }
 const filteredNotes = computed(() => notesStore.filteredNotes)
 const paginatedNotes = computed(() => notesStore.paginatedNotes)
@@ -714,6 +718,7 @@ const loadNotes = async () => {
     const data = await notesStore.loadNotes()
     if (data && Array.isArray(data)) {
       toastSuccess(`成功加载 ${data.length} 条笔记`)
+      console.log('[debug] loadNotes -> notes.length=', notesStore.notes.length, 'totalCharacters=', notesStore.totalCharacters)
     } else {
       toastWarning('未加载到笔记数据')
     }
@@ -1055,6 +1060,25 @@ onMounted(async () => {
 
   // 批量拉取个人掌握度并合并进列表（Dashboard/列表卡展示真实个人分数）
   await loadAllUserProgress()
+
+  // 调试信息：确认笔记与字数计算
+  console.log('[debug] onMounted after loadAllUserProgress -> notes:', notesStore.notes.length, 'totalCharacters=', notesStore.totalCharacters)
+  // 逐条打印简要信息便于排查
+  try {
+    const dbg = notesStore.notes.map(n => ({
+      id: n.id,
+      title: (n.title || '').slice(0, 60),
+      contentType: n.content == null ? String(n.content) : typeof n.content,
+      contentLength: n.content ? String(n.content).length : 0,
+      caseStudyLength: n.caseStudy ? String(n.caseStudy).length : 0
+    }))
+    console.log('[debug] notes detail sample ->', dbg)
+    if (notesStore.notes.length > 0) {
+      console.log('[debug] first note keys ->', Object.keys(notesStore.notes[0]))
+    }
+  } catch (e) {
+    console.error('[debug] notes inspect error', e)
+  }
 
   const noteId = route.query.noteId
   if (noteId) {

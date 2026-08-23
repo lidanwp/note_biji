@@ -74,7 +74,9 @@ export const loadNotesFromCloud = async (options = {}) => {
     memoryAids: row.memory_aids || [],
     examScore: row.exam_score || 0,
     phase: row.phase || null,
-    relatedNotes: row.related_notes || []
+    relatedNotes: row.related_notes || [],
+    _textLength: row._textLength || 0,
+    _hasFullContent: row._hasFullContent !== false
   }))
 
   // 存入缓存

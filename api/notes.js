@@ -29,12 +29,13 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
-    // 轻量列表：不带 content/caseStudy，大幅减小载荷
+    // 轻量列表：裁剪 content 到前 200 字符做预览，不传 case_study/attachments 等大字段
     const isListMode = req.query?.mode === 'list'
 
     try {
+      // 列表模式仍然查询完整 content 和 case_study（用于字数统计），但只返回截断版本
       const select = isListMode
-        ? 'id,title,category,date,view_count,useful_count,tags,created_at,user_id,key_points,scenario,exam_score,phase,related_notes'
+        ? 'id,title,category,date,view_count,useful_count,tags,created_at,user_id,key_points,scenario,content,case_study,exam_score,phase,related_notes'
         : 'id,title,category,date,view_count,useful_count,tags,created_at,user_id,key_points,scenario,content,case_study,attachments,exam_mapping,comparison_table,memory_aids,exam_score,phase,related_notes'
 
       const response = await fetch(`${supabaseUrl}/rest/v1/notes?select=${encodeURIComponent(select)}&order=date.desc`, {
@@ -50,12 +51,40 @@ export default async function handler(req, res) {
       }
 
       const data = await response.json()
-      // 列表模式：裁剪 content/caseStudy 到前 200 字符，避免传输大量 HTML
-      const processed = isListMode ? data.map(n => ({
+
+      // 计算纯文本字数的辅助函数：去除 HTML 标签和 markdown 符号
+      const countTextLength = (note) => {
+        const parts = [
+          note.title || '',
+          note.content || '',
+          note.case_study || '',
+          note.scenario || '',
+          Array.isArray(note.key_points) ? note.key_points.join(' ') : '',
+          Array.isArray(note.memory_aids) ? note.memory_aids.join(' ') : ''
+        ]
+        const combined = parts.map(p =>
+          String(p || '').replace(/<[^>]*>/g, '').replace(/[#*`>\-\[\]()]/g, '')
+        ).join(' ')
+        return combined.replace(/\s+/g, ' ').trim().length
+      }
+
+      // 列表模式：计算完整字数 + 裁剪 content + 标记 _hasFullContent
+      // 非列表模式：返回完整数据
+      const processed = isListMode ? data.map(n => {
+        const originalContent = n.content || ''
+        const wasTruncated = originalContent.length > 200
+        return {
+          ...n,
+          content: wasTruncated ? originalContent.slice(0, 200) : originalContent,
+          case_study: undefined,           // 不传 case_study 大字段到前端
+          _textLength: countTextLength(n), // 基于完整数据计算的字数
+          _hasFullContent: !wasTruncated   // 内容未截断则无需再请求
+        }
+      }) : data.map(n => ({
         ...n,
-        content: n.content ? String(n.content).slice(0, 200) : '',
-        case_study: n.case_study ? String(n.case_study).slice(0, 200) : ''
-      })) : data
+        _textLength: countTextLength(n),
+        _hasFullContent: true
+      }))
 
       // 缓存 30 秒（Serverless 冷启动 + Supabase 响应时间远大于此，客户端可复用）
       res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=600')
