@@ -26,14 +26,16 @@
     </div>
 
     <!-- 自定义确认弹窗 -->
-    <!-- 屏幕居中模式（点击删除时）: 直接 teleport 到 body，不渲染遮罩 -->
+    <!-- 屏幕居中模式（点击删除时）: teleport 到 body，带模糊遮罩 -->
     <teleport to="body" v-if="confirmState.visible && confirmState.position && confirmState.position.centered">
-      <div class="confirm-dialog" role="dialog" aria-modal="true" :style="dialogStyle">
-        <div class="confirm-title">{{ confirmState.title }}</div>
-        <div class="confirm-message">{{ confirmState.message }}</div>
-        <div class="confirm-actions">
-          <button class="confirm-cancel" @click="closeConfirm">取消</button>
-          <button class="confirm-ok" @click="confirmAction">确认</button>
+      <div class="confirm-overlay" @click.self="closeConfirm">
+        <div class="confirm-dialog" role="dialog" aria-modal="true">
+          <div class="confirm-title">{{ confirmState.title }}</div>
+          <div class="confirm-message">{{ confirmState.message }}</div>
+          <div class="confirm-actions">
+            <button class="confirm-cancel" @click="closeConfirm">取消</button>
+            <button class="confirm-ok" @click="confirmAction">确认</button>
+          </div>
         </div>
       </div>
     </teleport>
