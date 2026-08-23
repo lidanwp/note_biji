@@ -144,6 +144,17 @@
           {{ getNoteSummary(note) }}
         </p>
 
+        <!-- 标签（点击可按关键词筛选） -->
+        <div v-if="note.tags?.length" class="card-tags">
+          <span
+            v-for="tag in note.tags"
+            :key="tag"
+            :class="['tag', tagColorClass(tag), 'tag-link', { 'is-active': notesStore.search && notesStore.search.trim().toLowerCase() === String(tag).toLowerCase() }]"
+            @click.stop="handleTagClick(tag, $event)"
+            title="点击筛选包含该标签的笔记"
+          >#{{ tag }}</span>
+        </div>
+
         <!-- 底部：分类 + 日期 + 查看全文 -->
         <div class="card-footer">
           <div class="card-footer-left">
@@ -349,7 +360,13 @@
           </div>
           
           <div v-if="selectedNote.tags?.length" class="detail-tags">
-            <span v-for="tag in selectedNote.tags" :key="tag" :class="['tag', tagColorClass(tag)]">#{{ tag }}</span>
+            <span
+              v-for="tag in selectedNote.tags"
+              :key="tag"
+              :class="['tag', tagColorClass(tag), 'tag-link', { 'is-active': notesStore.search && notesStore.search.trim().toLowerCase() === String(tag).toLowerCase() }]"
+              @click.stop="handleTagClick(tag, $event)"
+              title="点击筛选包含该标签的笔记"
+            >#{{ tag }}</span>
           </div>
           
           <div
@@ -551,6 +568,27 @@ const TAG_COLOR_MAP = {
   '项目立项管理': 'tag-slate',
 }
 const tagColorClass = (tag) => TAG_COLOR_MAP[tag] || 'tag-default'
+
+/**
+ * 点击标签：关闭详情页、回填 search=该标签、重置其他过滤器并回到第一页。
+ * 事件已在模板上 @click.stop 阻止冒泡，不会触发卡片 viewDetail。
+ */
+const handleTagClick = (tag, event) => {
+  if (event && typeof event.stopPropagation === 'function') event.stopPropagation()
+  if (event && typeof event.preventDefault === 'function') event.preventDefault()
+  // 先关闭详情页（如有），无动画直接关，避免滑动动画阻塞后续操作
+  if (selectedNote.value) closeDetail(false)
+  // 激活该标签作为全局搜索关键词
+  notesStore.search = String(tag || '').trim()
+  notesStore.knowledgeAreaFilter = ''
+  notesStore.categoryFilter = ''
+  notesStore.currentPage = 1
+  // 让搜索框获得焦点便于用户继续编辑或清空
+  nextTick(() => {
+    const el = document.querySelector('.search-wrap input')
+    if (el) el.focus({ preventScroll: true })
+  })
+}
 
 // ===== 计算属性 =====
 // 使用 computed 保持响应式，确保 notesStore 数据更新后模板重新渲染
@@ -2678,13 +2716,59 @@ header {
   border-radius: 999px;
   font-size: 13px;
   font-weight: 500;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-  cursor: default;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  cursor: pointer;
 }
 
 .detail-tags .tag:hover {
   transform: translateY(-2px);
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+  filter: brightness(1.08);
+}
+
+/* ===== 卡片内的标签列表 ===== */
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 14px 0 4px;
+}
+
+.card-tags .tag,
+.tag-link {
+  display: inline-block;
+  padding: 4px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease, outline-color 0.12s ease;
+  outline: 1px solid transparent;
+  outline-offset: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.card-tags .tag:hover,
+.tag-link:hover {
+  transform: translateY(-1px) scale(1.04);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+  filter: brightness(1.08);
+}
+
+.card-tags .tag:active,
+.tag-link:active {
+  transform: scale(0.96);
+  filter: brightness(0.96);
+}
+
+/* 当前激活搜索关键词的标签，加高亮描边（搜索框的值恰好等于该标签时） */
+.card-tags .tag.is-active,
+.detail-tags .tag.is-active,
+.tag-link.is-active {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
 }
 
 .tag-default { background: var(--border-color); color: var(--text-secondary); }
