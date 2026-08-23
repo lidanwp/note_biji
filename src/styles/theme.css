@@ -110,3 +110,98 @@ body {
   line-height: var(--line-height-base);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
+
+/* ===== 全局统一：自定义确认弹窗（评论删除/阅读历史删除等场景） ===== */
+/* 放在全局样式中，避开 scoped + teleport 在企业微信 WebView 下样式丢失的问题 */
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35) !important;
+  backdrop-filter: blur(3px) !important;
+  -webkit-backdrop-filter: blur(3px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 9999 !important;
+  padding: 20px;
+}
+
+.confirm-overlay--transparent {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.confirm-dialog {
+  width: min(92vw, 420px);
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 22px;
+  box-shadow: 0 18px 46px rgba(15, 23, 42, 0.18);
+  padding: 22px 20px 18px;
+  animation: dialogIn 0.18s ease-out;
+}
+
+@keyframes dialogIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.confirm-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 10px;
+  text-align: center;
+}
+
+.confirm-message {
+  font-size: 14px;
+  color: #475569;
+  line-height: 1.6;
+  margin-bottom: 22px;
+  text-align: center;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.confirm-cancel {
+  flex: 1;
+  padding: 11px 16px;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s;
+}
+
+.confirm-cancel:hover { background: #f1f5f9; }
+.confirm-cancel:active { transform: scale(0.97); }
+
+.confirm-ok {
+  flex: 1;
+  padding: 11px 16px;
+  border-radius: 14px;
+  border: none;
+  background: #d14a34;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.05s;
+}
+
+.confirm-ok:hover { background: #b73c2d; }
+.confirm-ok:active { transform: scale(0.97); }
