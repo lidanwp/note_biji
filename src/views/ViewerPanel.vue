@@ -561,58 +561,166 @@ const tagColorClass = (tag) => TAG_COLOR_MAP[tag] || 'tag-default'
 // 最近一次高亮的元素与定时器，便于连续点击时清理上一个高亮
 let _lastHighlightEl = null
 let _lastHighlightTimer = null
+// 最近一次词级 mark 节点，用于还原 DOM（避免永久污染 v-html）
+let _lastMarkEl = null
+let _lastMarkRestoreTimer = null
+
+const SKIP_SELECTORS_HIT = ['script', 'style', 'noscript', 'template', 'svg', 'canvas', '.detail-tags', '.detail-progress', '.detail-actions', '.detail-attachments', '.detail-case', '.detail-exam', '.modal-back', '.comment-section', '.tag-hit-mark']
 
 /**
- * 在给定容器内查找第一个包含 keyword 文本的块级元素。
- * 优先级：标题 h1-h4 > 段落/li/td/th > 其他任意块。跳过脚本/样式/标签自身容器。
+ * 判断元素/其父链是否命中需跳过的选择器
  */
-const findFirstTextBlock = (container, keyword) => {
+const _isInsideSkip = (el) => {
+  if (!el) return true
+  return SKIP_SELECTORS_HIT.some(s => el.closest && el.closest(s))
+}
+
+/**
+ * 在一个元素内部找"直接包含 keyword 的第一个文本节点 + 偏移"。
+ * 优先找标题元素（语义更贴合"对应位置"），其次普通文本容器。
+ * 返回 { textNode, offset, parentEl } 或 null。
+ */
+const findFirstKeywordHit = (container, keyword) => {
   if (!container || !keyword) return null
   const kw = String(keyword).trim().toLowerCase()
   if (!kw) return null
 
-  const skipSelectors = ['script', 'style', 'noscript', 'template', 'svg', 'canvas', '.detail-tags', '.detail-progress', '.detail-actions', '.detail-attachments', '.detail-case', '.detail-exam', '.modal-back', '.comment-section']
-  const priorityOrder = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']
-  const textTags = ['p', 'li', 'td', 'th', 'div', 'span', 'blockquote', 'dt', 'dd', 'figcaption', 'summary']
+  const tryElement = (el) => {
+    if (_isInsideSkip(el)) return null
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    let n = walker.nextNode()
+    while (n) {
+      const txt = n.textContent || ''
+      if (!txt.trim()) { n = walker.nextNode(); continue }
+      if (_isInsideSkip(n.parentElement)) { n = walker.nextNode(); continue }
+      const idx = txt.toLowerCase().indexOf(kw)
+      if (idx >= 0) return { textNode: n, offset: idx, parentEl: el }
+      n = walker.nextNode()
+    }
+    return null
+  }
 
   // Round 1: 标题
-  for (const tag of priorityOrder) {
-    const els = container.querySelectorAll(tag)
-    for (const el of els) {
-      if (skipSelectors.some(s => el.closest(s))) continue
-      if ((el.textContent || '').toLowerCase().includes(kw)) return el
+  const headingOrder = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+  for (const t of headingOrder) {
+    const list = container.querySelectorAll(t)
+    for (const el of list) {
+      const hit = tryElement(el)
+      if (hit) return hit
     }
   }
   // Round 2: 正文文本块
-  for (const tag of textTags) {
-    const els = container.querySelectorAll(tag)
-    for (const el of els) {
-      if (skipSelectors.some(s => el.closest(s))) continue
-      // 只取直接含文本的叶子，避免命中只包子孙的大 div 导致滚动到文档最顶
+  const bodyTags = ['p', 'li', 'td', 'th', 'blockquote', 'dt', 'dd', 'figcaption', 'summary', 'div', 'span']
+  for (const t of bodyTags) {
+    const list = container.querySelectorAll(t)
+    for (const el of list) {
+      if (_isInsideSkip(el)) continue
       const hasDirectText = Array.from(el.childNodes).some(n => n.nodeType === 3 && n.textContent && n.textContent.trim().length > 0)
       if (!hasDirectText) continue
-      if ((el.textContent || '').toLowerCase().includes(kw)) return el
+      const hit = tryElement(el)
+      if (hit) return hit
     }
   }
-  // Round 3: 扫一遍元素内所有包含该文本的元素，取第一个
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
-    acceptNode(node) {
-      if (!node.textContent || !node.textContent.trim()) return NodeFilter.FILTER_REJECT
-      const p = node.parentElement
-      if (!p) return NodeFilter.FILTER_REJECT
-      if (skipSelectors.some(s => p.closest(s))) return NodeFilter.FILTER_REJECT
-      return (node.textContent || '').toLowerCase().includes(kw) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
+  // Round 3: 全容器兜底（找任何文本节点）
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT)
+  let node = walker.nextNode()
+  while (node) {
+    const txt = node.textContent || ''
+    if (txt.trim()) {
+      if (!_isInsideSkip(node.parentElement)) {
+        const idx = txt.toLowerCase().indexOf(kw)
+        if (idx >= 0) return { textNode: node, offset: idx, parentEl: node.parentElement }
+      }
     }
-  })
-  const hit = walker.nextNode()
-  return hit ? hit.parentElement : null
+    node = walker.nextNode()
+  }
+  return null
 }
 
 /**
- * 详情页底部点击标签：跳转到详情内容中该词首次出现的位置（非全局搜索）。
- * - 事件 @click.stop 已在模板上阻止冒泡
- * - 找到元素：在 .modal-detail 内平滑滚动 + 临时黄色高亮
- * - 没找到：滚动到内容顶部 + 轻提示
+ * 把文本节点的 [offset, offset+keyword.length] 片段用 <mark class="tag-hit-mark"> 包裹，
+ * 2.2 秒后自动还原（避免破坏 v-html 原始 DOM，影响后续 Markdown 渲染或保存操作）。
+ * 返回 mark 元素（用于滚动定位）。
+ */
+const applyWordHighlight = (hit, keyword) => {
+  // 先清理上一次高亮（块级 + 词级）
+  if (_lastHighlightEl) {
+    _lastHighlightEl.classList.remove('tag-hit-flash')
+    _lastHighlightEl = null
+  }
+  if (_lastHighlightTimer) {
+    clearTimeout(_lastHighlightTimer)
+    _lastHighlightTimer = null
+  }
+  _restoreLastMark(true)
+
+  const { textNode, offset, parentEl } = hit
+  const kwLen = String(keyword || '').length
+  if (kwLen <= 0) return null
+  const raw = textNode.textContent || ''
+  const end = Math.min(raw.length, offset + kwLen)
+  if (offset >= raw.length || offset < 0 || end - offset <= 0) return null
+
+  const before = raw.slice(0, offset)
+  const matchWord = raw.slice(offset, end)
+  const after = raw.slice(end)
+
+  const mark = document.createElement('mark')
+  mark.className = 'tag-hit-mark'
+  mark.textContent = matchWord
+
+  const parent = textNode.parentNode
+  if (!parent) return null
+
+  if (before) parent.insertBefore(document.createTextNode(before), textNode)
+  parent.insertBefore(mark, textNode)
+  if (after) parent.insertBefore(document.createTextNode(after), textNode)
+  parent.removeChild(textNode)
+
+  // 块级外层加轻高亮（整段微微发亮，便于定位）
+  if (parentEl) parentEl.classList.add('tag-hit-flash')
+  _lastHighlightEl = parentEl
+  _lastMarkEl = mark
+
+  // 2.2s 后还原：把 mark 的文本重新插回去，恢复原始 DOM
+  _lastMarkRestoreTimer = setTimeout(() => {
+    _restoreLastMark(false)
+    if (_lastHighlightEl) {
+      _lastHighlightEl.classList.remove('tag-hit-flash')
+      _lastHighlightEl = null
+    }
+  }, 2200)
+
+  return mark
+}
+
+/**
+ * 还原上一个 <mark> 为纯文本节点。
+ * silent=true 只还原不清理外层块级高亮（由外层逻辑清理）。
+ */
+const _restoreLastMark = (silent) => {
+  if (_lastMarkRestoreTimer) {
+    clearTimeout(_lastMarkRestoreTimer)
+    _lastMarkRestoreTimer = null
+  }
+  const m = _lastMarkEl
+  _lastMarkEl = null
+  if (!m || !m.parentNode) return
+  try {
+    const text = (m.textContent || '')
+    const parent = m.parentNode
+    parent.insertBefore(document.createTextNode(text), m)
+    parent.removeChild(m)
+    // 合并相邻文本节点，避免多次操作后文本节点碎片化
+    if (parent && typeof parent.normalize === 'function') parent.normalize()
+  } catch (e) {
+    if (!silent) console.warn('还原 mark 高亮失败', e)
+  }
+}
+
+/**
+ * 详情页底部点击标签：跳转到详情内容中该词首次出现的位置，
+ * 并对"该词本身"加精确的黄底高亮（2.2s 自动还原）。
  */
 const handleTagClick = (tag, event) => {
   if (event && typeof event.stopPropagation === 'function') event.stopPropagation()
@@ -622,36 +730,35 @@ const handleTagClick = (tag, event) => {
   const scrollContainer = document.querySelector('.modal-detail')
   if (!scrollContainer) return
 
-  const targetEl = findFirstTextBlock(scrollContainer, tag) || scrollContainer.querySelector('.detail-content')
-  if (!targetEl) return
-
-  // 先清理上一次高亮
-  if (_lastHighlightEl) {
-    _lastHighlightEl.classList.remove('tag-hit-flash')
-    _lastHighlightEl = null
-  }
-  if (_lastHighlightTimer) {
-    clearTimeout(_lastHighlightTimer)
-    _lastHighlightTimer = null
-  }
-
-  // 计算滚动位置：元素相对于滚动容器顶部的偏移，减去吸顶/安全距离 (90px)
-  const containerRect = scrollContainer.getBoundingClientRect()
-  const elRect = targetEl.getBoundingClientRect()
-  const relativeTop = elRect.top - containerRect.top + scrollContainer.scrollTop
-  const scrollTop = Math.max(0, Math.round(relativeTop - 90))
-
-  scrollContainer.scrollTo({ top: scrollTop, behavior: 'smooth' })
-
-  // 加高亮，1.5s 后移除
-  targetEl.classList.add('tag-hit-flash')
-  _lastHighlightEl = targetEl
-  _lastHighlightTimer = setTimeout(() => {
-    if (_lastHighlightEl === targetEl) {
-      targetEl.classList.remove('tag-hit-flash')
-      _lastHighlightEl = null
+  const hit = findFirstKeywordHit(scrollContainer, tag)
+  let anchorEl = null
+  if (hit) {
+    anchorEl = applyWordHighlight(hit, tag) || hit.parentEl
+  } else {
+    // 找不到就滚到 .detail-content 顶部
+    anchorEl = scrollContainer.querySelector('.detail-content')
+    // 即使没找到词，也给内容加一个短暂闪一下的提示
+    if (anchorEl) {
+      if (_lastHighlightEl) _lastHighlightEl.classList.remove('tag-hit-flash')
+      anchorEl.classList.add('tag-hit-flash')
+      _lastHighlightEl = anchorEl
+      if (_lastHighlightTimer) clearTimeout(_lastHighlightTimer)
+      _lastHighlightTimer = setTimeout(() => {
+        if (_lastHighlightEl === anchorEl) {
+          anchorEl.classList.remove('tag-hit-flash')
+          _lastHighlightEl = null
+        }
+      }, 1500)
     }
-  }, 1800)
+  }
+  if (!anchorEl) return
+
+  // 计算滚动：让高亮词出现在视口垂直居中偏上的位置
+  const containerRect = scrollContainer.getBoundingClientRect()
+  const elRect = anchorEl.getBoundingClientRect()
+  const relativeTop = elRect.top - containerRect.top + scrollContainer.scrollTop
+  const scrollTop = Math.max(0, Math.round(relativeTop - Math.round(containerRect.height * 0.28)))
+  scrollContainer.scrollTo({ top: scrollTop, behavior: 'smooth' })
 }
 
 // ===== 计算属性 =====
@@ -2809,27 +2916,34 @@ header {
   filter: brightness(0.96);
 }
 
-/* ===== 点击标签后命中位置的临时黄色高亮（1.8s 自动消失） ===== */
+/* ===== 点击标签后命中段落的外层轻高亮（整段微微发亮） ===== */
 .tag-hit-flash {
-  background: rgba(250, 204, 21, 0.28) !important;
+  background: rgba(250, 204, 21, 0.14) !important;
   border-radius: 6px;
-  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.4);
   transition: background 0.35s ease, box-shadow 0.35s ease;
-  animation: tagHitPopIn 0.35s ease-out;
 }
 
-@keyframes tagHitPopIn {
+/* ===== 点击标签后词级精确高亮（<mark>包裹，2.2s 自动还原） ===== */
+.tag-hit-mark {
+  display: inline !important;
+  padding: 0 3px;
+  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(250, 204, 21, 0.95), rgba(234, 179, 8, 0.85)) !important;
+  color: #3f2b00 !important;
+  font-weight: 600;
+  box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.35), 0 2px 8px rgba(180, 130, 0, 0.18);
+  animation: tagHitMarkPulse 0.9s ease-in-out infinite alternate;
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes tagHitMarkPulse {
   0% {
-    background: rgba(250, 204, 21, 0);
-    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0);
-  }
-  40% {
-    background: rgba(250, 204, 21, 0.45);
-    box-shadow: 0 0 0 6px rgba(250, 204, 21, 0.25);
+    box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.35), 0 2px 8px rgba(180, 130, 0, 0.18);
+    transform: scale(1);
   }
   100% {
-    background: rgba(250, 204, 21, 0.28);
-    box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.4);
+    box-shadow: 0 0 0 5px rgba(250, 204, 21, 0.18), 0 3px 14px rgba(180, 130, 0, 0.28);
+    transform: scale(1.06);
   }
 }
 
