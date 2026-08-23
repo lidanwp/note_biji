@@ -392,41 +392,73 @@
               @click="scrollDetailTo('tags')"
               title="跳到标签/评论区"
             >
-              <!-- 基于 public/标签.svg 图层_1 主体路径重绘：去掉隐藏层 Layer_2 与渐变 → 统一 currentColor 单色分层透明度呈现，保留形状比例与挂孔别针 -->
+              <!-- 基于 public/标签.svg 图层_1 原始主体 + 三原色渐变 → 完全还原「黄橙书签+深棕别针」的视觉颜色 -->
               <svg
                 class="float-action-icon"
                 viewBox="0 0 128 128"
                 fill="none"
                 stroke="none"
                 xmlns="http://www.w3.org/2000/svg"
+                xmlns:xlink="http://www.w3.org/1999/xlink"
                 aria-hidden="true"
                 focusable="false"
               >
-                <!-- 最底层：书签（橙色渐变原 SVGID_1）→ 不透明主层 currentColor -->
+                <defs>
+                  <!-- 原 SVGID_1：书签本体 橙→深橙 渐变 -->
+                  <linearGradient
+                    id="floatTag_1"
+                    x1="28.9966" y1="29.955" x2="79.1021" y2="114.2471"
+                    gradientUnits="userSpaceOnUse"
+                    gradientTransform="matrix(0.9993 0.0371 -0.0371 0.9993 2.7779 -2.0068)"
+                  >
+                    <stop offset="0.0104" stop-color="#FFC107"/>
+                    <stop offset="0.9966" stop-color="#FF6F00"/>
+                  </linearGradient>
+                  <!-- 原 SVGID_3：黄标签本体 亮黄→金黄 渐变 -->
+                  <linearGradient
+                    id="floatTag_3"
+                    x1="29.3002" y1="28.833" x2="100.7614" y2="106.4682"
+                    gradientUnits="userSpaceOnUse"
+                  >
+                    <stop offset="4.499847e-03" stop-color="#FFEB3B"/>
+                    <stop offset="1" stop-color="#FBC02D"/>
+                  </linearGradient>
+                  <!-- 原 SVGID_4：别针 浅棕→深棕 渐变 -->
+                  <linearGradient
+                    id="floatTag_4"
+                    x1="12.4879" y1="25.6928" x2="48.0903" y2="25.6928"
+                    gradientUnits="userSpaceOnUse"
+                  >
+                    <stop offset="0.0126" stop-color="#C79F62"/>
+                    <stop offset="1" stop-color="#804F21"/>
+                  </linearGradient>
+                </defs>
+
+                <!-- ① 底层：书签主体（橙渐变）-->
                 <path
-                  fill="currentColor"
-                  fill-opacity="1"
+                  fill="url(#floatTag_1)"
                   d="M29.89,30.91l-9.2,19.88c-0.6,1.8-0.35,4.67,0.53,6.35l33.88,64.58c0.88,1.69,3.05,2.37,4.77,1.52l33.78-16.69c1.73-0.85,2.43-2.95,1.54-4.64L61.31,37.34c-0.89-1.68-3.14-3.56-4.99-4.15l-21.97-4.46C32.49,28.13,30.49,29.11,29.89,30.91z"
                 />
-                <!-- 上中层：黄标签（原 SVGID_3 亮黄）→ 同色 88% 透明度层叠，形成层次 -->
+
+                <!-- ② 中层：黄标签（金黄渐变）叠在书签之上 -->
                 <path
-                  fill="currentColor"
-                  fill-opacity="0.86"
+                  fill="url(#floatTag_3)"
                   d="M115,88.25L63.47,29.96c-1.35-1.51-4.13-2.87-6.16-3l-23.46,1.18c-2.03-0.13-3.8,1.43-3.93,3.46l-4.04,23.15c-0.13,2.03,0.88,4.96,2.23,6.48l51.52,58.29c1.34,1.52,3.72,1.66,5.24,0.32l29.8-26.35C116.2,92.15,116.35,89.78,115,88.25z"
                 />
-                <!-- 上层：别针（原棕 SVGID_4）→ 同色 70% 透明度层叠 -->
+
+                <!-- ③ 上层：别针（棕渐变）串在左上角 -->
                 <path
-                  fill="currentColor"
-                  fill-opacity="0.7"
-                  d="M25.31,4.33c-4.17,0-7.98,1.99-10.38,5.47c-3.12,4.52-3.27,10.74-0.4,16.65c2.94,6.06,6.33,10.99,10.07,14.64l0.5,0.48l1.66-2.92l-0.3-0.29c-3.41-3.32-6.29-7.55-9.08-13.3c-2.39-4.94-2.34-9.84,0.16-13.46c1.8-2.61,4.66-4.1,7.78-4.1c0.29,0,0.57,0.01,0.87,0.04c5.64,0.5,11.05,5.56,14.84,13.89c3.84,8.42,4.92,15.76,2.9,19.62c-0.9,1.72-1.86,2.37-4.12,2.79l-0.45,0.08l0.01,0.46c0,0.03,0.02,0.7,0.2,1.3c0.18,0.59,0.44,1.04,0.46,1.06l0.19,0.32l0.36-0.07c3.08-0.56,4.75-1.77,6.16-4.46c2.5-4.79,1.47-12.95-2.83-22.4C43.92,20.12,37.57,14.39,30.76,13.79C29.91,13.72,29.61,13.69,29.05,13.69L25.31,4.33L25.31,4.33z"
+                  fill="url(#floatTag_4)"
+                  d="M43.92,20.12c-4.28-9.4-10.63-15.13-17.44-15.73c-4.62-0.41-8.92,1.62-11.54,5.42c-3.12,4.52-3.27,10.74-0.4,16.65c2.94,6.06,6.33,10.99,10.07,14.64l0.5,0.48l1.66-2.92l-0.3-0.29c-3.41-3.32-6.29-7.55-9.08-13.3c-2.39-4.94-2.34-9.84,0.16-13.46c1.96-2.85,5.19-4.36,8.65-4.06c5.64,0.5,11.05,5.56,14.84,13.89c3.84,8.42,4.92,15.76,2.9,19.62c-0.9,1.72-1.86,2.37-4.12,2.79l-0.45,0.08l0.01,0.46c0,0.03,0.02,0.7,0.2,1.3c0.18,0.59,0.44,1.04,0.46,1.06l0.19,0.32l0.36-0.07c3.08-0.56,4.75-1.77,6.16-4.46C49.25,37.73,48.22,29.57,43.92,20.12z"
                 />
-                <!-- 挂孔圆（原黄标签中心挂孔）→ 挖空：用背景色反色半透明叠一个小白圆，兼容任何背景色 -->
-                <circle cx="44.68" cy="44.19" r="5.25" fill="rgba(255,255,255,0.85)" stroke="currentColor" stroke-opacity="0.15" stroke-width="1" />
-                <!-- 书签主体的左上方挂孔小圆（橙色部分中心）与主体对齐 -->
-                <circle cx="35.65" cy="44.0" r="4.2" fill="rgba(255,255,255,0.72)" stroke="currentColor" stroke-opacity="0.1" stroke-width="0.8" />
-                <!-- 原图底部 #F29600 两个装饰短弧线 → 用 currentColor 画细线 -->
-                <path d="M39.57,45.8" fill="none" stroke="currentColor" stroke-opacity="0.55" stroke-width="1.96" stroke-linecap="round"/>
-                <path d="M25.82,39.97" fill="none" stroke="currentColor" stroke-opacity="0.55" stroke-width="1.96" stroke-linecap="round"/>
+
+                <!-- ④ 黄标签中心挂孔：外圈（橙金边）+ 内圆透明白 -->
+                <circle cx="44.68" cy="44.19" r="6.85" fill="url(#floatTag_3)" stroke="#E6A700" stroke-width="1.4"/>
+                <circle cx="44.68" cy="44.19" r="5.25" fill="#ffffff" fill-opacity="0.92"/>
+
+                <!-- ⑤ 书签左上挂孔小圆环：深棕边 + 内透明白 -->
+                <circle cx="35.65" cy="44.00" r="5.50" fill="url(#floatTag_1)" stroke="#C75B00" stroke-width="1.0"/>
+                <circle cx="35.65" cy="44.00" r="4.20" fill="#ffffff" fill-opacity="0.88"/>
               </svg>
             </button>
           </div>
@@ -3060,20 +3092,22 @@ header {
   -webkit-backdrop-filter: none;
   border: none;
   box-shadow: none;
-  color: #555;
+  color: inherit; /* 图标内部使用了真实渐变，不受 color 控制 */
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.2s ease, color 0.2s ease, opacity 0.2s ease;
+  transition: transform 0.2s ease, opacity 0.2s ease, filter 0.2s ease;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.08));
 }
 
 .float-action-btn:hover {
   transform: scale(1.15);
-  color: #333;
+  filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.18)) brightness(1.05);
 }
 
 .float-action-btn:active {
   transform: scale(0.85);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.12)) brightness(0.94);
   transition-duration: 0.08s;
 }
 
@@ -3081,17 +3115,19 @@ header {
   display: block;
   width: 36px;
   height: 36px;
-  color: inherit;
-  transition: transform 0.2s ease, color 0.2s ease;
+  transition: transform 0.2s ease;
 }
 
-/* 暗黑模式适配 */
+/* 暗黑模式适配：图标本身是黄/橙/棕真实渐变，不变色；仅加一层柔和投影增强可见性 */
 @media (prefers-color-scheme: dark) {
   .float-action-btn {
-    color: #aaa;
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.45));
   }
   .float-action-btn:hover {
-    color: #ddd;
+    filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.65)) brightness(1.04);
+  }
+  .float-action-btn:active {
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5)) brightness(0.93);
   }
 }
 
