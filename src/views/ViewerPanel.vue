@@ -144,17 +144,6 @@
           {{ getNoteSummary(note) }}
         </p>
 
-        <!-- 标签（点击可按关键词筛选） -->
-        <div v-if="note.tags?.length" class="card-tags">
-          <span
-            v-for="tag in note.tags"
-            :key="tag"
-            :class="['tag', tagColorClass(tag), 'tag-link', { 'is-active': notesStore.search && notesStore.search.trim().toLowerCase() === String(tag).toLowerCase() }]"
-            @click.stop="handleTagClick(tag, $event)"
-            title="点击筛选包含该标签的笔记"
-          >#{{ tag }}</span>
-        </div>
-
         <!-- 底部：分类 + 日期 + 查看全文 -->
         <div class="card-footer">
           <div class="card-footer-left">
@@ -363,9 +352,9 @@
             <span
               v-for="tag in selectedNote.tags"
               :key="tag"
-              :class="['tag', tagColorClass(tag), 'tag-link', { 'is-active': notesStore.search && notesStore.search.trim().toLowerCase() === String(tag).toLowerCase() }]"
+              :class="['tag', tagColorClass(tag), 'tag-link']"
               @click.stop="handleTagClick(tag, $event)"
-              title="点击筛选包含该标签的笔记"
+              title="跳转到笔记内容中该词首次出现的位置"
             >#{{ tag }}</span>
           </div>
           
@@ -569,25 +558,100 @@ const TAG_COLOR_MAP = {
 }
 const tagColorClass = (tag) => TAG_COLOR_MAP[tag] || 'tag-default'
 
+// 最近一次高亮的元素与定时器，便于连续点击时清理上一个高亮
+let _lastHighlightEl = null
+let _lastHighlightTimer = null
+
 /**
- * 点击标签：关闭详情页、回填 search=该标签、重置其他过滤器并回到第一页。
- * 事件已在模板上 @click.stop 阻止冒泡，不会触发卡片 viewDetail。
+ * 在给定容器内查找第一个包含 keyword 文本的块级元素。
+ * 优先级：标题 h1-h4 > 段落/li/td/th > 其他任意块。跳过脚本/样式/标签自身容器。
+ */
+const findFirstTextBlock = (container, keyword) => {
+  if (!container || !keyword) return null
+  const kw = String(keyword).trim().toLowerCase()
+  if (!kw) return null
+
+  const skipSelectors = ['script', 'style', 'noscript', 'template', 'svg', 'canvas', '.detail-tags', '.detail-progress', '.detail-actions', '.detail-attachments', '.detail-case', '.detail-exam', '.modal-back', '.comment-section']
+  const priorityOrder = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']
+  const textTags = ['p', 'li', 'td', 'th', 'div', 'span', 'blockquote', 'dt', 'dd', 'figcaption', 'summary']
+
+  // Round 1: 标题
+  for (const tag of priorityOrder) {
+    const els = container.querySelectorAll(tag)
+    for (const el of els) {
+      if (skipSelectors.some(s => el.closest(s))) continue
+      if ((el.textContent || '').toLowerCase().includes(kw)) return el
+    }
+  }
+  // Round 2: 正文文本块
+  for (const tag of textTags) {
+    const els = container.querySelectorAll(tag)
+    for (const el of els) {
+      if (skipSelectors.some(s => el.closest(s))) continue
+      // 只取直接含文本的叶子，避免命中只包子孙的大 div 导致滚动到文档最顶
+      const hasDirectText = Array.from(el.childNodes).some(n => n.nodeType === 3 && n.textContent && n.textContent.trim().length > 0)
+      if (!hasDirectText) continue
+      if ((el.textContent || '').toLowerCase().includes(kw)) return el
+    }
+  }
+  // Round 3: 扫一遍元素内所有包含该文本的元素，取第一个
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!node.textContent || !node.textContent.trim()) return NodeFilter.FILTER_REJECT
+      const p = node.parentElement
+      if (!p) return NodeFilter.FILTER_REJECT
+      if (skipSelectors.some(s => p.closest(s))) return NodeFilter.FILTER_REJECT
+      return (node.textContent || '').toLowerCase().includes(kw) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
+    }
+  })
+  const hit = walker.nextNode()
+  return hit ? hit.parentElement : null
+}
+
+/**
+ * 详情页底部点击标签：跳转到详情内容中该词首次出现的位置（非全局搜索）。
+ * - 事件 @click.stop 已在模板上阻止冒泡
+ * - 找到元素：在 .modal-detail 内平滑滚动 + 临时黄色高亮
+ * - 没找到：滚动到内容顶部 + 轻提示
  */
 const handleTagClick = (tag, event) => {
   if (event && typeof event.stopPropagation === 'function') event.stopPropagation()
   if (event && typeof event.preventDefault === 'function') event.preventDefault()
-  // 先关闭详情页（如有），无动画直接关，避免滑动动画阻塞后续操作
-  if (selectedNote.value) closeDetail(false)
-  // 激活该标签作为全局搜索关键词
-  notesStore.search = String(tag || '').trim()
-  notesStore.knowledgeAreaFilter = ''
-  notesStore.categoryFilter = ''
-  notesStore.currentPage = 1
-  // 让搜索框获得焦点便于用户继续编辑或清空
-  nextTick(() => {
-    const el = document.querySelector('.search-wrap input')
-    if (el) el.focus({ preventScroll: true })
-  })
+  if (!selectedNote.value) return
+
+  const scrollContainer = document.querySelector('.modal-detail')
+  if (!scrollContainer) return
+
+  const targetEl = findFirstTextBlock(scrollContainer, tag) || scrollContainer.querySelector('.detail-content')
+  if (!targetEl) return
+
+  // 先清理上一次高亮
+  if (_lastHighlightEl) {
+    _lastHighlightEl.classList.remove('tag-hit-flash')
+    _lastHighlightEl = null
+  }
+  if (_lastHighlightTimer) {
+    clearTimeout(_lastHighlightTimer)
+    _lastHighlightTimer = null
+  }
+
+  // 计算滚动位置：元素相对于滚动容器顶部的偏移，减去吸顶/安全距离 (90px)
+  const containerRect = scrollContainer.getBoundingClientRect()
+  const elRect = targetEl.getBoundingClientRect()
+  const relativeTop = elRect.top - containerRect.top + scrollContainer.scrollTop
+  const scrollTop = Math.max(0, Math.round(relativeTop - 90))
+
+  scrollContainer.scrollTo({ top: scrollTop, behavior: 'smooth' })
+
+  // 加高亮，1.5s 后移除
+  targetEl.classList.add('tag-hit-flash')
+  _lastHighlightEl = targetEl
+  _lastHighlightTimer = setTimeout(() => {
+    if (_lastHighlightEl === targetEl) {
+      targetEl.classList.remove('tag-hit-flash')
+      _lastHighlightEl = null
+    }
+  }, 1800)
 }
 
 // ===== 计算属性 =====
@@ -2726,49 +2790,47 @@ header {
   filter: brightness(1.08);
 }
 
-/* ===== 卡片内的标签列表 ===== */
-.card-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 14px 0 4px;
-}
-
-.card-tags .tag,
+/* ===== 标签链接（详情页 tag-link 通用） ===== */
 .tag-link {
   display: inline-block;
-  padding: 4px 11px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
   cursor: pointer;
   user-select: none;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease, outline-color 0.12s ease;
-  outline: 1px solid transparent;
-  outline-offset: 0;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
-.card-tags .tag:hover,
 .tag-link:hover {
   transform: translateY(-1px) scale(1.04);
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
   filter: brightness(1.08);
 }
 
-.card-tags .tag:active,
 .tag-link:active {
   transform: scale(0.96);
   filter: brightness(0.96);
 }
 
-/* 当前激活搜索关键词的标签，加高亮描边（搜索框的值恰好等于该标签时） */
-.card-tags .tag.is-active,
-.detail-tags .tag.is-active,
-.tag-link.is-active {
-  outline: 2px solid var(--accent-primary);
-  outline-offset: 1px;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+/* ===== 点击标签后命中位置的临时黄色高亮（1.8s 自动消失） ===== */
+.tag-hit-flash {
+  background: rgba(250, 204, 21, 0.28) !important;
+  border-radius: 6px;
+  box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.4);
+  transition: background 0.35s ease, box-shadow 0.35s ease;
+  animation: tagHitPopIn 0.35s ease-out;
+}
+
+@keyframes tagHitPopIn {
+  0% {
+    background: rgba(250, 204, 21, 0);
+    box-shadow: 0 0 0 0 rgba(250, 204, 21, 0);
+  }
+  40% {
+    background: rgba(250, 204, 21, 0.45);
+    box-shadow: 0 0 0 6px rgba(250, 204, 21, 0.25);
+  }
+  100% {
+    background: rgba(250, 204, 21, 0.28);
+    box-shadow: 0 0 0 3px rgba(250, 204, 21, 0.4);
+  }
 }
 
 .tag-default { background: var(--border-color); color: var(--text-secondary); }
