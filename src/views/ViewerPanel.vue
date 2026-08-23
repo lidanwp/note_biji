@@ -3070,14 +3070,14 @@ header {
   }
 }
 
-/* ===== 详情页右侧 1/4 高度悬浮按钮：纯图标，无背景/毛玻璃/边框/阴影 ===== */
+/* ===== 详情页右侧 1/4 高度悬浮按钮：纯图标，无背景/毛玻璃/边框/阴影 —— 位置 FIXED 固定在视口，不随内容滚动 ===== */
 .detail-float-actions {
-  position: absolute;
+  position: fixed; /* fixed = 相对视口固定；absolute 会跟随 .modal-detail 的滚动内容一起移动 */
   top: 25vh;
   right: 24px;
   display: block;
   pointer-events: none;
-  z-index: 200;
+  z-index: 1200; /* 高于 .modal-detail (1100) 和遮罩，保证永远可见且可点击 */
 }
 
 .float-action-btn {
