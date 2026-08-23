@@ -384,15 +384,29 @@
           
           <CommentSection :noteId="selectedNote ? String(selectedNote.id) : ''" />
 
-          <!-- ===== 详情页右下角悬浮按钮：瞬时跳到标签/评论区（无平滑滚动） ===== -->
-          <div class="detail-float-actions" aria-label="详情页快捷跳转按钮">
+          <!-- ===== 详情页右侧 1/4 高度悬浮按钮：瞬时跳到标签/评论区（纯图标无背景） ===== -->
+          <div class="detail-float-actions" aria-label="跳到标签与评论区">
             <button
               type="button"
               class="float-action-btn"
               @click="scrollDetailTo('tags')"
               title="跳到标签/评论区"
             >
-              <span class="float-action-icon">🏷️</span>
+              <!-- 纯 SVG 标签图标：stroke=currentColor，通过 color 属性统一控制明暗模式颜色 -->
+              <svg
+                class="float-action-icon"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+                <circle cx="7" cy="7" r="1.4" fill="currentColor" stroke="none"/>
+              </svg>
             </button>
           </div>
         </template>
@@ -3003,10 +3017,10 @@ header {
   }
 }
 
-/* ===== 详情页右下角悬浮按钮：仅保留"标签/评论跳转"按钮，毛玻璃风格 ===== */
+/* ===== 详情页右侧 1/4 高度悬浮按钮：纯图标，无背景/毛玻璃/边框/阴影 ===== */
 .detail-float-actions {
   position: absolute;
-  bottom: 100px;
+  top: 25vh;
   right: 24px;
   display: block;
   pointer-events: none;
@@ -3018,79 +3032,57 @@ header {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  padding: 0;
+  padding: 4px;
   margin: 0;
-  background: rgba(255, 255, 255, 0.65);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
-  color: #333;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: none;
+  box-shadow: none;
+  color: #555;
   cursor: pointer;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  transition: transform 0.2s ease, color 0.2s ease, opacity 0.2s ease;
 }
 
 .float-action-btn:hover {
-  transform: scale(1.06);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
-  background: rgba(255, 255, 255, 0.78);
-  border-color: rgba(255, 255, 255, 0.4);
+  transform: scale(1.15);
+  color: #333;
 }
 
 .float-action-btn:active {
-  transform: scale(0.92);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  transform: scale(0.85);
   transition-duration: 0.08s;
 }
 
 .float-action-icon {
-  display: inline-block;
-  line-height: 1;
-  font-size: 22px;
-  color: #333;
-  transition: color 0.2s ease;
+  display: block;
+  width: 36px;
+  height: 36px;
+  color: inherit;
+  transition: transform 0.2s ease, color 0.2s ease;
 }
 
-/* 暗黑模式适配：跟随系统 prefers-color-scheme */
+/* 暗黑模式适配 */
 @media (prefers-color-scheme: dark) {
   .float-action-btn {
-    background: rgba(30, 30, 30, 0.75);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    color: #aaa;
   }
-
-  .float-action-btn .float-action-icon {
-    color: #ddd;
-  }
-
   .float-action-btn:hover {
-    background: rgba(40, 40, 40, 0.85);
-    border-color: rgba(255, 255, 255, 0.18);
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
-  }
-
-  .float-action-btn:active {
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+    color: #ddd;
   }
 }
 
-/* 移动端适配：保持定位，尺寸不压缩 */
+/* 移动端适配：保持垂直 1/4 定位，水平边距略缩，图标仍 36px */
 @media (max-width: 767px) {
   .detail-float-actions {
-    bottom: 92px;
-    right: 18px;
-  }
-  .float-action-btn {
-    width: 44px;
-    height: 44px;
+    top: 25vh;
+    right: 16px;
   }
   .float-action-icon {
-    font-size: 22px;
+    width: 34px;
+    height: 34px;
   }
 }
 
