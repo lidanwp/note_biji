@@ -384,33 +384,15 @@
           
           <CommentSection :noteId="selectedNote ? String(selectedNote.id) : ''" />
 
-          <!-- ===== 详情页快速定位悬浮按钮（瞬时直接跳，无滚动动画） ===== -->
+          <!-- ===== 详情页右下角悬浮按钮：瞬时跳到标签/评论区（无平滑滚动） ===== -->
           <div class="detail-float-actions" aria-label="详情页快捷跳转按钮">
             <button
               type="button"
-              class="float-action-btn float-btn-up"
-              v-show="canScrollUp"
-              @click="scrollDetailTo('top')"
-              title="回到顶部"
-            >
-              <span class="fa">↑</span>
-            </button>
-            <button
-              type="button"
-              class="float-action-btn float-btn-tags"
+              class="float-action-btn"
               @click="scrollDetailTo('tags')"
               title="跳到标签/评论区"
             >
-              <span class="fa">🏷️</span>
-            </button>
-            <button
-              type="button"
-              class="float-action-btn float-btn-down"
-              v-show="canScrollDown"
-              @click="scrollDetailTo('bottom')"
-              title="直接到底部"
-            >
-              <span class="fa">↓</span>
+              <span class="float-action-icon">🏷️</span>
             </button>
           </div>
         </template>
@@ -795,91 +777,38 @@ const handleTagClick = (tag, event) => {
 // 使用 computed 保持响应式，确保 notesStore 数据更新后模板重新渲染
 const totalViews = computed(() => notesStore.totalViews)
 
-// ===== 详情页快捷跳转：回顶部 / 到标签区 / 到底部（behavior:'auto' 瞬时直接跳，不平滑滚动） =====
-const detailTick = ref(0) // 每次详情页滚动 +1，用于驱动 canScrollUp/down 重新计算
-let _detailScrollListener = null
+// ===== 详情页快捷跳转（仅保留"跳到标签/评论区"按钮）：瞬时直接跳，不要平滑动画 =====
 
 /**
  * 瞬时把详情页滚动到指定锚点。
- *  - 'top'    → 到顶部（标题位置）
- *  - 'tags'   → 到标签/评论区锚点（.detail-tags 或 CommentSection 容器）
- *  - 'bottom' → 到最底部
+ *  - 'tags'   → 跳到 .detail-tags（标签区）；不存在则跳 CommentSection（评论区）或附件区；兜底滚动到底部
  */
 const scrollDetailTo = (target) => {
   const container = document.querySelector('.modal-detail')
   if (!container) return
-  let top = 0
-  switch (target) {
-    case 'bottom':
-      top = Math.max(0, container.scrollHeight - container.clientHeight)
-      break
-    case 'tags': {
-      const anchor = container.querySelector('.detail-tags') || container.querySelector('.comment-section') || container.querySelector('.detail-attachments')
-      if (anchor) {
-        const cRect = container.getBoundingClientRect()
-        const aRect = anchor.getBoundingClientRect()
-        top = Math.max(0, aRect.top - cRect.top + container.scrollTop - 24)
-      } else {
-        top = Math.max(0, container.scrollHeight - container.clientHeight)
-      }
-      break
+  let top = null
+  if (target === 'tags') {
+    const anchor = container.querySelector('.detail-tags') || container.querySelector('.comment-section') || container.querySelector('.detail-attachments')
+    if (anchor) {
+      const cRect = container.getBoundingClientRect()
+      const aRect = anchor.getBoundingClientRect()
+      top = Math.max(0, aRect.top - cRect.top + container.scrollTop - 24)
     }
-    case 'top':
-    default:
-      top = 0
   }
+  if (top == null) top = Math.max(0, container.scrollHeight - container.clientHeight)
   container.scrollTo({ top: Math.round(top), behavior: 'auto' })
-  // 滚动后立即刷新一次 canScroll 状态
-  detailTick.value++
 }
 
-// 是否还能上/下滚动（基于 DOM，配合 detailTick 触发重算）
-const canScrollUp = computed(() => {
-  // eslint-disable-next-line no-unused-expressions
-  detailTick.value
-  const c = document.querySelector('.modal-detail')
-  if (!c) return false
-  return c.scrollTop > 8
-})
-const canScrollDown = computed(() => {
-  // eslint-disable-next-line no-unused-expressions
-  detailTick.value
-  const c = document.querySelector('.modal-detail')
-  if (!c) return false
-  return c.scrollTop < (c.scrollHeight - c.clientHeight - 8)
-})
-
-/**
- * 给 .modal-detail 挂 scroll 监听，滚动时刷新 detailTick，
- * 让 canScrollUp / canScrollDown 显示正确，关闭详情页时移除监听。
- */
-const ensureDetailScrollListener = () => {
-  if (_detailScrollListener) return
-  const container = document.querySelector('.modal-detail')
-  if (!container) return
-  _detailScrollListener = () => { detailTick.value++ }
-  container.addEventListener('scroll', _detailScrollListener, { passive: true })
-}
-
-const removeDetailScrollListener = () => {
-  if (!_detailScrollListener) return
-  const container = document.querySelector('.modal-detail')
-  if (container) container.removeEventListener('scroll', _detailScrollListener)
-  _detailScrollListener = null
-}
-
-// 打开/关闭 详情页时管理 scroll 监听
+// 打开/关闭 详情页时管理 DOM 清理
 watch(selectedNote, (val) => {
   if (val) {
     nextTick(() => {
-      ensureDetailScrollListener()
-      // 重置当前视图的滚动位置并刷新一次状态
+      // 打开详情页时，滚动位置回到顶部
       const c = document.querySelector('.modal-detail')
       if (c) c.scrollTo({ top: 0, behavior: 'auto' })
-      detailTick.value++
     })
   } else {
-    removeDetailScrollListener()
+    // 关闭详情页：清理高亮 DOM
     _restoreLastMark(true)
     if (_lastHighlightEl) {
       _lastHighlightEl.classList.remove('tag-hit-flash')
@@ -3074,23 +3003,13 @@ header {
   }
 }
 
-/* ===== 详情页右下角悬浮快捷跳转按钮（瞬时直接跳，不平滑滚动） ===== */
+/* ===== 详情页右下角悬浮按钮：仅保留"标签/评论跳转"按钮，毛玻璃风格 ===== */
 .detail-float-actions {
-  position: sticky;
-  bottom: 24px;
-  left: 0;
-  right: 0;
-  width: 100%;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 10px;
-  pointer-events: none; /* 容器不拦截，只让按钮拦截 */
-  padding: 0 20px 10px 0;
-  box-sizing: border-box;
-  /* 由于 sticky 在滚动容器内，需要负值 margin-top 让按钮悬浮"浮在"底部内容之上，不占高度 */
-  margin-top: -80px;
-  height: 0;
+  position: absolute;
+  bottom: 100px;
+  right: 24px;
+  display: block;
+  pointer-events: none;
   z-index: 200;
 }
 
@@ -3099,73 +3018,79 @@ header {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 46px;
-  height: 46px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16), 0 2px 8px rgba(15, 23, 42, 0.08);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: #1e293b;
-  font-size: 18px;
-  line-height: 1;
+  padding: 0;
+  margin: 0;
+  background: rgba(255, 255, 255, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  color: #333;
   cursor: pointer;
   user-select: none;
-  transition: transform 0.1s ease, box-shadow 0.15s ease, background 0.15s ease, opacity 0.15s ease;
   -webkit-tap-highlight-color: transparent;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
 .float-action-btn:hover {
-  transform: translateY(-2px) scale(1.04);
-  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.2);
-  background: #ffffff;
+  transform: scale(1.06);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
+  background: rgba(255, 255, 255, 0.78);
+  border-color: rgba(255, 255, 255, 0.4);
 }
 
 .float-action-btn:active {
-  transform: scale(0.94);
-  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.18);
+  transform: scale(0.92);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  transition-duration: 0.08s;
 }
 
-.float-action-btn .fa {
+.float-action-icon {
   display: inline-block;
-  font-weight: 700;
-  font-size: 18px;
   line-height: 1;
+  font-size: 22px;
+  color: #333;
+  transition: color 0.2s ease;
 }
 
-.float-btn-tags {
-  width: 50px;
-  height: 50px;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: #fff;
-  border: none;
+/* 暗黑模式适配：跟随系统 prefers-color-scheme */
+@media (prefers-color-scheme: dark) {
+  .float-action-btn {
+    background: rgba(30, 30, 30, 0.75);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+  }
+
+  .float-action-btn .float-action-icon {
+    color: #ddd;
+  }
+
+  .float-action-btn:hover {
+    background: rgba(40, 40, 40, 0.85);
+    border-color: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+  }
+
+  .float-action-btn:active {
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  }
 }
 
-.float-btn-tags:hover {
-  background: linear-gradient(135deg, #5a6dd0, #69408e);
-}
-
-.float-btn-tags .fa {
-  font-size: 20px;
-}
-
-/* 移动端适配：更紧凑，离右边距更小 */
+/* 移动端适配：保持定位，尺寸不压缩 */
 @media (max-width: 767px) {
   .detail-float-actions {
-    gap: 8px;
-    padding: 0 14px 6px 0;
-    bottom: 16px;
-    margin-top: -72px;
+    bottom: 92px;
+    right: 18px;
   }
   .float-action-btn {
-    width: 42px;
-    height: 42px;
-    font-size: 16px;
+    width: 44px;
+    height: 44px;
   }
-  .float-btn-tags {
-    width: 46px;
-    height: 46px;
+  .float-action-icon {
+    font-size: 22px;
   }
 }
 
