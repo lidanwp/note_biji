@@ -75,8 +75,8 @@ export const loadNotesFromCloud = async (options = {}) => {
     examScore: row.exam_score || 0,
     phase: row.phase || null,
     relatedNotes: row.related_notes || [],
-    _textLength: row._textLength || 0,
-    _hasFullContent: row._hasFullContent !== false
+    _textLength: row._textLength,
+    _hasFullContent: row._hasFullContent
   }))
 
   // 存入缓存

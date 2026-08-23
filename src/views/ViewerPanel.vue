@@ -803,14 +803,21 @@ const viewDetail = async (note) => {
     await new Promise(resolve => requestAnimationFrame(resolve))
   }
 
-  selectedNote.value = { ...note, content: '加载中...', userExamScores: note.userExamScores || {} }
+  // 先判断是否需要拉取完整内容
+  // - _hasFullContent === false：API 明确标记内容被截断，需要请求
+  // - _hasFullContent === undefined：API 未部署新代码，回退到长度判断
+  // - _hasFullContent === true：内容完整，不需要请求
+  const needFullContent = note._hasFullContent === false
+    || (note._hasFullContent === undefined && (!note.content || String(note.content).length < 200))
+
+  // 只有需要请求时才显示"加载中..."，否则直接用已有内容
+  const initialContent = needFullContent ? '加载中...' : (note.content || '暂无内容')
+  selectedNote.value = { ...note, content: initialContent, userExamScores: note.userExamScores || {} }
   document.body.style.overflow = 'hidden'
 
   await nextTick()
   scrollDetailToTop()
 
-  // ==== 并行加载：用户掌握度 + 笔记完整内容（如果需要） ====
-  const needFullContent = !note.content || String(note.content).length < 200
   const hasUser = !!authStore.user?.id
 
   const progressPromise = hasUser ? loadUserProgress(note.id) : Promise.resolve(null)

@@ -77,7 +77,7 @@ export const useNotesStore = defineStore('notes', () => {
 
   const totalCharacters = computed(() => {
     // 使用后端计算的 _textLength 字段（基于完整内容，不受列表模式截断影响）
-    // 如果 _textLength 不存在（旧数据），则回退到前端计算
+    // 如果 _textLength 不存在（API 未部署新代码），则回退到前端计算
     return notes.value.reduce((sum, n) => {
       if (n._textLength != null) {
         return sum + n._textLength
