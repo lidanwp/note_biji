@@ -4,7 +4,7 @@
     <header>
       <div class="header-left">
         <span class="app-logo">
-          <img src="/书本.svg" alt="书本" />
+          <img src="/书本.svg" alt="logo" />
         </span>
         <span class="app-name">知识分享</span>
       </div>

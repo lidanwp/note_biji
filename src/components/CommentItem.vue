@@ -100,17 +100,26 @@ const replyTextareaRef = ref(null)
 
 // ============ 🎯 头像分配逻辑 ============
 const avatarFiles = [
-  '圣诞雪人.svg',
-  '射手.svg',
-  '魔鬼.svg',
-  '神秘.svg',
-  '酷.svg',
-  '认真的？.svg',
-  '喝咖啡.svg',
-  '梦游.svg',
-  '怕鬼.svg',
-  '圣诞麋鹿.svg',
-  '唱歌.svg'
+  '圣诞雪人.png',
+  '魔鬼.png',
+  '神秘.png',
+  '酷.png',
+  '圣诞麋鹿.png',
+  '唱歌.png',
+  '猫咪.png',
+  '猴子.png',
+  '考拉.png',
+  '老鼠.png',
+  '卡通鱼.png',
+  '青蛙.png',
+  '螃蟹.png',
+  '太阳.png',
+  '苹果.png',
+  '动物园.png',
+  '卡通人像.png',
+  '动物.png',
+  '动物1.png',
+  '红猴子.png'
 ]
 
 function getAvatarIndex(email) {
