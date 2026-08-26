@@ -321,7 +321,7 @@ function matchNoteMeta(content, notesMeta) {
 // ============================================================================
 // 5. PandaWiki 调用封装
 // ============================================================================
-const PANDAWIKI_BASE = process.env.PANDAWIKI_BASE || 'http://129.204.21.82:5050'
+const PANDAWIKI_BASE = process.env.PANDAWIKI_BASE || 'https://47.76.122.0'
 
 async function callPandaQA(datasetId, query, timeoutMs = 6000) {
   const ctrl = new AbortController()
