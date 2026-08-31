@@ -1761,46 +1761,33 @@ header {
   border-color: #6366f1;
 }
 
-/* ===== 时光邮局入口（复古火漆印章风） ===== */
+/* ===== 时光邮局入口（与 stats-bar 一致） ===== */
 .timeletter-btn {
   text-decoration: none;
   position: relative;
-  padding: 4px 12px !important;
-  border: 1.5px solid #a6602e !important;
-  background: linear-gradient(135deg, #f4e9d0 0%, #e8d9b5 100%) !important;
-  color: #6b1f1a !important;
-  font-family: Georgia, '华文楷体', serif;
-  letter-spacing: 1px;
-  box-shadow: 0 1px 3px rgba(166, 96, 46, 0.25);
-  overflow: hidden;
-}
-.timeletter-btn::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 20% 30%, rgba(166, 96, 46, 0.12), transparent 50%),
-    repeating-linear-gradient(45deg, rgba(120, 80, 30, 0.04) 0 2px, transparent 2px 6px);
-  pointer-events: none;
+  padding: 4px 10px !important;
+  border: 1px solid #e5e5e5 !important;
+  background: transparent !important;
+  color: #666 !important;
+  font-size: 12px !important;
+  letter-spacing: 0;
+  transition: all 0.2s;
 }
 .timeletter-btn:hover {
-  background: linear-gradient(135deg, #e8d9b5 0%, #d9c79a 100%) !important;
-  border-color: #8e1a12 !important;
-  color: #8e1a12 !important;
-  box-shadow: 0 2px 8px rgba(142, 26, 18, 0.35);
-  transform: translateY(-1px) rotate(-1deg);
-}
-.timeletter-btn span {
-  filter: sepia(0.5);
+  background: #f5f5f5 !important;
+  border-color: #ccc !important;
+  color: #666 !important;
+  transform: none;
 }
 [data-theme="dark"] .timeletter-btn {
-  background: linear-gradient(135deg, #3a2c1e 0%, #4a3825 100%) !important;
-  color: #e8d9b5 !important;
-  border-color: #a6602e !important;
+  background: transparent !important;
+  color: #aaa !important;
+  border-color: #444 !important;
 }
 [data-theme="dark"] .timeletter-btn:hover {
-  background: linear-gradient(135deg, #4a3825 0%, #6b3f1a 100%) !important;
-  color: #f4e9d0 !important;
+  background: #2a2a2a !important;
+  border-color: #666 !important;
+  color: #ddd !important;
 }
 
 .stat-mini:nth-child(-n+3) .stat-val {
