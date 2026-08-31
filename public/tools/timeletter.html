@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>时光邮局 · 致未来的自己</title>
+  <meta name="description" content="写一封寄往未来的信，让时光替你保管此刻的心意。" />
+  <style>
+    /* ===== 复古邮局风 · 基础重置 ===== */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { min-height: 100%; }
+    body {
+      font-family: Georgia, 'Times New Roman', '华文楷体', '方正楷体', 'KaiTi', serif;
+      color: #3a2c1e;
+      line-height: 1.85;
+      /* 仿羊皮纸渐变 + 噪点纹理 */
+      background-color: #f4e9d0;
+      background-image:
+        radial-gradient(ellipse at 20% 10%, rgba(214, 184, 120, 0.18), transparent 55%),
+        radial-gradient(ellipse at 85% 90%, rgba(166, 124, 64, 0.20), transparent 50%),
+        radial-gradient(circle at 50% 50%, transparent 0, rgba(120, 80, 30, 0.04) 100%),
+        repeating-linear-gradient(45deg, rgba(120, 80, 30, 0.025) 0 2px, transparent 2px 6px);
+      background-attachment: fixed;
+      overflow-x: hidden;
+    }
+
+    /* ===== 邮戳水印（页面四角） ===== */
+    .stamp-watermark {
+      position: fixed;
+      width: 220px; height: 220px;
+      border: 3px double rgba(166, 30, 30, 0.12);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      transform: rotate(-18deg);
+      pointer-events: none;
+      z-index: 0;
+      font-family: Georgia, serif;
+      color: rgba(166, 30, 30, 0.12);
+      text-align: center;
+      font-size: 14px;
+      letter-spacing: 2px;
+    }
+    .stamp-watermark.tl { top: 30px; left: 20px; }
+    .stamp-watermark.br { bottom: 30px; right: 20px; transform: rotate(15deg); }
+    .stamp-watermark .inner {
+      border: 2px solid rgba(166, 30, 30, 0.12);
+      border-radius: 50%;
+      width: 180px; height: 180px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 4px;
+    }
+
+    /* ===== 顶部旧式边框 ===== */
+    .frame-border {
+      max-width: 880px;
+      margin: 36px auto 0;
+      padding: 14px;
+      position: relative;
+      z-index: 1;
+    }
+    .frame-border::before,
+    .frame-border::after {
+      content: '';
+      display: block;
+      height: 10px;
+      background:
+        linear-gradient(90deg, transparent 0, #6b3f1a 8%, #a6602e 50%, #6b3f1a 92%, transparent 100%);
+      border-radius: 2px;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.08);
+    }
+    .frame-border::after { margin-top: 0; opacity: 0.55; height: 4px; }
+
+    /* ===== 信笺容器 ===== */
+    .letter {
+      max-width: 880px;
+      margin: 0 auto 60px;
+      padding: 56px 60px 64px;
+      position: relative;
+      z-index: 1;
+      background:
+        linear-gradient(180deg, rgba(255, 250, 235, 0.92), rgba(244, 233, 208, 0.92));
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.7) inset,
+        0 18px 40px -18px rgba(80, 50, 20, 0.4),
+        0 2px 6px rgba(120, 80, 30, 0.15);
+      border: 1px solid #d9c79a;
+      border-radius: 4px;
+    }
+    /* 信笺左侧装订孔 + 右侧磨损边 */
+    .letter::before {
+      content: '';
+      position: absolute;
+      left: 28px; top: 60px; bottom: 60px;
+      width: 2px;
+      background: repeating-linear-gradient(180deg, #a6602e 0 6px, transparent 6px 22px);
+      opacity: 0.4;
+    }
+    .letter::after {
+      content: '';
+      position: absolute;
+      right: 0; top: 0; bottom: 0;
+      width: 6px;
+      background: linear-gradient(90deg, transparent, rgba(120, 80, 30, 0.25));
+      border-radius: 0 4px 4px 0;
+    }
+
+    /* ===== 邮戳（顶部右上） ===== */
+    .postmark {
+      position: absolute;
+      top: 28px; right: 36px;
+      width: 130px; height: 130px;
+      border: 2.5px solid #2c3e60;
+      border-radius: 50%;
+      transform: rotate(-12deg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: #2c3e60;
+      font-family: Georgia, serif;
+      opacity: 0.78;
+      gap: 2px;
+    }
+    .postmark::before {
+      content: '';
+      position: absolute;
+      inset: 8px;
+      border: 1.5px solid #2c3e60;
+      border-radius: 50%;
+    }
+    .postmark .pm-top { font-size: 11px; letter-spacing: 3px; }
+    .postmark .pm-mid {
+      font-size: 22px; font-weight: bold; letter-spacing: 1px;
+      border-top: 1px solid #2c3e60; border-bottom: 1px solid #2c3e60;
+      padding: 2px 8px;
+    }
+    .postmark .pm-date { font-size: 11px; letter-spacing: 2px; }
+    .postmark .pm-bot { font-size: 10px; letter-spacing: 2px; }
+
+    /* ===== 旧邮票（左上角） ===== */
+    .stamp {
+      position: absolute;
+      top: 40px; left: 60px;
+      width: 88px;
+      padding: 6px;
+      background: #fff;
+      border: 1.5px dashed #a6602e;
+      box-shadow: 0 4px 10px rgba(120, 80, 30, 0.25);
+      transform: rotate(-6deg);
+    }
+    .stamp-inner {
+      width: 100%; height: 96px;
+      background: linear-gradient(135deg, #c0392b 0%, #8e1a12 100%);
+      color: #f4e9d0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      font-family: Georgia, serif;
+      gap: 4px;
+      position: relative;
+    }
+    .stamp-inner::before {
+      content: '✉';
+      font-size: 32px;
+      line-height: 1;
+    }
+    .stamp-inner .val { font-size: 14px; letter-spacing: 1px; font-weight: bold; }
+    .stamp-inner .label { font-size: 8px; letter-spacing: 2px; opacity: 0.85; }
+    .stamp::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border: 1px solid #a6602e;
+      pointer-events: none;
+    }
+
+    /* ===== 标题区 ===== */
+    .header {
+      text-align: center;
+      margin: 24px 0 28px;
+      padding-top: 40px;
+    }
+    .header h1 {
+      font-size: 46px;
+      font-weight: normal;
+      color: #6b1f1a;
+      letter-spacing: 8px;
+      margin-bottom: 10px;
+      text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.6);
+      font-family: '华文楷体', '方正楷体', Georgia, serif;
+    }
+    .header .subtitle {
+      font-size: 16px;
+      color: #6b3f1a;
+      letter-spacing: 6px;
+      font-style: italic;
+      opacity: 0.85;
+    }
+    .header .divider {
+      display: flex; align-items: center; justify-content: center;
+      gap: 14px;
+      margin: 18px 0 6px;
+      color: #a6602e;
+    }
+    .header .divider::before,
+    .header .divider::after {
+      content: '';
+      width: 120px; height: 1px;
+      background: linear-gradient(90deg, transparent, #a6602e, transparent);
+    }
+    .header .divider .ornament { font-size: 18px; }
+
+    /* ===== 段落正文 ===== */
+    .intro {
+      font-size: 17px;
+      color: #4a3825;
+      text-align: justify;
+      text-indent: 2em;
+      margin: 0 auto 36px;
+      max-width: 680px;
+      letter-spacing: 0.5px;
+    }
+    .intro .highlight {
+      color: #6b1f1a;
+      font-weight: bold;
+      border-bottom: 1px dotted #a6602e;
+      padding-bottom: 1px;
+    }
+
+    /* ===== 章节标题 ===== */
+    .section-title {
+      display: flex; align-items: center; gap: 12px;
+      margin: 44px 0 24px;
+      color: #2c3e60;
+      font-size: 22px;
+      letter-spacing: 4px;
+      font-weight: bold;
+    }
+    .section-title .feather {
+      font-size: 24px;
+      transform: rotate(-8deg);
+    }
+    .section-title::after {
+      content: '';
+      flex: 1; height: 1px;
+      background: linear-gradient(90deg, #a6602e 0%, transparent 100%);
+      opacity: 0.5;
+    }
+
+    /* ===== 使用步骤 ===== */
+    .steps {
+      list-style: none;
+      counter-reset: step;
+      max-width: 680px;
+      margin: 0 auto 32px;
+    }
+    .steps li {
+      counter-increment: step;
+      position: relative;
+      padding: 14px 18px 14px 64px;
+      margin-bottom: 14px;
+      background: rgba(255, 250, 235, 0.6);
+      border: 1px solid #e0cfa0;
+      border-left: 4px solid #2c3e60;
+      border-radius: 2px;
+      box-shadow: 0 2px 4px rgba(120, 80, 30, 0.08);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+    .steps li:hover {
+      transform: translateX(4px);
+      box-shadow: 0 4px 10px rgba(120, 80, 30, 0.15);
+    }
+    .steps li::before {
+      content: counter(step, decimal-leading-zero);
+      position: absolute;
+      left: 14px; top: 50%;
+      transform: translateY(-50%);
+      width: 38px; height: 38px;
+      background: #2c3e60;
+      color: #f4e9d0;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-family: Georgia, serif;
+      font-size: 16px;
+      font-weight: bold;
+      box-shadow: 0 0 0 3px rgba(44, 62, 96, 0.15);
+    }
+    .steps li strong {
+      color: #6b1f1a;
+      letter-spacing: 1px;
+    }
+    .steps li .desc {
+      display: block;
+      color: #6b513a;
+      font-size: 14px;
+      margin-top: 4px;
+      opacity: 0.85;
+    }
+
+    /* ===== 特色亮点 ===== */
+    .features {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 18px;
+      max-width: 720px;
+      margin: 0 auto 40px;
+    }
+    .feature-card {
+      padding: 22px 20px;
+      background: rgba(255, 250, 235, 0.7);
+      border: 1px solid #d9c79a;
+      border-radius: 4px;
+      text-align: center;
+      position: relative;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .feature-card:hover {
+      transform: translateY(-4px) rotate(-0.5deg);
+      box-shadow: 0 8px 20px rgba(120, 80, 30, 0.2);
+    }
+    .feature-card .icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+      display: block;
+      filter: sepia(0.4);
+    }
+    .feature-card h3 {
+      color: #2c3e60;
+      font-size: 17px;
+      letter-spacing: 2px;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+    .feature-card p {
+      color: #6b513a;
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .feature-card::after {
+      content: '';
+      position: absolute;
+      top: 8px; right: 8px; bottom: 8px; left: 8px;
+      border: 1px solid rgba(166, 96, 46, 0.2);
+      pointer-events: none;
+      border-radius: 2px;
+    }
+
+    /* ===== 火漆印章行动按钮 ===== */
+    .cta-wrap {
+      text-align: center;
+      margin: 48px 0 24px;
+      padding: 20px 0;
+    }
+    .cta-btn {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center; justify-content: center;
+      width: 180px; height: 180px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      position: relative;
+      background:
+        radial-gradient(circle at 30% 30%, #c0392b 0%, #8e1a12 60%, #6b1410 100%);
+      color: #f4e9d0;
+      font-family: '华文楷体', Georgia, serif;
+      box-shadow:
+        0 0 0 4px rgba(166, 30, 30, 0.18),
+        0 0 0 8px rgba(166, 30, 30, 0.08),
+        0 12px 28px rgba(110, 20, 16, 0.45),
+        inset 0 -8px 16px rgba(0, 0, 0, 0.3),
+        inset 0 8px 16px rgba(255, 200, 180, 0.2);
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+      overflow: visible;
+    }
+    .cta-btn::before {
+      /* 火漆不规则边缘 */
+      content: '';
+      position: absolute;
+      inset: -6px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 20% 50%, #8e1a12 0 4px, transparent 5px),
+        radial-gradient(circle at 80% 30%, #8e1a12 0 5px, transparent 6px),
+        radial-gradient(circle at 50% 85%, #8e1a12 0 4px, transparent 5px),
+        radial-gradient(circle at 70% 70%, #6b1410 0 3px, transparent 4px),
+        radial-gradient(circle at 30% 80%, #6b1410 0 3px, transparent 4px);
+      z-index: -1;
+      filter: blur(0.5px);
+    }
+    .cta-btn::after {
+      /* 印章内圈装饰 */
+      content: '';
+      position: absolute;
+      inset: 12px;
+      border: 2px solid rgba(244, 233, 208, 0.4);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+    .cta-btn:hover {
+      transform: scale(1.06) rotate(-3deg);
+      box-shadow:
+        0 0 0 5px rgba(166, 30, 30, 0.25),
+        0 0 0 10px rgba(166, 30, 30, 0.1),
+        0 18px 36px rgba(110, 20, 16, 0.55),
+        inset 0 -8px 16px rgba(0, 0, 0, 0.35),
+        inset 0 8px 16px rgba(255, 200, 180, 0.25);
+    }
+    .cta-btn:active {
+      transform: scale(0.98);
+    }
+    .cta-btn .cta-icon {
+      font-size: 30px;
+      margin-bottom: 4px;
+    }
+    .cta-btn .cta-text {
+      font-size: 20px;
+      letter-spacing: 6px;
+      font-weight: bold;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+    }
+    .cta-btn .cta-sub {
+      font-size: 11px;
+      letter-spacing: 3px;
+      opacity: 0.85;
+      margin-top: 2px;
+      font-style: italic;
+    }
+    .cta-hint {
+      display: block;
+      margin-top: 20px;
+      font-size: 13px;
+      color: #6b513a;
+      letter-spacing: 2px;
+      font-style: italic;
+      opacity: 0.75;
+    }
+    .cta-hint::before { content: '— '; }
+    .cta-hint::after { content: ' —'; }
+
+    /* ===== 底部签名 ===== */
+    .signature {
+      text-align: right;
+      margin-top: 40px;
+      padding-top: 24px;
+      border-top: 1px dashed #a6602e;
+      color: #6b513a;
+      font-style: italic;
+      font-size: 14px;
+      letter-spacing: 1px;
+    }
+    .signature .sign-name {
+      font-family: '华文楷体', Georgia, serif;
+      font-size: 22px;
+      color: #6b1f1a;
+      margin-top: 4px;
+      display: inline-block;
+      transform: rotate(-2deg);
+      text-decoration: underline;
+      text-decoration-style: wavy;
+      text-underline-offset: 6px;
+    }
+
+    /* ===== 装饰：羽毛笔 ===== */
+    .quill {
+      position: absolute;
+      right: 40px; bottom: 30px;
+      width: 120px; height: 120px;
+      opacity: 0.18;
+      transform: rotate(25deg);
+      pointer-events: none;
+    }
+
+    /* ===== 移动端适配 ===== */
+    @media (max-width: 768px) {
+      .letter { padding: 36px 24px 44px; margin: 0 8px 40px; }
+      .letter::before { left: 12px; }
+      .header h1 { font-size: 32px; letter-spacing: 4px; }
+      .header .subtitle { font-size: 14px; letter-spacing: 3px; }
+      .postmark { width: 90px; height: 90px; top: 16px; right: 16px; }
+      .postmark .pm-mid { font-size: 16px; }
+      .stamp { width: 64px; top: 20px; left: 20px; }
+      .stamp-inner { height: 70px; }
+      .stamp-inner::before { font-size: 22px; }
+      .intro { font-size: 15px; }
+      .section-title { font-size: 18px; letter-spacing: 2px; }
+      .steps li { padding: 12px 14px 12px 56px; }
+      .steps li::before { width: 32px; height: 32px; font-size: 14px; left: 10px; }
+      .cta-btn { width: 150px; height: 150px; }
+      .cta-btn .cta-text { font-size: 17px; letter-spacing: 4px; }
+      .features { grid-template-columns: 1fr; }
+      .stamp-watermark { display: none; }
+    }
+    @media (max-width: 480px) {
+      .header h1 { font-size: 26px; }
+      .postmark, .stamp { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <!-- 邮戳水印 -->
+  <div class="stamp-watermark tl">
+    <div class="inner">
+      <div>TIME</div>
+      <div>POST</div>
+      <div>OFFICE</div>
+    </div>
+  </div>
+  <div class="stamp-watermark br">
+    <div class="inner">
+      <div>SINCE</div>
+      <div>2026</div>
+    </div>
+  </div>
+
+  <!-- 旧式边框 -->
+  <div class="frame-border"></div>
+
+  <!-- 信笺主体 -->
+  <main class="letter">
+    <!-- 邮戳 -->
+    <div class="postmark" aria-hidden="true">
+      <div class="pm-top">TIME POST</div>
+      <div class="pm-mid">时光邮局</div>
+      <div class="pm-date">2026·08·27</div>
+      <div class="pm-bot">DELIVER TO FUTURE</div>
+    </div>
+
+    <!-- 旧邮票 -->
+    <div class="stamp" aria-hidden="true">
+      <div class="stamp-inner">
+        <div class="val">FUTURE</div>
+        <div class="label">TO · TOMORROW</div>
+      </div>
+    </div>
+
+    <!-- 标题 -->
+    <header class="header">
+      <h1>时光邮局</h1>
+      <div class="subtitle">— 致未来的自己 —</div>
+      <div class="divider">
+        <span class="ornament">❦</span>
+      </div>
+    </header>
+
+    <!-- 简介 -->
+    <p class="intro">
+      在这个快得让人来不及回头的世界里，总有些话想慢慢说。
+      也许是对一年后的自己的叮咛，也许是给五年后那个人的祝福。
+      <span class="highlight">时光邮局</span>替你把此刻的心意封进信封，
+      在你指定的未来某天，准时送达。让时光，成为最温柔的邮差。
+    </p>
+
+    <!-- 使用步骤 -->
+    <h2 class="section-title">
+      <span class="feather">✒</span>
+      <span>如何寄出一封信</span>
+    </h2>
+    <ol class="steps">
+      <li>
+        <strong>提笔落字</strong>
+        <span class="desc">写下你想对未来的自己或他人说的话，长短不限，真情最贵。</span>
+      </li>
+      <li>
+        <strong>封缄火漆</strong>
+        <span class="desc">选择送达日期——可以是生日、毕业、纪念日，或任何有意义的一天。</span>
+      </li>
+      <li>
+        <strong>交付时光</strong>
+        <span class="desc">信件将由时光邮局妥善保管，直至那一天，准时启封送达。</span>
+      </li>
+      <li>
+        <strong>静候佳音</strong>
+        <span class="desc">在未来的某天，你会收到这封来自过去的信，与那时的自己重逢。</span>
+      </li>
+    </ol>
+
+    <!-- 特色亮点 -->
+    <h2 class="section-title">
+      <span class="feather">❦</span>
+      <span>邮局特色</span>
+    </h2>
+    <div class="features">
+      <div class="feature-card">
+        <span class="icon">🕰️</span>
+        <h3>定时投递</h3>
+        <p>自由设定送达日期，从一天到十年，时光不催不误。</p>
+      </div>
+      <div class="feature-card">
+        <span class="icon">🔒</span>
+        <h3>封缄保管</h3>
+        <p>信件加密保存，唯有指定的那一天才会为你启封。</p>
+      </div>
+      <div class="feature-card">
+        <span class="icon">✉️</span>
+        <h3>纸短情长</h3>
+        <p>支持文字、图片与附件，让心意不止停留在字里行间。</p>
+      </div>
+      <div class="feature-card">
+        <span class="icon">📜</span>
+        <h3>岁月回信</h3>
+        <p>多年后再读起，是时光替你保管的、最温柔的自己。</p>
+      </div>
+    </div>
+
+    <!-- 火漆印章行动按钮 -->
+    <div class="cta-wrap">
+      <a class="cta-btn" href="https://www.hi2future.com/" target="_blank" rel="noopener noreferrer">
+        <span class="cta-icon">✉</span>
+        <span class="cta-text">寄信</span>
+        <span class="cta-sub">SEND TO FUTURE</span>
+      </a>
+      <span class="cta-hint">点击印章，启程寄出你的第一封时光之信</span>
+    </div>
+
+    <!-- 羽毛笔装饰 -->
+    <svg class="quill" viewBox="0 0 100 100" aria-hidden="true">
+      <path d="M20 80 Q40 60 70 30 Q80 20 85 15 Q82 25 75 35 Q50 65 25 85 Z" fill="#6b3f1a" />
+      <path d="M25 85 L20 90" stroke="#3a2c1e" stroke-width="2" stroke-linecap="round" />
+    </svg>
+
+    <!-- 底部签名 -->
+    <div class="signature">
+      此致<br />
+      <span class="sign-name">时光邮局 · 敬上</span>
+    </div>
+  </main>
+
+  <script>
+    // 简单的入场动画：信笺淡入
+    document.addEventListener('DOMContentLoaded', function () {
+      var letter = document.querySelector('.letter');
+      letter.style.opacity = '0';
+      letter.style.transform = 'translateY(20px)';
+      letter.style.transition = 'opacity 1.2s ease, transform 1.2s ease';
+      requestAnimationFrame(function () {
+        letter.style.opacity = '1';
+        letter.style.transform = 'translateY(0)';
+      });
+    });
+  </script>
+</body>
+</html>

@@ -57,6 +57,15 @@
         <span class="stat-label">字数</span>
       </span>
       <span class="stat-spacer"></span>
+       <a
+        href="/tools/timeletter"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="stat-icon-btn timeletter-btn"
+        title="时光邮局 · 致未来的自己"
+      >
+        <span>✉️</span>
+      </a>
        <button 
         @click="showHistoryPanel = !showHistoryPanel" 
         class="stat-icon-btn"
@@ -1750,6 +1759,48 @@ header {
   background: #6366f1;
   color: white;
   border-color: #6366f1;
+}
+
+/* ===== 时光邮局入口（复古火漆印章风） ===== */
+.timeletter-btn {
+  text-decoration: none;
+  position: relative;
+  padding: 4px 12px !important;
+  border: 1.5px solid #a6602e !important;
+  background: linear-gradient(135deg, #f4e9d0 0%, #e8d9b5 100%) !important;
+  color: #6b1f1a !important;
+  font-family: Georgia, '华文楷体', serif;
+  letter-spacing: 1px;
+  box-shadow: 0 1px 3px rgba(166, 96, 46, 0.25);
+  overflow: hidden;
+}
+.timeletter-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 30%, rgba(166, 96, 46, 0.12), transparent 50%),
+    repeating-linear-gradient(45deg, rgba(120, 80, 30, 0.04) 0 2px, transparent 2px 6px);
+  pointer-events: none;
+}
+.timeletter-btn:hover {
+  background: linear-gradient(135deg, #e8d9b5 0%, #d9c79a 100%) !important;
+  border-color: #8e1a12 !important;
+  color: #8e1a12 !important;
+  box-shadow: 0 2px 8px rgba(142, 26, 18, 0.35);
+  transform: translateY(-1px) rotate(-1deg);
+}
+.timeletter-btn span {
+  filter: sepia(0.5);
+}
+[data-theme="dark"] .timeletter-btn {
+  background: linear-gradient(135deg, #3a2c1e 0%, #4a3825 100%) !important;
+  color: #e8d9b5 !important;
+  border-color: #a6602e !important;
+}
+[data-theme="dark"] .timeletter-btn:hover {
+  background: linear-gradient(135deg, #4a3825 0%, #6b3f1a 100%) !important;
+  color: #f4e9d0 !important;
 }
 
 .stat-mini:nth-child(-n+3) .stat-val {
