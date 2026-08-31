@@ -46,12 +46,10 @@
         <span class="stat-val">{{ notesStore.notes.length }}</span>
         <span class="stat-label">笔记</span>
       </span>
-      <span class="stat-dot">·</span>
       <span class="stat-mini">
         <span class="stat-val">{{ totalViews }}</span>
         <span class="stat-label">浏览</span>
       </span>
-      <span class="stat-dot">·</span>
       <span class="stat-mini">
         <span class="stat-val">{{ formatNum(totalCharacters) }}</span>
         <span class="stat-label">字数</span>
