@@ -64,7 +64,10 @@
         class="stat-icon-btn timeletter-btn"
         title="时光邮局 · 致未来的自己"
       >
-        <span>✉️</span>
+        <svg class="tl-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="2" y="5" width="20" height="14" rx="2"/>
+          <path d="m2 7 10 6 10-6"/>
+        </svg>
       </a>
        <button 
         @click="showHistoryPanel = !showHistoryPanel" 
@@ -3286,8 +3289,9 @@ header {
   }
 
   .stats-bar {
-    gap: 6px;
-    margin-bottom: 12px;
+    gap: 10px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
   }
 
   .stat-mini .stat-val {
@@ -3295,7 +3299,7 @@ header {
   }
 
   .stat-icon-btn {
-    padding: 3px 8px;
+    padding: 4px 10px;
     font-size: 11px;
   }
 
