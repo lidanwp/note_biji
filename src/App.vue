@@ -4,7 +4,6 @@
       <router-view />
     </ErrorBoundary>
     <Toast ref="toastRef" />
-    <ChatBot v-if="authStore.isLoggedIn" />
     <div v-if="loadingState" class="global-loading">
       <div class="loading-spinner"></div>
       <span class="loading-text">{{ loadingMessage }}</span>
@@ -17,7 +16,6 @@ import { ref, onMounted, watch } from 'vue'
 import { useAuthStore } from './stores/auth'
 import Toast from './components/Toast.vue'
 import ErrorBoundary from './components/ErrorBoundary.vue'
-import ChatBot from './components/ChatBot.vue'
 import { setToastInstance } from './utils/toast'
 import { loadingState, loadingMessage, useLoading } from './utils/loading'
 
