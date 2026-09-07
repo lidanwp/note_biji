@@ -8,36 +8,14 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>项目集成笔记</title>
-    <style>
-      /* 千帆全页面 SDK 固定在左下角 */
-      iframe[src*="qianfan"],
-      iframe[src*="bcebos"],
-      [data-qianfan],
-      [class*="qianfan"],
-      [id*="qianfan"] {
-        position: fixed !important;
-        bottom: 20px !important;
-        left: 20px !important;
-        width: 400px !important;
-        height: 600px !important;
-        z-index: 9999 !important;
-        border: none !important;
-        border-radius: 12px !important;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.15) !important;
-      }
-    </style>
   </head>
   <body>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
-    <!-- 百度千帆网站嵌入 SDK (全页面模式) -->
-    <script src="https://agi-dev-platform-web.cdn.bcebos.com/ai_apaas/embed/output/embedFullSDK.js?responseExpires=0&t=1788795200071"></script>
+    <!-- 百度千帆网站嵌入 SDK (聊天气泡模式) -->
+    <script src="https://agi-dev-platform-web.cdn.bcebos.com/ai_apaas/embed/output/embedLiteSDK.js?responseExpires=0&t=1788795200071"></script>
     <script>
-      new EmbedWebSDK({
-        appId: '089e23b9-2b96-427b-b036-600ff5ac785c',
-        code: 'embedIO7ftNalqhGZ5ybM09qc',
-        renderConfig: { width: '400px', height: '600px' }
-      });
+      new EmbedLiteSDK({ appId: '089e23b9-2b96-427b-b036-600ff5ac785c', code: 'embedIO7ftNalqhGZ5ybM09qc' });
     </script>
   </body>
 </html>
