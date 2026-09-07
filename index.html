@@ -12,20 +12,10 @@
   <body>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
-    <!-- 百度千帆网站嵌入 SDK (聊天气泡模式，不填 renderConfig 即为悬浮气泡) -->
-    <script src="https://agi-dev-platform-web.cdn.bcebos.com/ai_apaas/embed/output/embedFullSDK.js?responseExpires=0&t=1788795200071"></script>
+    <!-- 百度千帆网站嵌入 SDK (聊天气泡模式) -->
+    <script src="https://agi-dev-platform-web.cdn.bcebos.com/ai_apaas/embed/output/embedLiteSDK.js?responseExpires=0&t=1788795200071"></script>
     <script>
-      // 等 SDK 加载后再初始化
-      window.addEventListener('load', function () {
-        if (typeof EmbedWebSDK !== 'undefined') {
-          new EmbedWebSDK({
-            appId: '089e23b9-2b96-427b-b036-600ff5ac785c',
-            code: 'embedIO7ftNalqhGZ5ybM09qc'
-            // 不填 renderConfig → 聊天气泡模式（悬浮窗）
-            // 若需全页面模式，加 renderConfig: {width: '100%', height: '100%'}
-          });
-        }
-      });
+      new EmbedLiteSDK({ appId: '089e23b9-2b96-427b-b036-600ff5ac785c', code: 'embedIO7ftNalqhGZ5ybM09qc' });
     </script>
   </body>
 </html>
