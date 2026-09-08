@@ -46,12 +46,12 @@
         <span class="stat-val">{{ notesStore.notes.length }}</span>
         <span class="stat-label">笔记</span>
       </span>
-      <span class="stat-dot">·</span>
+      <span class="stat-dot"></span>
       <span class="stat-mini">
         <span class="stat-val">{{ totalViews }}</span>
         <span class="stat-label">浏览</span>
       </span>
-      <span class="stat-dot">·</span>
+      <span class="stat-dot"></span>
       <span class="stat-mini">
         <span class="stat-val">{{ formatNum(totalCharacters) }}</span>
         <span class="stat-label">字数</span>
@@ -1765,13 +1765,24 @@ header {
 .timeletter-btn {
   text-decoration: none;
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   padding: 4px 10px !important;
   border: 1px solid #e5e5e5 !important;
+  border-radius: 16px !important;
   background: transparent !important;
   color: #666 !important;
   font-size: 12px !important;
+  line-height: 1 !important;
   letter-spacing: 0;
   transition: all 0.2s;
+}
+.timeletter-btn > span {
+  font-size: 12px;
+  line-height: 1;
+  display: inline-block;
 }
 .timeletter-btn:hover {
   background: #f5f5f5 !important;
