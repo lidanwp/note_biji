@@ -39,8 +39,6 @@ function commentsDeleteProxy() {
           }
         }
 
-        console.log('[proxy] DELETE', targetPath)
-
         const proxyReq = https.request(options, (proxyRes) => {
           let data = ''
           proxyRes.on('data', (chunk) => { data += chunk })

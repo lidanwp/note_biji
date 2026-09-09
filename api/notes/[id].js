@@ -25,7 +25,6 @@ export default async function handler(req, res) {
   // ===== GET - 加载单条笔记完整内容 =====
   if (req.method === 'GET') {
     try {
-      console.log('加载笔记详情:', id)
       const response = await fetch(
         `${supabaseUrl}/rest/v1/notes?id=eq.${id}&select=*`,
         {
@@ -91,7 +90,6 @@ export default async function handler(req, res) {
     }
 
     try {
-      console.log('删除笔记:', id)
       const response = await fetch(`${supabaseUrl}/rest/v1/notes?id=eq.${id}`, {
         method: 'DELETE',
         headers: {
@@ -107,7 +105,6 @@ export default async function handler(req, res) {
         throw new Error(`删除失败: ${response.status}`)
       }
 
-      console.log('删除成功:', id)
       res.status(200).json({ success: true, id })
     } catch (error) {
       console.error('删除API 错误:', error)

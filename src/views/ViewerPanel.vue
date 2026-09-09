@@ -1038,7 +1038,6 @@ const loadNotes = async () => {
     const data = await notesStore.loadNotes()
     if (data && Array.isArray(data)) {
       toastSuccess(`成功加载 ${data.length} 条笔记`)
-      console.log('[debug] loadNotes -> notes.length=', notesStore.notes.length, 'totalCharacters=', notesStore.totalCharacters)
     } else {
       toastWarning('未加载到笔记数据')
     }
@@ -1387,25 +1386,6 @@ onMounted(async () => {
 
   // 批量拉取个人掌握度并合并进列表（Dashboard/列表卡展示真实个人分数）
   await loadAllUserProgress()
-
-  // 调试信息：确认笔记与字数计算
-  console.log('[debug] onMounted after loadAllUserProgress -> notes:', notesStore.notes.length, 'totalCharacters=', notesStore.totalCharacters)
-  // 逐条打印简要信息便于排查
-  try {
-    const dbg = notesStore.notes.map(n => ({
-      id: n.id,
-      title: (n.title || '').slice(0, 60),
-      contentType: n.content == null ? String(n.content) : typeof n.content,
-      contentLength: n.content ? String(n.content).length : 0,
-      caseStudyLength: n.caseStudy ? String(n.caseStudy).length : 0
-    }))
-    console.log('[debug] notes detail sample ->', dbg)
-    if (notesStore.notes.length > 0) {
-      console.log('[debug] first note keys ->', Object.keys(notesStore.notes[0]))
-    }
-  } catch (e) {
-    console.error('[debug] notes inspect error', e)
-  }
 
   const noteId = route.query.noteId
   if (noteId) {

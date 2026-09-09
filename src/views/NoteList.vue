@@ -182,15 +182,12 @@ function cleanSummary(text) {
 }
 
 function openDetail(note) {
-  console.log('open detail:', note)
 }
 
 function toggleProcessGroup() {
-  console.log('toggle process group')
 }
 
 function toggleKnowledge() {
-  console.log('toggle knowledge area')
 }
 
 function handleScroll() {

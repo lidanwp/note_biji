@@ -694,9 +694,6 @@ export async function retrieve({ dataset_id, query, history }) {
   // ---- 多轮上下文：指代消解 ----
   // 含指代词（它们/这些/分别/其...）时，用上一轮用户问题的实体增强当前查询
   const resolvedQuery = resolveCoreference(query, history)
-  if (resolvedQuery !== query) {
-    console.log('[retrievalService] 指代消解:', query, '→', resolvedQuery)
-  }
 
   // ---- 过短 ----（用消解后的 query 判断，避免"它们区别"被误判为太宽泛）
   if (isTooVague(resolvedQuery)) {
@@ -710,7 +707,6 @@ export async function retrieve({ dataset_id, query, history }) {
   // ---- 阶段 + 章节识别（本地计算，无 I/O）----
   const detection = detectPhaseAndChapter(resolvedQuery, chapters)
   const intent = classifyIntent(resolvedQuery)
-  console.log('[retrievalService] 阶段/章节/意图:', detection.phase, detection.chapter?.title, intent)
 
   const variants = buildQueryVariants(resolvedQuery)
 

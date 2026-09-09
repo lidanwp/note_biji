@@ -63,7 +63,6 @@ export default async function handler(req, res) {
     }
 
     const comment = Array.isArray(comments) ? comments[0] : null
-    console.log('查询到的评论:', comment, '类型:', typeof comments, '是否数组:', Array.isArray(comments))
 
     if (!comment) {
       return res.status(404).json({ error: '评论不存在' })
@@ -78,7 +77,6 @@ export default async function handler(req, res) {
     const commentUserId = comment.user_id
     const currentUserId = auth.user.id
     const isAdmin = auth.user.role === 'admin'
-    console.log('权限检查: commentUserId=', commentUserId, 'currentUserId=', currentUserId, 'isAdmin=', isAdmin)
 
     if (commentUserId !== currentUserId && !isAdmin) {
       return res.status(403).json({ error: '无权限删除此评论' })
@@ -101,7 +99,6 @@ export default async function handler(req, res) {
       throw new Error(`删除失败: ${response.status}`)
     }
 
-    console.log('删除成功, id:', id)
     res.status(200).json({ success: true, id })
   } catch (error) {
     console.error('删除API 错误:', error)
