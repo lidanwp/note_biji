@@ -3189,8 +3189,16 @@ header {
   }
 
   .note-grid {
-    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    /* 桌面端固定 4 列：minmax(0, 1fr) 防止内容过长导致溢出 */
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 24px;
+    padding-bottom: 0;
+  }
+
+  /* 收紧卡片网格与 Pagination 之间的间距，保持视觉节奏与行间距一致 */
+  :deep(.pagination) {
+    margin-top: 8px;
+    padding-top: 12px;
   }
 
   .detail-header {
