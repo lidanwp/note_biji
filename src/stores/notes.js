@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import { 
   loadNotesFromCloud, 
   saveNotesToCloud, 
@@ -51,10 +51,9 @@ export const useNotesStore = defineStore('notes', () => {
       const matchSearch = !q || text.includes(q)
 
       const matchCategory = !categoryFilter.value || note.category === categoryFilter.value
-      // 知识领域：知识领域作为 tag 存储（见 AdminPanel/ViewerPanel 的 saveNote 逻辑），
-      // 故按 note.tags 精确匹配，而不是按标题字串包含
+      // 知识领域：按 tags 精确匹配，同时兼容旧数据（tags 可能不含知识领域时回退到标题包含）
       const noteTags = (note.tags || []).map(t => t.toLowerCase())
-      const matchKnowledgeArea = !ka || noteTags.includes(ka)
+      const matchKnowledgeArea = !ka || noteTags.includes(ka) || (note.title || '').toLowerCase().includes(ka)
 
       return matchSearch && matchCategory && matchKnowledgeArea
     })
@@ -67,20 +66,6 @@ export const useNotesStore = defineStore('notes', () => {
   })
 
   const totalNotes = computed(() => filteredNotes.value.length)
-
-  // 筛选条件变化时，自动回到第 1 页，避免停在已不存在的页码上
-  watch([search, categoryFilter, knowledgeAreaFilter], () => {
-    currentPage.value = 1
-  })
-
-  // 筛选结果缩短或 pageSize 变更后，若当前页超出新的总页数，自动夹取到最后有效页
-  // 覆盖分页组件/外部调用未先重置 currentPage 的边缘情况
-  watch(totalNotes, (total) => {
-    const totalPages = Math.max(1, Math.ceil(total / pageSize.value))
-    if (currentPage.value > totalPages) {
-      currentPage.value = totalPages
-    }
-  })
 
   const categories = computed(() => {
     const cats = new Set(notes.value.map(n => n.category).filter(Boolean))

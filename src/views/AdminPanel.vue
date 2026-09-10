@@ -172,13 +172,6 @@
         </div>
       </div>
       
-      <Pagination 
-        v-model:currentPage="notesStore.currentPage" 
-        v-model:pageSize="notesStore.pageSize"
-        :total="totalNotes"
-        v-show="!isLoading"
-      />
-
       <!-- 侧边面板 - 考试模式统计 -->
       <aside v-if="examMode" class="side-panel">
         <div class="panel-card">
@@ -190,7 +183,7 @@
             </li>
           </ul>
         </div>
-        
+
         <div class="panel-card">
           <h4>📊 过程组分布</h4>
           <div v-for="(count, group) in processGroupStats" :key="group" class="process-bar">
@@ -199,7 +192,7 @@
             <span class="bar-label">{{ count }}%</span>
           </div>
         </div>
-        
+
         <div class="panel-card">
           <h4>📈 掌握度分布</h4>
           <div class="mastery-item">
@@ -217,6 +210,13 @@
         </div>
       </aside>
     </div>
+
+    <Pagination
+      v-model:currentPage="notesStore.currentPage"
+      v-model:pageSize="notesStore.pageSize"
+      :total="totalNotes"
+      v-show="!isLoading"
+    />
 
     <!-- ===== 新建/编辑模态框 ===== -->
     <div v-if="showModal" class="modal-overlay" @click="closeModal">
@@ -567,12 +567,13 @@ const formKnowledgeAreaOptions = [
 ]
 
 // ===== 计算属性 =====
-// 直接使用 store 暴露的 ref/计算属性，避免在组件中再包一层 computed
-const totalViews = notesStore.totalViews
-const filteredNotes = notesStore.filteredNotes
-const paginatedNotes = notesStore.paginatedNotes
-const totalNotes = notesStore.totalNotes
-const isLoading = notesStore.isLoading
+// 直接解构 store 的 computed 属性会失去响应式，需用 computed 包裹
+// 或在模板中直接使用 notesStore.xxx
+const totalViews = computed(() => notesStore.totalViews)
+const filteredNotes = computed(() => notesStore.filteredNotes)
+const paginatedNotes = computed(() => notesStore.paginatedNotes)
+const totalNotes = computed(() => notesStore.totalNotes)
+const isLoading = computed(() => notesStore.isLoading)
 
 const updateUserMenuPosition = () => {
   if (!userBtnRef.value) return
@@ -1231,17 +1232,18 @@ const logout = () => {
 onMounted(async () => {
   // 冷启动（未登录但 localStorage 有 token）：并行校验会话 + 加载笔记
   // 登录后直接进入：isLoggedIn 已为 true，跳过校验只加载笔记
+  // loadNotes 内部已有 try/catch + toastError，不会 throw，此处安全 await
   if (!authStore.isLoggedIn) {
     const [authOk] = await Promise.all([
       authStore.checkAuth(),
-      loadNotes().catch(() => {})  // 显式吞错：loadNotes 失败不应中断角色校验
+      loadNotes()
     ])
     if (!authOk) {
       router.push('/login')
       return
     }
   } else {
-    await loadNotes().catch(() => {})
+    await loadNotes()
   }
 
   // 角色校验（保证执行，即使 loadNotes 失败）
@@ -1507,6 +1509,8 @@ header {
   display: grid;
   grid-template-columns: 1fr;
   gap: 16px;
+  flex: 1;
+  min-width: 0;
 }
 
 .side-panel {
