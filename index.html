@@ -8,20 +8,22 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>项目集成笔记</title>
-    <!-- 千帆 EmbedLiteSDK 聊天气泡：覆盖为全屏模式（加 !important 与双类名以压过 SDK 注入的样式） -->
+    <!-- 千帆 EmbedLiteSDK 聊天气泡：手机端覆盖为全屏，电脑端保持默认气泡样式 -->
     <style>
-      .appbuilder-bubbleContent.appbuilder-bubbleContent {
-        width: 100vw !important;
-        height: 100vh !important;
-        max-width: 100vw !important;
-        max-height: 100vh !important;
-        top: 0 !important;
-        right: 0 !important;
-        border-radius: 0 !important;
-      }
-      .appbuilder-bubbleIfream.appbuilder-bubbleIfream {
-        height: 100% !important;
-        border-radius: 0 !important;
+      @media (max-width: 768px) {
+        .appbuilder-bubbleContent.appbuilder-bubbleContent {
+          width: 100vw !important;
+          height: 100vh !important;
+          max-width: 100vw !important;
+          max-height: 100vh !important;
+          top: 0 !important;
+          right: 0 !important;
+          border-radius: 0 !important;
+        }
+        .appbuilder-bubbleIfream.appbuilder-bubbleIfream {
+          height: 100% !important;
+          border-radius: 0 !important;
+        }
       }
     </style>
   </head>
