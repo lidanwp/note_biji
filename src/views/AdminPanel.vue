@@ -441,11 +441,14 @@
 
     <input type="file" ref="fileInput" accept=".json" style="display:none" @change="handleImport">
     
-    <ChangePasswordModal 
-      v-model:visible="showChangePassword" 
-      :user-id="authStore.user?.id" 
-      @success="handlePasswordChangeSuccess" 
+    <ChangePasswordModal
+      v-model:visible="showChangePassword"
+      :user-id="authStore.user?.id"
+      @success="handlePasswordChangeSuccess"
     />
+
+    <!-- AI 圆桌讨论挂件（浮窗，不占布局） -->
+    <RoundtableWidget />
   </div>
 </template>
 
@@ -464,6 +467,7 @@ import { uploadAudioFile, deleteAudioFile } from '../services/supabase'
 import { loadFullNote } from '../services/supabase'
 import { saveNoteToCloud } from '../services/supabase'
 import ChangePasswordModal from '../components/ChangePasswordModal.vue'
+import RoundtableWidget from '../components/RoundtableWidget.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
