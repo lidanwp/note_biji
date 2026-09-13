@@ -1,14 +1,16 @@
 // ============================================================================
-// roundtable.js — AI 圆桌讨论单角色发言 handler
+// roundtableHandler.js — AI 圆桌讨论单角色发言逻辑
 // ----------------------------------------------------------------------------
-// 调用约定：前端逐轮逐角色 POST，每次只让一个角色发言并返回
-// 请求体：{ topic: string, history: [{role, content}], role: 'advocate'|'critic'|'researcher'|'moderator' }
+// 注意：本文件位于 api/_lib/，不算 Vercel Serverless Function
+// 由 api/chat.js 通过 body.mode === 'roundtable' 分流调用
+//
+// 调用约定：前端 POST /api/chat { mode:'roundtable', topic, history, role }
 // 响应体：{ role, roleName, emoji, content }
 //
 // 无状态：所有上下文由前端通过 history 传入，后端不持久化
 // ============================================================================
 
-import { callLLM } from './_lib/llmClient.js'
+import { callLLM } from './llmClient.js'
 
 // 角色元数据（前端 store 镜像同一份定义）
 export const ROLES = [
@@ -37,28 +39,14 @@ function buildRolePrompt(roleId, topic) {
   }
 }
 
-function getBody(req) {
-  if (req.body && typeof req.body === 'object') return req.body
-  if (typeof req.body === 'string') {
-    try { return JSON.parse(req.body) } catch { return {} }
-  }
-  return {}
-}
-
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end()
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: '方法不允许' })
-  }
-
-  const { topic, history = [], role } = getBody(req)
+/**
+ * 圆桌讨论单角色发言 handler
+ * @param {Object} req - Vercel 请求对象
+ * @param {Object} res - Vercel 响应对象
+ * @param {Object} body - 已由 chat.js 解析好的请求体 { mode, topic, history, role }
+ */
+export async function handleRoundtable(req, res, body) {
+  const { topic, history = [], role } = body
 
   if (!topic || !role) {
     return res.status(400).json({ error: '缺少 topic 或 role' })
@@ -70,8 +58,6 @@ export default async function handler(req, res) {
   }
 
   // 组装 messages：system(角色 prompt) + history(前序发言) + user(本次发言请求)
-  // history 末尾若已是 user 角色（用户插话），仍按原样保留；
-  // 最后再补一条 user 消息明确"轮到你了"，避免模型困惑
   const messages = [
     { role: 'system', content: buildRolePrompt(roleDef.id, topic) },
     ...history.slice(-8), // 只取最近 8 条，控制 token

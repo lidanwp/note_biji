@@ -63,10 +63,11 @@ export const useRoundtableStore = defineStore('roundtable', () => {
 
   // ===== 单角色发言 =====
   const speakOne = async (roleId) => {
-    const res = await fetch('/api/roundtable', {
+    const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        mode: 'roundtable',
         topic: topic.value,
         history: buildHistory(),
         role: roleId

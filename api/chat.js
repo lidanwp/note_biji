@@ -1,4 +1,5 @@
 import { retrieve } from './_lib/retrievalService.js'
+import { handleRoundtable } from './_lib/roundtableHandler.js'
 
 function getBody(req) {
   if (req.body && typeof req.body === 'object') return req.body
@@ -25,7 +26,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { dataset_id, query, history } = getBody(req)
+  const body = getBody(req)
+
+  // 圆桌讨论分流：通过 mode 字段路由到圆桌 handler
+  if (body.mode === 'roundtable') {
+    return handleRoundtable(req, res, body)
+  }
+
+  const { dataset_id, query, history } = body
   if (!dataset_id || !query) {
     return res.status(400).json({ error: '缺少必要参数: dataset_id, query' })
   }
