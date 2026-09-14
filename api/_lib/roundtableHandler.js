@@ -20,9 +20,13 @@ import { callLLM } from './llmClient.js'
 //   - 不写 -> 走 llmClient 的默认模型（DEFAULT_MODEL，deepseek-v3.2）
 //   - 写了 -> 透传给 callLLM，用指定模型
 // 本轮仅 critic 指定为 glm-5.3（千帆同一套调用逻辑，无需新增 key / 鉴权 / 厂商路由）
+//
+// timeout 字段（可选，毫秒）：覆盖 handleRoundtable 的默认超时（8000ms）
+//   - 不写 -> 8 秒
+//   - 写了 -> 用该值。glm-5.3 属推理模型，首字延迟长于 DeepSeek，故 critic 放宽到 30 秒
 export const ROLES = [
   { id: 'advocate',   name: '倡导者',   emoji: '🟢', tagline: '支持观点，找论据' },
-  { id: 'critic',     name: '批判者',   emoji: '🔴', tagline: '挑漏洞，指出风险', model: 'glm-5.3' },
+  { id: 'critic',     name: '批判者',   emoji: '🔴', tagline: '挑漏洞，指出风险', model: 'glm-5.3', timeout: 30000 },
   { id: 'researcher', name: '研究专家', emoji: '🔵', tagline: '标注证据强度，报告未知与空白' },
   { id: 'moderator',  name: '主持人',   emoji: '🟡', tagline: '追问前提，标注未解决分歧' }
 ]
@@ -142,7 +146,9 @@ export async function handleRoundtable(req, res, body) {
       model: roleDef.model || undefined,
       temperature: temperatureByRole[roleDef.id] ?? 0.9,
       maxTokens: 1500,  // 推理模型需预留推理 token（约 1500 = 推理 1000 + 回答 500）
-      timeout: 8000
+      // 按角色取超时：roleDef.timeout 存在则用该值（当前仅 critic -> 30000，
+      // GLM-5.3 推理模型首字延迟长），否则回落 8000，行为与旧版一致
+      timeout: roleDef.timeout || 8000
     })
 
     return res.status(200).json({
