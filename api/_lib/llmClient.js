@@ -20,9 +20,11 @@ const DEFAULT_MODEL = 'deepseek-v3.2'
  * @param {number} [opts.maxTokens=1500] - 最大生成 token
  * @param {number} [opts.timeout=15000] - 超时毫秒
  * @param {string} [opts.model] - 模型名，默认 deepseek-v3.2
+ * @param {boolean} [opts.disableThinking=false] - 是否下发 thinking:{type:'disabled'} 关闭深度思考
+ *        （GLM 系列支持；为 true 才拼进请求体，避免给不支持该字段的模型带未知参数）
  * @returns {Promise<string>} - 纯文本回复
  */
-export async function callLLM({ messages, temperature = 0.85, maxTokens = 1500, timeout = 15000, model = DEFAULT_MODEL }) {
+export async function callLLM({ messages, temperature = 0.85, maxTokens = 1500, timeout = 15000, model = DEFAULT_MODEL, disableThinking = false }) {
   // trim 防御：用户粘贴 key 时可能带换行/空格
   // 不做格式强校验：千帆 Key 形如 bce-v3/ALTAK-xxx/yyy，含 / 与 -，直接透传
   const apiKey = (process.env.QIANFAN_API_KEY || '').trim()
@@ -44,7 +46,10 @@ export async function callLLM({ messages, temperature = 0.85, maxTokens = 1500, 
         model,
         messages,
         temperature,
-        max_tokens: maxTokens
+        max_tokens: maxTokens,
+        // 思考模式控制（智谱/千帆 GLM 系列同形）：仅在 disableThinking 为 true 时下发，
+        // 其余模型不带该字段，保持请求体与旧版一致
+        ...(disableThinking ? { thinking: { type: 'disabled' } } : {})
       }),
       signal: controller.signal
     })
