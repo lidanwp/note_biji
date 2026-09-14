@@ -1,13 +1,19 @@
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
 
-// 角色元数据（与 api/roundtable.js 的 ROLES 镜像同一份定义）
+// 角色元数据
+// 注意：与 api/_lib/roundtableHandler.js 的 ROLES 是镜像定义
+// 修改 tagline 时必须同步另一处，否则前后端展示不一致
 export const ROLES = [
   { id: 'advocate',   name: '倡导者',   emoji: '🟢', tagline: '支持观点，找论据' },
   { id: 'critic',     name: '批判者',   emoji: '🔴', tagline: '挑漏洞，指出风险' },
-  { id: 'researcher', name: '研究专家', emoji: '🔵', tagline: '补充事实、案例、数据' },
-  { id: 'moderator',  name: '主持人',   emoji: '🟡', tagline: '总结分歧，推进讨论' }
+  { id: 'researcher', name: '研究专家', emoji: '🔵', tagline: '标注证据强度，报告未知与空白' },
+  { id: 'moderator',  name: '主持人',   emoji: '🟡', tagline: '追问前提，标注未解决分歧' }
 ]
+
+// 可配置常量
+// 研究专家发言频率：第1轮固定不发言，第2轮起每 N 轮发言一次（N=2 → 第2、4、6…轮）
+const RESEARCHER_SPEAK_EVERY_N_ROUNDS = 2
 
 const DRAFT_KEY = 'roundtable_draft'
 
@@ -20,6 +26,10 @@ export const useRoundtableStore = defineStore('roundtable', () => {
   const messages = ref([]) // { id, role:'advocate'|'critic'|'researcher'|'moderator'|'user', roleName?, emoji?, content, round, at }
   const isRunning = ref(false)
   const error = ref(null)
+  // pending 元指令：用户发送的 kind:'meta' 消息暂存于此，作用于下一轮全部 speakOne，轮末自动清除
+  const pendingMeta = ref(null)
+  // 已完成发言步数（每次 speakOne 成功后 +1），用于进度条
+  const currentStepCount = ref(0)
 
   // ===== 持久化：当前会话草稿（刷新可恢复） =====
   const loadDraft = () => {
@@ -50,19 +60,23 @@ export const useRoundtableStore = defineStore('roundtable', () => {
   watch([topic, messages], saveDraft, { deep: true })
 
   // ===== 给 LLM 的 history（最近 8 条，OpenAI 格式） =====
+  // 旧消息无 kind 字段时按 'comment' 处理（向后兼容）
   const buildHistory = () => {
     return messages.value
       .slice(-8)
-      .map(m => ({
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: m.role === 'user'
-          ? `[用户插话] ${m.content}`
-          : `[${m.roleName}] ${m.content}`
-      }))
+      .map(m => {
+        if (m.role === 'user') {
+          // meta 类型以 [元指令] 标记进入 history，与普通插话区分
+          const label = m.kind === 'meta' ? '[元指令]' : '[用户插话]'
+          return { role: 'user', content: `${label} ${m.content}` }
+        }
+        return { role: 'assistant', content: `[${m.roleName}] ${m.content}` }
+      })
   }
 
   // ===== 单角色发言 =====
-  const speakOne = async (roleId) => {
+  // meta 参数：本轮快照的元指令文本（可能为 null），传给后端注入 system prompt
+  const speakOne = async (roleId, meta = null) => {
     const res = await fetch('/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -70,7 +84,9 @@ export const useRoundtableStore = defineStore('roundtable', () => {
         mode: 'roundtable',
         topic: topic.value,
         history: buildHistory(),
-        role: roleId
+        role: roleId,
+        meta,            // 元指令文本，后端注入 system prompt
+        round: currentRound.value
       })
     })
 
@@ -91,7 +107,10 @@ export const useRoundtableStore = defineStore('roundtable', () => {
     })
   }
 
-  // ===== 主循环：逐轮逐角色 =====
+  // ===== 主循环：条件调度（非固定轮询） =====
+  // 调度规则：
+  //   第1轮：倡导者 → 批判者（研究专家、主持人不发言，让观点先碰撞）
+  //   第2轮起：倡导者 → 批判者 → [研究专家按频率发言] → 主持人（最后）
   const start = async () => {
     if (!topic.value.trim()) {
       error.value = '请输入讨论主题'
@@ -105,15 +124,35 @@ export const useRoundtableStore = defineStore('roundtable', () => {
     messages.value = []
     currentRound.value = 0
     currentRoleIndex.value = -1
+    pendingMeta.value = null // 重置 pending 元指令
+    currentStepCount.value = 0 // 重置进度计数
 
     try {
       for (let r = 1; r <= totalRounds.value; r++) {
         if (!isRunning.value) break
         currentRound.value = r
-        for (let i = 0; i < ROLES.length; i++) {
+
+        // 快照本轮元指令：作用于整轮全部 speakOne，轮末自动失效（不重复生效）
+        const metaForRound = pendingMeta.value
+        pendingMeta.value = null
+
+        // 构建本轮发言顺序
+        const speakers = ['advocate', 'critic']
+        if (r > 1) {
+          // 研究专家：第1轮不发言，第2轮起每 N 轮发言一次
+          if (r >= 2 && (r % RESEARCHER_SPEAK_EVERY_N_ROUNDS === 0)) {
+            speakers.push('researcher')
+          }
+          // 主持人：第1轮不发言，第2轮起每轮最后发言（前提追问 + 分歧标注）
+          speakers.push('moderator')
+        }
+
+        for (let i = 0; i < speakers.length; i++) {
           if (!isRunning.value) break
-          currentRoleIndex.value = i
-          await speakOne(ROLES[i].id)
+          // currentRoleIndex 映射到 ROLES 数组索引，用于 UI 显示当前角色名
+          currentRoleIndex.value = ROLES.findIndex(role => role.id === speakers[i])
+          await speakOne(speakers[i], metaForRound)
+          currentStepCount.value++ // 进度计数
         }
       }
       return true
@@ -127,12 +166,19 @@ export const useRoundtableStore = defineStore('roundtable', () => {
   }
 
   // ===== 插话 =====
-  const interrupt = (text) => {
+  // kind: 'comment' — 普通插话，进入 history 作为上下文
+  // kind: 'meta' — 元指令，暂存到 pendingMeta，作为下一轮 speakOne 的额外参数传给后端
+  const interrupt = (text, kind = 'comment') => {
     const t = (text || '').trim()
     if (!t) return
+    if (kind === 'meta') {
+      // 元指令暂存，下一轮开始时快照并传给全部角色
+      pendingMeta.value = t
+    }
     messages.value.push({
       id: Date.now() + Math.random(),
       role: 'user',
+      kind, // 旧消息无此字段时 buildHistory 按 'comment' 处理
       content: t,
       round: currentRound.value || 0,
       at: new Date().toISOString()
@@ -148,6 +194,7 @@ export const useRoundtableStore = defineStore('roundtable', () => {
     currentRound.value = 0
     currentRoleIndex.value = -1
     error.value = null
+    pendingMeta.value = null
   }
 
   const setTopic = (t) => { topic.value = t }
@@ -164,7 +211,8 @@ export const useRoundtableStore = defineStore('roundtable', () => {
         lastRound = m.round
       }
       if (m.role === 'user') {
-        lines.push(`> 💬 **用户插话**：${m.content}\n`)
+        const label = m.kind === 'meta' ? '⚡ 元指令' : '💬 用户插话'
+        lines.push(`> **${label}**：${m.content}\n`)
       } else {
         lines.push(`**${m.emoji} ${m.roleName}**：${m.content}\n`)
       }
@@ -173,10 +221,21 @@ export const useRoundtableStore = defineStore('roundtable', () => {
   }
 
   // ===== 计算属性 =====
-  const totalSteps = computed(() => totalRounds.value * ROLES.length)
+  // 总步数随调度规则动态计算（第1轮2人，第2轮起每轮至少3人，研究专家按频率加入）
+  const totalSteps = computed(() => {
+    let total = 0
+    for (let r = 1; r <= totalRounds.value; r++) {
+      if (r === 1) total += 2 // 倡导者、批判者
+      else {
+        total += 3 // 倡导者、批判者、主持人
+        if (r >= 2 && r % RESEARCHER_SPEAK_EVERY_N_ROUNDS === 0) total += 1 // 研究专家
+      }
+    }
+    return total
+  })
   const currentStep = computed(() => {
     if (!isRunning.value || currentRound.value === 0) return 0
-    return (currentRound.value - 1) * ROLES.length + currentRoleIndex.value + 1
+    return currentStepCount.value
   })
   const progress = computed(() => totalSteps.value ? Math.round(currentStep.value / totalSteps.value * 100) : 0)
   const currentRoleName = computed(() => {

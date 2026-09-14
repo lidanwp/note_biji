@@ -100,15 +100,29 @@
 
         <!-- 插话区（运行中） -->
         <div v-if="store.isRunning" class="rt-interrupt">
-          <input
-            v-model="interruptText"
-            type="text"
-            class="rt-interrupt-input"
-            placeholder="插一句话，下一轮会带入上下文…"
-            @keyup.enter="handleInterrupt"
-          />
-          <button class="rt-btn rt-btn-secondary" @click="handleInterrupt">发送</button>
-          <button class="rt-btn rt-btn-danger" @click="store.stop" title="停止">■</button>
+          <div class="rt-interrupt-toggle">
+            <button
+              :class="['rt-toggle-btn', { active: interruptKind === 'comment' }]"
+              @click="interruptKind = 'comment'"
+            >插话</button>
+            <button
+              :class="['rt-toggle-btn', { active: interruptKind === 'meta' }]"
+              @click="interruptKind = 'meta'"
+            >元指令</button>
+          </div>
+          <div class="rt-interrupt-row">
+            <input
+              v-model="interruptText"
+              type="text"
+              class="rt-interrupt-input"
+              :placeholder="interruptKind === 'meta'
+                ? '如：让双方交换立场 / 要求研究专家标注证据强度'
+                : '插一句话，下一轮会带入上下文…'"
+              @keyup.enter="handleInterrupt"
+            />
+            <button class="rt-btn rt-btn-secondary" @click="handleInterrupt">发送</button>
+            <button class="rt-btn rt-btn-danger" @click="store.stop" title="停止">■</button>
+          </div>
         </div>
 
         <!-- 清空按钮（未运行且有消息） -->
@@ -135,6 +149,7 @@ const store = useRoundtableStore()
 const isOpen = ref(false)
 const messagesRef = ref(null)
 const interruptText = ref('')
+const interruptKind = ref('comment') // 'comment' | 'meta'
 
 // 双向绑定 topic（store 中 topic 是 ref，用 computed 双向）
 const topicModel = computed({
@@ -161,7 +176,7 @@ const handleStart = async () => {
 
 const handleInterrupt = () => {
   if (!interruptText.value.trim()) return
-  store.interrupt(interruptText.value)
+  store.interrupt(interruptText.value, interruptKind.value)
   interruptText.value = ''
 }
 
@@ -452,10 +467,34 @@ const copyMarkdown = async () => {
 /* ===== 插话区 ===== */
 .rt-interrupt {
   display: flex;
+  flex-direction: column;
   gap: 6px;
   padding: 8px 12px;
   border-top: 1px solid var(--border-light, #f0f0f0);
   flex-shrink: 0;
+}
+.rt-interrupt-toggle {
+  display: flex;
+  gap: 4px;
+}
+.rt-toggle-btn {
+  border: 1px solid var(--border-color, #e8ecf1);
+  background: transparent;
+  color: var(--text-muted, #888);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.rt-toggle-btn.active {
+  background: var(--accent-color, #667eea);
+  color: #fff;
+  border-color: var(--accent-color, #667eea);
+}
+.rt-interrupt-row {
+  display: flex;
+  gap: 6px;
 }
 .rt-interrupt-input {
   flex: 1;
