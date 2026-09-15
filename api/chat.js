@@ -1,5 +1,6 @@
 import { retrieve } from './_lib/retrievalService.js'
 import { handleRoundtable } from './_lib/roundtableHandler.js'
+import { handleTTS } from './_lib/ttsHandler.js'
 
 function getBody(req) {
   if (req.body && typeof req.body === 'object') return req.body
@@ -31,6 +32,11 @@ export default async function handler(req, res) {
   // 圆桌讨论分流：通过 mode 字段路由到圆桌 handler
   if (body.mode === 'roundtable') {
     return handleRoundtable(req, res, body)
+  }
+
+  // 语音合成分流：圆桌角色发言的 TTS 播放（返回 mp3 二进制，不走 JSON）
+  if (body.mode === 'tts') {
+    return handleTTS(req, res, body)
   }
 
   const { dataset_id, query, history } = body

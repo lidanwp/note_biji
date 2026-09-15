@@ -102,6 +102,14 @@
                 <span class="rt-msg-name">{{ msg.roleName || '用户' }}</span>
                 <span v-if="msg.duty" class="rt-msg-duty" :title="'本轮职责：' + msg.duty">{{ msg.duty }}</span>
                 <span v-if="msg.round" class="rt-msg-round">R{{ msg.round }}</span>
+                <!-- 语音播放：用户消息不显示（无角色音色）。放在 meta 行最后，靠 margin-left:auto 推到最右 -->
+                <button
+                  v-if="msg.role !== 'user'"
+                  class="rt-msg-play"
+                  :class="{ playing: playingId === msg.id }"
+                  @click="playMessage(msg)"
+                  :title="playingId === msg.id ? '停止' : '播放语音'"
+                >{{ playingId === msg.id ? '⏸' : '🔊' }}</button>
               </div>
               <div class="rt-msg-content">{{ msg.content }}</div>
             </div>
@@ -150,7 +158,7 @@
 </template>
 
 <script setup>
-import { ref, computed, watch, nextTick } from 'vue'
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import { useRoundtableStore, ROLES } from '../stores/roundtable'
 import { toastSuccess, toastError } from '../utils/toast'
 
@@ -173,8 +181,82 @@ const topicModel = computed({
 
 const messages = computed(() => store.messages)
 
+// ===== 语音播放（TTS） =====
+// 同一时刻只允许一条在播：点同一条 = 停止，点另一条 = 先停旧的再播新的
+const playingId = ref(null) // 当前正在播放的消息 id
+let currentAudio = null     // 当前 Audio 实例（模块级 let，不走响应式：Audio 对象无需触发渲染）
+let playToken = 0           // 播放会话令牌：每次停止/切换自增，用于让在途请求的回调失效
+
+const stopPlay = () => {
+  playToken++ // 使在途请求的回调失效，避免晚到的响应把状态改回去
+  if (currentAudio) {
+    currentAudio.onended = null
+    currentAudio.pause()
+    // 释放 blob URL：blob URL 不会随 Audio 对象回收自动释放，不撤销会泄漏内存
+    if (currentAudio.src && currentAudio.src.startsWith('blob:')) {
+      URL.revokeObjectURL(currentAudio.src)
+    }
+    currentAudio = null
+  }
+  playingId.value = null
+}
+
+const playMessage = async (msg) => {
+  // 点正在播放的那一条 = 停止
+  if (playingId.value === msg.id) {
+    stopPlay()
+    return
+  }
+  // 点另一条 = 先停掉前一条，再播新的
+  stopPlay()
+  const token = ++playToken
+  playingId.value = msg.id
+
+  let url = ''
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'tts', text: msg.content, role: msg.role })
+    })
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}))
+      throw new Error(e.error || `语音合成失败: ${res.status}`)
+    }
+
+    const blob = await res.blob()
+    // 期间用户已切歌或停止：丢弃这次结果，不抢占播放
+    if (token !== playToken) return
+
+    url = URL.createObjectURL(blob)
+    const audio = new Audio(url)
+    currentAudio = audio
+
+    // 自然播放结束：若还是当前会话就整体清理，否则只回收自己的 blob URL
+    audio.onended = () => {
+      if (token === playToken) stopPlay()
+      else URL.revokeObjectURL(url)
+    }
+
+    await audio.play()
+  } catch (e) {
+    // 请求 / 解码 / 播放（如 iOS 的 NotAllowedError）任一环节失败，都回到空闲态
+    if (token === playToken) {
+      stopPlay()
+      toastError(e.message || '语音播放失败')
+    } else if (url) {
+      URL.revokeObjectURL(url)
+    }
+  }
+}
+
+// 组件卸载（浮窗被销毁）时停止播放，避免残留音频
+onUnmounted(() => stopPlay())
+
 // 消息列表自动滚动到底
-watch(() => messages.value.length, async () => {
+// 同时接管语音：列表被清空（清空记录 / 重新开始）时，停掉正在播放的音频
+watch(() => messages.value.length, async (len) => {
+  if (len === 0) stopPlay()
   await nextTick()
   if (messagesRef.value) {
     messagesRef.value.scrollTop = messagesRef.value.scrollHeight
@@ -490,6 +572,33 @@ const copyMarkdown = async () => {
   line-height: 1.55;
   color: var(--text-secondary, #444);
   word-break: break-word;
+}
+
+/* 语音播放按钮：贴 meta 行右侧，默认灰，hover / 播放中取强调色 */
+.rt-msg-play {
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-light, #bbb);
+  font-size: 12px;
+  line-height: 1;
+  border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
+}
+.rt-msg-play:hover {
+  color: var(--accent-color, #667eea);
+  background: var(--bg-hover, #f0f2ff);
+}
+.rt-msg-play.playing {
+  color: var(--accent-color, #667eea);
 }
 
 /* 角色色彩点缀 */
