@@ -107,10 +107,10 @@ const TTS_URL = 'https://tsn.baidu.com/text2audio'
 // 角色音色映射：每个角色一个音色，让四个角色的语音可区分
 // per = 音色 ID，spd = 语速 0-15，pit = 音调 0-15，vol 统一 5，aue=3 表示 mp3
 export const TTS_VOICES = {
-  advocate:   { per: 4194, spd: 6, pit: 5 }, // 度嫣然 - 活泼女声
-  critic:     { per: 4195, spd: 4, pit: 4 }, // 度怀安 - 磁性男声
-  researcher: { per: 4197, spd: 5, pit: 5 }, // 度沁遥 - 知性女声
-  moderator:  { per: 4106, spd: 5, pit: 5 }  // 度博文 - 专业男主播
+  advocate:   { per: 4195, spd: 7, pit: 3 }, // 度嫣然 - 活泼男声
+  critic:     { per: 4189, spd: 6, pit: 4 }, // 度怀安 - 磁性男声
+  researcher: { per: 4193, spd: 6, pit: 4 }, // 度沁遥 - 知性男声
+  moderator:  { per: 4197, spd: 5, pit: 4 }  // 度博文 - 专业男主播
 }
 
 // 未知角色回落到主持人音色，保证任何一条发言都有声音
