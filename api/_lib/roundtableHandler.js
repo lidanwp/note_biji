@@ -5,7 +5,10 @@
 // 由 api/chat.js 通过 body.mode === 'roundtable' 分流调用
 //
 // 调用约定：前端 POST /api/chat { mode:'roundtable', topic, history, role }
-// 响应体：{ role, roleName, emoji, content }
+// 响应体：{ role, roleName, icon, content, duty? }
+//   - icon 角色头像 SVG 路径（原 emoji 已替换为插画 SVG）
+//   - duty 仅主持人返回，值为职责标签（承接事实校准/深挖前提/引入缺席者/前提追问/平衡校准）
+//   - 前端可选择不显示 duty，正文 content 已剥离标签
 //
 // 无状态：所有上下文由前端通过 history 传入，后端不持久化
 // ============================================================================
@@ -14,7 +17,11 @@ import { callLLM } from './llmClient.js'
 
 // 角色元数据
 // 注意：与 src/stores/roundtable.js 的 ROLES 是镜像定义
-// 修改 tagline 时必须同步另一处，否则前后端展示不一致
+// 修改 tagline / icon 时必须同步另一处，否则前后端展示不一致
+//
+// icon 字段：角色头像 SVG 路径，指向 public/ 下的静态资源（站点根目录可达）
+//   - 旧值为 emoji（🟢/🔴/🔵/🟡），现已统一替换为人物插画 SVG
+//   - 中文文件名在浏览器请求时会自动 URL 编码，与项目内 /书本.svg 的用法一致
 //
 // model 字段（可选）：指定该角色使用的千帆模型接入点 ID
 //   - 不写 -> 走 llmClient 的默认模型（DEFAULT_MODEL，deepseek-v3.2）
@@ -28,24 +35,24 @@ import { callLLM } from './llmClient.js'
 // disableThinking 字段（可选）：为 true 时透传给 callLLM，请求体加 thinking:{type:'disabled'}
 //   - GLM-5.3 强制思考无法关闭，会把推理草稿吐进正文，故换成可关闭思考的 GLM-5.2
 export const ROLES = [
-  { id: 'advocate',   name: '倡导者',   emoji: '🟢', tagline: '支持观点，找论据' },
-  { id: 'critic',     name: '批判者',   emoji: '🔴', tagline: '挑漏洞，指出风险', model: 'glm-5.2', timeout: 30000, disableThinking: true },
-  { id: 'researcher', name: '研究专家', emoji: '🔵', tagline: '标注证据强度，报告未知与空白' },
-  { id: 'moderator',  name: '主持人',   emoji: '🟡', tagline: '追问前提，标注未解决分歧' }
+  { id: 'advocate',   name: '倡导者',   icon: '/倡导者.svg',   tagline: '支持观点，找论据' },
+  { id: 'critic',     name: '批判者',   icon: '/反对者.svg',   tagline: '挑漏洞，指出风险', model: 'glm-5.2', timeout: 30000, disableThinking: true },
+  { id: 'researcher', name: '研究专家', icon: '/资深专家.svg', tagline: '标注证据强度，报告未知与空白' },
+  { id: 'moderator',  name: '主持人',   icon: '/主持人.svg',   tagline: '追问前提，标注未解决分歧' }
 ]
 
 // 角色 system prompt 构造
 // meta 参数：前端传来的元指令文本（可能为 null），可临时覆盖角色默认任务
 //
-// 设计说明（本轮改版 v3）：
+// 设计说明（本轮改版 v4）：
 // 旧版用格式约束（强制标签开头、固定句式）约束发言结构，导致四个角色腔调趋同，
 // 读起来像论证材料。新版改为用"性格 + 辩论策略"约束发言方式，格式标签降级为
 // 关键处使用。偏差可见机制（证据强度标注、前提追问、分歧标注）全部保留。
 // 硬约束清单见各角色内注释，不可删除。
 //
-// v2 -> v3 改动：
-//   1. advocate 设问句式写死，禁止弱化为"你的方案是什么"
-//   2. critic 增加"发言前自查上一轮攻击点"的硬动作，防止模板重复
+// v3 -> v4 改动：
+//   moderator 自报职责从正文剥离，改为末尾独立【DUTY:xxx】标签，后端解析后正文不显示。
+//   正文里禁止出现"（本轮我……）"这类自报语句。
 function buildRolePrompt(roleId, topic, meta = null) {
   const base = `你正在参与一场关于「${topic}」的圆桌讨论。`
   const common = '每次发言 80-150 字，直接说话，不要寒暄，不要复述别人说过的话，不要用「作为XX者」开头。'
@@ -96,9 +103,9 @@ function buildRolePrompt(roleId, topic, meta = null) {
       //    及任何暗示某一方更稳妥、更成熟、更可行的措辞
       // 2. 禁止推进具体方案、禁止给综合结论
       // 3. 发言末尾不抛"更具体的问题"来推进下一轮
-      // 4. 发言末尾用一句话自报本轮执行的职责项（新增，用于可观察性）
+      // 4. 发言结束后另起一行输出【DUTY:xxx】职责标签，正文里禁止自报
       // 5. 80-150 字（common 内保留）
-      // 本轮改动 v3：新增第 5 条平衡校准规则，防止连续两轮校准同一方。
+      // 本轮改动 v4：自报职责从正文剥离，改为末尾独立标签，后端解析后正文不显示
       prompt = `${base}你是【主持人】，一个有经验的主持人。不急不躁，但会追问；不急着推进讨论，也不急着总结。你会说"等一下，这里有个问题"。
 【每轮职责选择规则】这是你每轮开口前的第一步判断。你每轮只执行一个职责，按以下优先级选：
 1. 如果上一轮研究专家标注了证据边界（证据不足、存在争议、规范空白），且本轮还没有任何一方回应，你必须承接这个校准，点名要求被点的那一方回应。
@@ -106,15 +113,17 @@ function buildRolePrompt(roleId, topic, meta = null) {
 3. 如果本轮辩论中出现了一个双方共享的未检验前提，指出它，别放过。
 4. 如果连续两轮没有引入缺席者，这一轮必须引入一次。
 5. 平衡校准：如果连续两轮你校准的都是同一方，下一轮必须优先校准另一方——即使那一方这轮没提正面主张。
-每轮发言的末尾，用一句话说明你本轮执行的是哪一项，格式如："（本轮我承接事实校准）"。让执行可被看见。
 五项职责具体怎么做：
 - 承接事实校准：比如"倡导者，上一轮研究专家指出你引用的研究有 X 局限，你还没回应这一点。"不能让校准被跳过。
 - 深挖前提：发现双方共享一个更深层的前提（比如"存在统一评判框架""某东西可以被清晰度量"）时，说人话地提出来，比如"我注意到你们俩都在假设……，但没人问过这个假设本身成不成立。"只指出不追问，等于没发现。
 - 引入缺席者：这场讨论里谁的声音不在场（被决策影响的人、被编辑的子女、照护者……），他们的缺席导致哪个论证环节答不了。比如："我注意到这个讨论里，XX 的声音不在场，这导致我们无法回答 YY。"别只报名单，要说清缺口。
 - 前提追问之外的策略：如果双方开始重复上一轮的观点，直接问：你们上一轮的分歧解决了吗？没解决的话，卡在哪？
 - 平衡校准：如果你前两轮都在追问同一方，这一轮必须转向另一方，哪怕那一方这轮没有主动提出新主张。问法参考："批判者，你一直在质疑倡导者的方案，那你的替代方案是什么？它经得起同样的追问吗？"
-发言可以短，可以停顿，可以直接点名某一方。未解决分歧照旧放在发言里、用自然语言写（自报语句之前），不用编号。
-底线：不给综合结论，不给折中方案，不用"先……而不是急于……""务实地说""综合来看""双方都有道理，但……"这类和稀泥的修辞，不暗示哪一方更稳妥。末尾不要抛问题推进下一轮——你的任务是让前提和分歧暴露，不是让讨论收窄。${common}`
+发言可以短，可以停顿，可以直接点名某一方。未解决分歧放在发言里、用自然语言写，不用编号。
+底线：不给综合结论，不给折中方案，不用"先……而不是急于……""务实地说""综合来看""双方都有道理，但……"这类和稀泥的修辞，不暗示哪一方更稳妥。末尾不要抛问题推进下一轮——你的任务是让前提和分歧暴露，不是让讨论收窄。
+发言结束后另起一行，只输出一个职责标签，格式必须是：【DUTY:承接事实校准】或【DUTY:深挖前提】或【DUTY:引入缺席者】或【DUTY:前提追问】或【DUTY:平衡校准】。
+正文里禁止出现"（本轮我……）"这类自报语句，禁止把职责标签写进正文。
+${common}`
       break
     default:
       prompt = base
@@ -126,6 +135,39 @@ function buildRolePrompt(roleId, topic, meta = null) {
   }
 
   return prompt
+}
+
+/**
+ * 从主持人输出中剥离职责标签
+ * 优先匹配标准格式【DUTY:xxx】，兜底匹配旧格式（本轮我xxx）
+ * @param {string} content - 模型原始输出
+ * @returns {{ content: string, duty: string|null }}
+ */
+function extractModeratorDuty(content) {
+  if (!content) return { content: '', duty: null }
+
+  let duty = null
+  let finalContent = content
+
+  // 主路径：标准格式【DUTY:xxx】或【DUTY：xxx】（兼容中英文冒号）
+  const dutyMatch = content.match(/【DUTY[:：]\s*([^】]+)】/)
+  if (dutyMatch) {
+    duty = dutyMatch[1].trim()
+    finalContent = content.replace(dutyMatch[0], '').trim()
+  } else {
+    // 兜底：模型偶尔会退回旧格式"（本轮我xxx）"，一并剥离，duty 也提取出来
+    const legacyMatch = content.match(/（本轮我([^）]+)）/g)
+    if (legacyMatch) {
+      // 取最后一个匹配作为 duty（模型可能在正文中提过一次，末尾再报一次）
+      const last = legacyMatch[legacyMatch.length - 1]
+      const inner = last.replace(/^（本轮我/, '').replace(/）$/, '').trim()
+      duty = inner || null
+      // 把所有旧格式括号从正文中剥掉
+      finalContent = content.replace(/（本轮我[^）]+）/g, '').trim()
+    }
+  }
+
+  return { content: finalContent, duty }
 }
 
 /**
@@ -165,7 +207,7 @@ export async function handleRoundtable(req, res, body) {
   }
 
   try {
-    const content = await callLLM({
+    const rawContent = await callLLM({
       messages,
       // 按角色选模型：roleDef.model 存在则用指定模型（当前仅 critic -> glm-5.2），
       // 不传或为空时回落到 llmClient 的 DEFAULT_MODEL（deepseek-v3.2），行为与旧版一致
@@ -178,11 +220,23 @@ export async function handleRoundtable(req, res, body) {
       disableThinking: roleDef.disableThinking || false
     })
 
+    // 主持人：剥离职责标签，正文只保留纯内容
+    // 其余角色：原样返回
+    let content = rawContent
+    let duty = null
+    if (roleDef.id === 'moderator') {
+      const parsed = extractModeratorDuty(rawContent)
+      content = parsed.content
+      duty = parsed.duty
+    }
+
     return res.status(200).json({
       role: roleDef.id,
       roleName: roleDef.name,
-      emoji: roleDef.emoji,
-      content
+      icon: roleDef.icon,
+      content,
+      // duty 仅主持人返回，前端可选择不显示
+      ...(duty ? { duty } : {})
     })
   } catch (e) {
     console.error('[roundtable] LLM 调用失败:', e.message)

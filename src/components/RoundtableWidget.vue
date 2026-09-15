@@ -87,10 +87,20 @@
             class="rt-msg"
             :class="msg.role"
           >
-            <div class="rt-msg-avatar">{{ msg.emoji || '💬' }}</div>
+            <div class="rt-msg-avatar" :class="{ 'is-icon': !!iconOf(msg) }">
+              <img
+                v-if="iconOf(msg)"
+                :src="iconOf(msg)"
+                :alt="msg.roleName || '角色'"
+                class="rt-msg-avatar-img"
+                draggable="false"
+              />
+              <span v-else>💬</span>
+            </div>
             <div class="rt-msg-body">
               <div class="rt-msg-meta">
                 <span class="rt-msg-name">{{ msg.roleName || '用户' }}</span>
+                <span v-if="msg.duty" class="rt-msg-duty" :title="'本轮职责：' + msg.duty">{{ msg.duty }}</span>
                 <span v-if="msg.round" class="rt-msg-round">R{{ msg.round }}</span>
               </div>
               <div class="rt-msg-content">{{ msg.content }}</div>
@@ -141,10 +151,14 @@
 
 <script setup>
 import { ref, computed, watch, nextTick } from 'vue'
-import { useRoundtableStore } from '../stores/roundtable'
+import { useRoundtableStore, ROLES } from '../stores/roundtable'
 import { toastSuccess, toastError } from '../utils/toast'
 
 const store = useRoundtableStore()
+
+// 角色 id -> 头像 SVG 路径，用于旧草稿（无 icon 字段）兜底显示角色图标
+const ROLE_ICONS = Object.fromEntries(ROLES.map(r => [r.id, r.icon]))
+const iconOf = (msg) => msg.icon || ROLE_ICONS[msg.role] || ''
 
 const isOpen = ref(false)
 const messagesRef = ref(null)
@@ -413,15 +427,29 @@ const copyMarkdown = async () => {
 }
 
 .rt-msg-avatar {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: var(--bg-hover, #f0f2ff);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: 13px;
   flex-shrink: 0;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+/* 有角色 SVG 时：保留原有角色底色（下面 .rt-msg.xxx 的色点），四周留 2px 内边距 */
+.rt-msg-avatar.is-icon {
+  padding: 2px;
+}
+.rt-msg-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .rt-msg-body {
@@ -445,6 +473,17 @@ const copyMarkdown = async () => {
   background: var(--bg-hover, #f0f2ff);
   padding: 1px 5px;
   border-radius: 8px;
+}
+/* 主持人本轮职责标签（仅主持人消息有，用于观察四项职责是否被执行） */
+.rt-msg-duty {
+  font-size: 10px;
+  line-height: 15px;
+  color: var(--accent-color, #667eea);
+  background: var(--bg-hover, #f0f2ff);
+  border: 1px solid var(--border-color, #e8ecf1);
+  padding: 0 5px;
+  border-radius: 8px;
+  white-space: nowrap;
 }
 .rt-msg-content {
   font-size: 13px;

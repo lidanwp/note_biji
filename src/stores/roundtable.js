@@ -3,12 +3,13 @@ import { ref, computed, watch } from 'vue'
 
 // 角色元数据
 // 注意：与 api/_lib/roundtableHandler.js 的 ROLES 是镜像定义
-// 修改 tagline 时必须同步另一处，否则前后端展示不一致
+// 修改 tagline / icon 时必须同步另一处，否则前后端展示不一致
+// icon 为角色头像 SVG 路径（原 emoji 已替换），指向 public/ 下的静态资源
 export const ROLES = [
-  { id: 'advocate',   name: '倡导者',   emoji: '🟢', tagline: '支持观点，找论据' },
-  { id: 'critic',     name: '批判者',   emoji: '🔴', tagline: '挑漏洞，指出风险' },
-  { id: 'researcher', name: '研究专家', emoji: '🔵', tagline: '标注证据强度，报告未知与空白' },
-  { id: 'moderator',  name: '主持人',   emoji: '🟡', tagline: '追问前提，标注未解决分歧' }
+  { id: 'advocate',   name: '倡导者',   icon: '/倡导者.svg',   tagline: '支持观点，找论据' },
+  { id: 'critic',     name: '批判者',   icon: '/反对者.svg',   tagline: '挑漏洞，指出风险' },
+  { id: 'researcher', name: '研究专家', icon: '/资深专家.svg', tagline: '标注证据强度，报告未知与空白' },
+  { id: 'moderator',  name: '主持人',   icon: '/主持人.svg',   tagline: '追问前提，标注未解决分歧' }
 ]
 
 // 可配置常量
@@ -23,7 +24,8 @@ export const useRoundtableStore = defineStore('roundtable', () => {
   const totalRounds = ref(3)
   const currentRound = ref(0)
   const currentRoleIndex = ref(-1) // 当前正在发言的角色索引（-1 表示空闲）
-  const messages = ref([]) // { id, role:'advocate'|'critic'|'researcher'|'moderator'|'user', roleName?, emoji?, content, round, at }
+  const messages = ref([]) // { id, role:'advocate'|'critic'|'researcher'|'moderator'|'user', roleName?, icon?, duty?, content, round, at }
+  // duty：仅主持人消息有值，本轮执行的职责标签（深挖前提/引入缺席者/承接事实校准/前提追问/平衡校准）
   const isRunning = ref(false)
   const error = ref(null)
   // pending 元指令：用户发送的 kind:'meta' 消息暂存于此，作用于下一轮全部 speakOne，轮末自动清除
@@ -100,7 +102,8 @@ export const useRoundtableStore = defineStore('roundtable', () => {
       id: Date.now() + Math.random(),
       role: data.role,
       roleName: data.roleName,
-      emoji: data.emoji,
+      icon: data.icon,          // 角色头像 SVG 路径（后端返回，由 ROLES 镜像定义）
+      duty: data.duty || null,  // 仅主持人有值：本轮执行的职责标签，用于 UI 标记
       content: data.content,
       round: currentRound.value,
       at: new Date().toISOString()
@@ -214,7 +217,10 @@ export const useRoundtableStore = defineStore('roundtable', () => {
         const label = m.kind === 'meta' ? '⚡ 元指令' : '💬 用户插话'
         lines.push(`> **${label}**：${m.content}\n`)
       } else {
-        lines.push(`**${m.emoji} ${m.roleName}**：${m.content}\n`)
+        // 角色头像已由 emoji 换成 SVG，Markdown 导出不再带图标（本地路径在外部编辑器里不可用）
+        // 主持人额外带上本轮职责，便于回看四项职责是否被执行
+        const dutyNote = m.duty ? `（本轮职责：${m.duty}）` : ''
+        lines.push(`**${m.roleName}**${dutyNote}：${m.content}\n`)
       }
     }
     return lines.join('\n')
