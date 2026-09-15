@@ -109,7 +109,7 @@ const TTS_URL = 'https://tsn.baidu.com/text2audio'
 export const TTS_VOICES = {
   advocate:   { per: 4132, spd: 7, pit: 3 }, // 度嫣然 - 活泼男声
   critic:     { per: 4139, spd: 7, pit: 3 }, // 度怀安 - 磁性男声
-  researcher: { per: 4193, spd: 6, pit: 4 }, // 度沁遥 - 知性男声
+  researcher: { per: 4115, spd: 6, pit: 4 }, // 度沁遥 - 知性男声
   moderator:  { per: 4197, spd: 5, pit: 4 }  // 度博文 - 专业男主播
 }
 
