@@ -252,7 +252,8 @@ async function loadNotesMeta(env) {
     return _notesMeta
   }
   const supabaseUrl = env.SUPABASE_URL
-  const supabaseKey = env.SUPABASE_ANON_KEY
+  // 数据库已开启 RLS 且不给 anon 任何策略（见 scripts/007_lock_down_rls.sql），必须用 service_role
+  const supabaseKey = env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseUrl || !supabaseKey) return _notesMeta || []
 
   const select = 'id,title,category,phase,related_notes,key_points,scenario,memory_aids,comparison_table'

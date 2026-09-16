@@ -22,11 +22,12 @@ export default async function handler(req, res) {
   }
 
   const supabaseUrl = process.env.SUPABASE_URL
-  // 写操作用 SERVICE_ROLE_KEY 绕过 RLS（API 层已自行鉴权）
-  const useKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+  // 数据库已开启 RLS 且不给 anon 任何策略（见 scripts/007_lock_down_rls.sql），
+  // 服务端是唯一的数据库客户端，统一用 service_role
+  const useKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !useKey) {
-    return res.status(500).json({ error: 'Supabase 环境变量未配置' })
+    return res.status(500).json({ error: 'Supabase 环境变量未配置（需要 SUPABASE_SERVICE_ROLE_KEY）' })
   }
 
   // 鉴权：需登录才可删除评论

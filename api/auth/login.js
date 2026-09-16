@@ -16,7 +16,12 @@ export default async function handler(req, res) {
   }
 
   const supabaseUrl = process.env.SUPABASE_URL
+  // /auth/v1（GoTrue 网关）必须用 anon key
   const supabaseKey = process.env.SUPABASE_ANON_KEY
+  // /rest/v1 读表必须用 service_role：数据库已开启 RLS 且不给 anon 任何策略
+  // （见 scripts/007_lock_down_rls.sql）。用用户自己的 JWT 查 users 表会被 RLS 过滤成空数组，
+  // 那样 profile 为 null，管理员会被静默降级成 viewer。
+  const supabaseDbKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseKey) {
     return res.status(500).json({ error: '服务器配置错误' })
@@ -65,18 +70,22 @@ export default async function handler(req, res) {
     let profile = null
 
     try {
-      const profileResponse = await fetchWithTimeout(
-        `${supabaseUrl}/rest/v1/users?user_id=eq.${encodeURIComponent(session.user.id)}&select=*`,
-        {
-          headers: {
-            'apikey': supabaseKey,
-            'Authorization': `Bearer ${session.access_token}`
+      if (!supabaseDbKey) {
+        console.error('缺少 SUPABASE_SERVICE_ROLE_KEY，跳过 users 表查询；管理员可能被降级为 viewer')
+      } else {
+        const profileResponse = await fetchWithTimeout(
+          `${supabaseUrl}/rest/v1/users?user_id=eq.${encodeURIComponent(session.user.id)}&select=*`,
+          {
+            headers: {
+              'apikey': supabaseDbKey,
+              'Authorization': `Bearer ${supabaseDbKey}`
+            }
           }
+        )
+        if (profileResponse.ok) {
+          const profiles = await profileResponse.json()
+          profile = profiles.length > 0 ? profiles[0] : null
         }
-      )
-      if (profileResponse.ok) {
-        const profiles = await profileResponse.json()
-        profile = profiles.length > 0 ? profiles[0] : null
       }
     } catch (err) {
       console.error('获取用户扩展信息失败:', err)

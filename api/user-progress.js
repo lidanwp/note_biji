@@ -28,10 +28,12 @@ export default async function handler(req, res) {
 
   const currentUserId = auth.user.id
   const supabaseUrl = process.env.SUPABASE_URL
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+  // 数据库已开启 RLS 且不给 anon 任何策略（见 scripts/007_lock_down_rls.sql），
+  // 服务端是唯一的数据库客户端，统一用 service_role
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !supabaseKey) {
-    return res.status(500).json({ error: 'Supabase 配置不完整' })
+    return res.status(500).json({ error: 'Supabase 配置不完整（需要 SUPABASE_SERVICE_ROLE_KEY）' })
   }
 
   if (req.method === 'GET') {

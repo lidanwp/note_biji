@@ -18,7 +18,8 @@ export function fetchWithTimeout(url, options = {}, timeout = 8000) {
 }
 
 const supabaseUrl = process.env.SUPABASE_URL
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+// /auth/v1（GoTrue）网关用 anon key 即可；/rest/v1 读表另用 service_role，见 getUserProfile
+const supabaseKey = process.env.SUPABASE_ANON_KEY
 
 /**
  * 使用 JWT token 验证用户身份
@@ -55,44 +56,38 @@ export async function verifyJwtToken(token) {
 
 /**
  * 获取用户的扩展信息（从 users 表查询 role 等）
+ *
+ * 注意：必须用 service_role 查询。数据库已开启 RLS 且不给 anon/authenticated 任何策略
+ * （见 scripts/007_lock_down_rls.sql），若改用用户自己的 JWT 查，RLS 会把结果过滤成空数组
+ * （PostgREST 此时返回 200 + []，不会报错），结果是 profile 为 null、
+ * 管理员被静默降级为 viewer —— 这种失败很难排查，所以这里固定用 service_role。
+ *
  * @param {string} userId - auth.users.id
- * @param {string} userToken - 用户的 JWT token（用于 RLS 认证）
- * @returns {Object} - 用户扩展信息
+ * @param {string} [_userToken] - 已废弃，保留参数仅为兼容既有调用方
+ * @returns {Object|null} - 用户扩展信息
  */
-export async function getUserProfile(userId, userToken) {
+export async function getUserProfile(userId, _userToken) {
   if (!userId) return null
 
-  try {
-    // 使用用户自己的 token 查询，避免 RLS 拒绝
-    const authHeader = userToken ? `Bearer ${userToken}` : `Bearer ${supabaseKey}`
+  const dbKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !dbKey) {
+    console.error('getUserProfile: 缺少 SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY，无法查询 users 表')
+    return null
+  }
 
+  try {
     const response = await fetchWithTimeout(
       `${supabaseUrl}/rest/v1/users?user_id=eq.${encodeURIComponent(userId)}&select=id,user_id,display_name,role,created_at`,
       {
         headers: {
-          'apikey': supabaseKey,
-          'Authorization': authHeader
+          'apikey': dbKey,
+          'Authorization': `Bearer ${dbKey}`
         }
       }
     )
 
     if (!response.ok) {
-      // 如果用用户 token 失败，尝试用 service role key（如果有的话）
-      if (process.env.SUPABASE_SERVICE_ROLE_KEY && userToken) {
-        const fallbackRes = await fetchWithTimeout(
-          `${supabaseUrl}/rest/v1/users?user_id=eq.${encodeURIComponent(userId)}&select=id,user_id,display_name,role,created_at`,
-          {
-            headers: {
-              'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY,
-              'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-            }
-          }
-        )
-        if (fallbackRes.ok) {
-          const fallbackData = await fallbackRes.json()
-          return fallbackData.length > 0 ? fallbackData[0] : null
-        }
-      }
+      console.error('查询 users 表失败:', response.status)
       return null
     }
 
