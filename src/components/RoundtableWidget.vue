@@ -252,10 +252,32 @@ const playMessage = async (msg) => {
 }
 
 // 组件卸载（浮窗被销毁）时停止播放，避免残留音频
-onUnmounted(() => stopPlay())
+onUnmounted(() => {
+  stopPlay()
+  syncBodyLock(false)
+})
+
+/* 手机端是全屏面板，打开时锁住背景滚动：否则在面板空白处滑动会把页面滚走，
+ * 关闭面板后视口位置发生跳变。桌面端是浮窗，背景照常可滚，不加锁。
+ * 用 rtBodyLocked 记账，避免误清掉其他弹窗设置的 overflow。 */
+let rtBodyLocked = false
+const syncBodyLock = (isOpen) => {
+  if (typeof window === 'undefined') return
+  const isMobile = window.matchMedia('(max-width: 767px)').matches
+  if (isOpen && isMobile) {
+    document.body.style.overflow = 'hidden'
+    rtBodyLocked = true
+  } else if (rtBodyLocked) {
+    document.body.style.overflow = ''
+    rtBodyLocked = false
+  }
+}
 
 // 面板收起时停止播放：否则关掉面板语音还在后台出声
-watch(() => props.open, (v) => { if (!v) stopPlay() })
+watch(() => props.open, (v) => {
+  if (!v) stopPlay()
+  syncBodyLock(v)
+})
 
 // 消息列表自动滚动到底
 // 同时接管语音：列表被清空（清空记录 / 重新开始）时，停掉正在播放的音频
@@ -301,18 +323,19 @@ const copyMarkdown = async () => {
 
 <style scoped>
 /* ===== 浮窗面板 =====
- * 由 viewer 顶栏的 🎤 按钮触发，固定挂在视口右上角（即按钮正下方）
- * z-index 880：高于页面内容与 header(500)，但低于阅读历史遮罩(900)和详情弹窗(1100)，
- * 保证打开历史/详情时圆桌不会浮在最上层
+ * 由 viewer 顶栏的「圆桌」按钮触发，固定挂在视口右上角（即按钮正下方）
+ * z-index 2000：必须高于百度千帆挂件（.appbuilder-bubbleItem / .appbuilder-bubbleContent 均为 1000，
+ * SDK 内最高就是 1000），否则气泡会压在圆桌上方；同时高于详情弹窗(1100)与历史遮罩(900)。
  */
 .rt-panel {
   position: fixed;
   top: 118px;
   right: 24px;
-  z-index: 880;
+  z-index: 2000;
   width: 380px;
   max-width: calc(100vw - 32px);
-  height: 520px;
+  /* 电脑端固定高度 800px；max-height 兜底：768p 笔记本上不会顶出视口 */
+  height: 800px;
   max-height: calc(100vh - 140px);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   transform-origin: top right;
@@ -661,7 +684,7 @@ const copyMarkdown = async () => {
   flex-shrink: 0;
 }
 
-/* ===== 进出动画（从按钮下方展开/收起） ===== */
+/* ===== 进出动画：桌面端从右上角按钮下方展开/收起 ===== */
 .rt-slide-enter-active,
 .rt-slide-leave-active {
   transition: opacity 0.25s ease, transform 0.25s ease;
@@ -672,17 +695,33 @@ const copyMarkdown = async () => {
   transform: translateY(-12px) scale(0.97);
 }
 
-/* ===== 移动端适配 ===== */
+/* ===== 移动端适配：整屏铺满 =====
+ * 手机上没有多余空间给"浮窗"，直接全屏显示（与百度千帆气泡在全屏时的做法一致）。
+ * dvh 优先：iOS/Android 地址栏收放时不会露出底部空白；vh 作为老浏览器兜底。
+ */
 @media (max-width: 767px) {
   .rt-panel {
-    top: 108px;
-    right: 14px;
-    left: 14px;
-    width: auto;
+    top: 0;
+    right: 0;
+    left: 0;
+    bottom: 0;
+    width: 100%;
     max-width: none;
-    /* 固定高度而非 auto：面板是 flex 列 + 内部 .rt-messages 自适应高度，auto 会让消息区无限撑开 */
-    height: calc(100vh - 124px);
+    height: 100vh;
+    height: 100dvh;
     max-height: none;
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+    /* 全屏从下方整片推入，比"从按钮下方展开"更自然 */
+    transform-origin: center center;
+  }
+
+  /* 全屏面板改走"自下而上"的进出场，避免整屏从右上角缩放带来的错位感 */
+  .rt-slide-enter-from,
+  .rt-slide-leave-to {
+    opacity: 0;
+    transform: translateY(28px);
   }
 }
 </style>

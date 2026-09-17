@@ -26,6 +26,10 @@
         <Teleport to="body">
           <Transition name="menu-fade">
             <div v-if="showUserMenu" class="dropdown-menu" :style="userMenuStyle" ref="dropdownMenuRef">
+              <button @click="openSettings" class="dropdown-item">
+                <span class="item-icon">⚙️</span>
+                <span>阅读设置</span>
+              </button>
               <button @click="openChangePassword" class="dropdown-item">
                 <span class="item-icon">🔐</span>
                 <span>修改密码</span>
@@ -87,14 +91,6 @@
       >
         <span>历史</span>
         <span class="stat-count">{{ historyStore.history.length }}</span>
-      </button>
-       <button
-        @click="showSettings = !showSettings"
-        class="stat-icon-btn"
-        :class="{ active: showSettings }"
-        title="设置"
-      >
-        <span>设置</span>
       </button>
       </div>
     </div>
@@ -1360,6 +1356,12 @@ const openNoteById = (noteId) => {
 const openChangePassword = () => {
   showUserMenu.value = false
   showChangePassword.value = true
+}
+
+/* 阅读设置入口：已从 stats-bar 移入用户菜单下拉，且排在下拉第一项 */
+const openSettings = () => {
+  showUserMenu.value = false
+  showSettings.value = true
 }
 
 const handlePasswordChangeSuccess = () => {
