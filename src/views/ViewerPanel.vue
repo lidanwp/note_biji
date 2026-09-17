@@ -48,12 +48,10 @@
         <span class="stat-val">{{ notesStore.notes.length }}</span>
         <span class="stat-label">笔记</span>
       </span>
-      <span class="stat-dot stat-notes-dot"></span>
       <span class="stat-mini">
         <span class="stat-val">{{ totalViews }}</span>
         <span class="stat-label">浏览</span>
       </span>
-      <span class="stat-dot"></span>
       <span class="stat-mini">
         <span class="stat-val">{{ formatNum(totalCharacters) }}</span>
         <span class="stat-label">字数</span>
@@ -83,7 +81,7 @@
         title="阅读历史"
       >
         <span>历史</span>
-        <span>{{ historyStore.history.length }}</span>
+        <span class="stat-count">{{ historyStore.history.length }}</span>
       </button>
        <button 
         @click="showSettings = !showSettings" 
@@ -1710,12 +1708,14 @@ header {
   gap: 3px;
   font-size: 12px;
   color: #999;
+  cursor: default;
 }
 
 .stat-mini .stat-val {
   font-size: 14px;
   font-weight: 600;
   color: #6366f1;
+  transition: transform 0.2s var(--ease-soft, ease), color 0.2s;
 }
 
 .stat-mini .stat-label {
@@ -1723,13 +1723,27 @@ header {
   color: #999;
 }
 
-.stat-dot {
-  color: #ccc;
-  font-size: 12px;
+/* hover 时单数字放大高亮（替代全局呼吸闪烁） */
+.stat-mini:hover .stat-val {
+  transform: scale(1.15);
+  color: var(--accent-hover, #4f46e5);
 }
 
 .stat-spacer {
   flex: 1;
+  min-width: 16px;
+  position: relative;
+}
+/* 竖线分隔数据区与操作区 */
+.stat-spacer::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 1px;
+  height: 20px;
+  background: var(--border-color, #e5e5e5);
 }
 
 /* 右侧入口按钮：文字标签，不允许换行或压缩（挤不下时靠隐藏「笔记」腾宽度） */
@@ -1739,10 +1753,10 @@ header {
   gap: 4px;
   padding: 4px 10px;
   border-radius: 16px;
-  border: 1px solid #e5e5e5;
+  border: 1px solid var(--border-color, #e5e5e5);
   background: transparent;
   font-size: 12px;
-  color: #666;
+  color: var(--text-muted, #666);
   cursor: pointer;
   transition: all 0.2s;
   white-space: nowrap;
@@ -1751,139 +1765,114 @@ header {
 }
 
 .stat-icon-btn:hover {
-  background: #f5f5f5;
-  border-color: #ccc;
+  background: var(--bg-hover, #f5f5f5);
+  border-color: var(--border-color-hover, #ccc);
 }
 
 .stat-icon-btn.active {
-  background: #6366f1;
+  background: var(--accent-color, #6366f1);
   color: white;
-  border-color: #6366f1;
+  border-color: var(--accent-color, #6366f1);
 }
 
-/* ===== 时光邮局入口（与 stats-bar 一致） ===== */
-.timeletter-btn {
+[data-theme="dark"] .stat-icon-btn {
+  border-color: #444;
+  color: #aaa;
+}
+[data-theme="dark"] .stat-icon-btn:hover {
+  background: #2a2a2a;
+  border-color: #666;
+  color: #ddd;
+}
+[data-theme="dark"] .stat-icon-btn.active {
+  background: #5b62b8;
+  border-color: #5b62b8;
+  color: #fff;
+}
+
+/* ===== 时光邮局入口：尺寸完全交给 .stat-icon-btn（该 a 标签同时挂了两个类），
+     这里只补 a 标签特有的重置。此前单独写 line-height:1 会让它比相邻按钮矮一截 ===== */
+.stats-bar .timeletter-btn {
   text-decoration: none;
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  padding: 4px 10px !important;
-  border: 1px solid #e5e5e5 !important;
-  border-radius: 16px !important;
-  background: transparent !important;
-  color: #666 !important;
-  font-size: 12px !important;
-  line-height: 1 !important;
-  letter-spacing: 0;
-  transition: all 0.2s;
-}
-.timeletter-btn > span {
-  font-size: 12px;
-  line-height: 1;
-  display: inline-block;
-}
-.timeletter-btn:hover {
-  background: #f5f5f5 !important;
-  border-color: #ccc !important;
-  color: #666 !important;
-  transform: none;
-}
-[data-theme="dark"] .timeletter-btn {
-  background: transparent !important;
-  color: #aaa !important;
-  border-color: #444 !important;
-}
-[data-theme="dark"] .timeletter-btn:hover {
-  background: #2a2a2a !important;
-  border-color: #666 !important;
-  color: #ddd !important;
 }
 
-/* ===== AI 圆桌讨论入口（stats-bar 按钮，用强调色与相邻按钮区分） ===== */
+/* ===== AI 圆桌讨论入口（主操作：实色填充，与其他描边按钮区分） ===== */
 .roundtable-btn {
-  color: #6366f1;
-  border-color: #d9dcf8;
+  background: var(--accent-color, #6366f1);
+  color: #fff;
+  border-color: var(--accent-color, #6366f1);
 }
 
 .roundtable-btn:hover {
-  background: #f0f2ff;
-  border-color: #6366f1;
+  background: var(--accent-hover, #4f46e5);
+  border-color: var(--accent-hover, #4f46e5);
 }
 
 .roundtable-btn.active {
-  background: #6366f1;
+  background: var(--accent-hover, #4f46e5);
   color: #fff;
-  border-color: #6366f1;
+  border-color: var(--accent-hover, #4f46e5);
 }
 
 [data-theme="dark"] .roundtable-btn {
-  color: #a5b0f5;
-  border-color: #3a3f6b;
-}
-
-[data-theme="dark"] .roundtable-btn:hover {
-  background: #262a4a;
-  border-color: #5b62b8;
-}
-
-[data-theme="dark"] .roundtable-btn.active {
   background: #5b62b8;
   color: #fff;
   border-color: #5b62b8;
 }
 
-/* 三个统计数字统一做呼吸动效
- * （原来写的是 :nth-child(-n+3)，把两个 .stat-dot 分隔点也算进了计数，
- * 导致「字数」从来没动过；改成按 .stat-mini 匹配，手机端隐藏「笔记」后也保持一致） */
-.stat-mini .stat-val {
-  animation: val-pulse 3.2s ease-in-out infinite;
+[data-theme="dark"] .roundtable-btn:hover,
+[data-theme="dark"] .roundtable-btn.active {
+  background: #6b72c8;
+  border-color: #6b72c8;
 }
 
-@keyframes val-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+/* 历史按钮内的计数徽章 */
+.stat-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-color, #6366f1);
+  background: rgba(99, 102, 241, 0.1);
+  padding: 0 6px;
+  border-radius: 8px;
+  /* 行高对齐按钮标签(1.4)，保证「历史」按钮高度与其他三个按钮一致 */
+  line-height: 1.4;
+  min-width: 16px;
+  text-align: center;
 }
 
-/* ===== 搜索 + 筛选 ===== */
+/* ===== 搜索 + 筛选（整体包成圆角卡片） ===== */
 .filter-wrap {
   margin-bottom: 16px;
   position: relative;
   z-index: 200;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color, #e8ecf1);
+  border-radius: 16px;
+  padding: 4px;
 }
 
 .search-field {
   position: relative;
-  margin-bottom: 8px;
-}
-
-.filter-wrap::after {
-  content: "";
-  display: block;
-  height: 1px;
-  background: #f0f0f0;
-  margin: 4px 0 0;
+  margin-bottom: 0;
 }
 
 .search-input {
   width: 100%;
   padding: 12px 16px;
   border: 1.5px solid transparent;
-  border-radius: 24px;
+  border-radius: 12px;
   font-size: 14px;
   box-sizing: border-box;
   transition: all 0.25s var(--ease-soft);
-  background: var(--bg-secondary);
+  background: var(--bg-primary);
   color: var(--text-primary);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
 }
 
 .search-input:focus {
   border-color: rgba(99, 102, 241, 0.5);
   outline: none;
   background: var(--bg-primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
 }
 
 .filter-row {
@@ -1891,50 +1880,27 @@ header {
   align-items: center;
   gap: 8px;
   position: relative;
+  padding: 0 4px 4px;
 }
 
-.filter-row::before,
-.filter-row::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 20px;
-  pointer-events: none;
-  z-index: 220;
-}
-
-.filter-row::before {
-  left: -4px;
-  background: linear-gradient(to right, var(--bg-primary), transparent);
-}
-
-.filter-row::after {
-  right: -4px;
-  background: linear-gradient(to left, var(--bg-primary), transparent);
-}
+/* 渐变遮罩已移除：内容不溢出时无用，且色差会暴露 */
 
 .filter-row .filter-cs {
   flex: 1;
   min-width: 0;
   position: relative;
   z-index: 210;
-  border-radius: 10px;
-  transition: transform .3s var(--ease-out-quint),
-              box-shadow .3s var(--ease-soft),
-              margin-left .3s var(--ease-soft);
+  border-radius: 12px;
+  transition: box-shadow .2s var(--ease-soft),
+              border-color .2s var(--ease-soft);
 }
 
-.filter-row:hover .filter-cs { margin-left: 4px; }
-.filter-row .filter-cs:first-child { margin-left: 0; }
 .filter-cs:hover {
-  transform: translateY(-3px) scale(1.01);
-  box-shadow: 0 3px 10px var(--ink-violet);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.12);
 }
 
 .filter-cs.is-active {
-  box-shadow: 0 0 0 2px var(--accent-color),
-              0 0 16px var(--ink-violet);
+  box-shadow: 0 0 0 2px var(--accent-color);
 }
 
 .exam-toggle {
@@ -1944,8 +1910,8 @@ header {
   flex-shrink: 0;
   padding: 4px 10px 4px 4px;
   background: var(--accent-light);
-  border-radius: 24px;
-  border: 2px solid var(--border-color);
+  border-radius: 16px;
+  border: 1.5px solid var(--border-color);
 }
 
 .switch {
@@ -3313,7 +3279,6 @@ header {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .stat-mini:nth-child(-n+3) .stat-val,
   .search-field:hover::after,
   .search-field:focus-within::after,
   .scroll-knob.burst,
@@ -3355,8 +3320,7 @@ header {
     display: none;
   }
 
-  .stat-notes,
-  .stat-notes-dot {
+  .stat-notes {
     display: none;
   }
 
@@ -3372,16 +3336,6 @@ header {
     padding: 3px 7px;
     font-size: 11px;
     gap: 3px;
-  }
-
-  /* 时光邮局入口的基础样式带 !important，这里必须同样用 !important 覆盖，否则会比相邻按钮大一圈 */
-  .timeletter-btn {
-    padding: 3px 7px !important;
-  }
-
-  .timeletter-btn,
-  .timeletter-btn > span {
-    font-size: 11px !important;
   }
 
   .header-ticker {
