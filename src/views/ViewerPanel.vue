@@ -45,8 +45,7 @@
     </header>
 
     <!-- ===== 统计徽章 =====
-         右侧四个入口一律用文字：图标（emoji）在手机端既占宽又不易辨认
-         「笔记」计数带 stat-notes 类，手机端隐藏以腾出一行宽度（见文件末尾媒体查询） -->
+         右侧入口用文字：图标（emoji）在手机端既占宽又不易辨认 -->
     <div class="stats-bar">
       <!-- 左组：统计数字（浏览 / 字数；「笔记」计数手机端隐藏） -->
       <div class="stats-data">
@@ -1719,11 +1718,17 @@ header {
   min-width: 0;
 }
 
-/* 右组：功能入口按钮。整组不拆散，放不下时随 .stats-bar 换行 */
+/* 右组：功能入口。三段一体的分段控件——共享一个胶囊外框 + 内部竖线分隔，
+ * 各段自身不再带边框/圆角；圆桌段保持强调色实色（相当于选中段）。
+ * 整组不拆散，放不下时随 .stats-bar 换行。 */
 .stats-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: inline-flex;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid var(--border-color, #e5e5e5);
+  border-radius: 999px;
+  background: var(--bg-secondary, #fff);
+  overflow: hidden;
   flex-shrink: 0;
 }
 
@@ -1775,42 +1780,47 @@ header {
   background: var(--border-color, #e5e5e5);
 }
 
-/* 右侧入口按钮：文字标签，不允许换行或压缩（挤不下时靠隐藏「笔记」腾宽度） */
+/* 分段控件内的一段：边框/圆角交给外层胶囊，自身透明融入整体 */
 .stat-icon-btn {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 10px;
-  border-radius: 16px;
-  border: 1px solid var(--border-color, #e5e5e5);
+  padding: 5px 12px;
+  border: none;
+  border-radius: 0;
   background: transparent;
   font-size: 12px;
   color: var(--text-muted, #666);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, color 0.2s;
   white-space: nowrap;
   flex-shrink: 0;
   line-height: 1.4;
 }
 
+/* 段与段之间的竖线分隔（timeletter-btn 是 <a>，相邻选择器同样生效） */
+.stat-icon-btn + .stat-icon-btn {
+  border-left: 1px solid var(--border-color, #e5e5e5);
+}
+
 .stat-icon-btn:hover {
-  background: var(--bg-hover, #f5f5f5);
-  border-color: var(--border-color-hover, #ccc);
+  background: var(--bg-hover, #f0f2ff);
+  color: var(--text-primary, #333);
 }
 
 .stat-icon-btn.active {
   background: var(--accent-color, #6366f1);
   color: white;
-  border-color: var(--accent-color, #6366f1);
 }
 
 [data-theme="dark"] .stat-icon-btn {
-  border-color: #444;
   color: #aaa;
 }
+[data-theme="dark"] .stat-icon-btn + .stat-icon-btn {
+  border-left-color: #2a2a42;
+}
 [data-theme="dark"] .stat-icon-btn:hover {
-  background: #2a2a2a;
-  border-color: #666;
+  background: #2a2a42;
   color: #ddd;
 }
 [data-theme="dark"] .stat-icon-btn.active {
@@ -1825,34 +1835,29 @@ header {
   text-decoration: none;
 }
 
-/* ===== AI 圆桌讨论入口（主操作：实色填充，与其他描边按钮区分） ===== */
+/* ===== AI 圆桌讨论入口：分段控件里的强调色实色段（相当于选中段） ===== */
 .roundtable-btn {
   background: var(--accent-color, #6366f1);
   color: #fff;
-  border-color: var(--accent-color, #6366f1);
 }
 
 .roundtable-btn:hover {
   background: var(--accent-hover, #4f46e5);
-  border-color: var(--accent-hover, #4f46e5);
 }
 
 .roundtable-btn.active {
   background: var(--accent-hover, #4f46e5);
   color: #fff;
-  border-color: var(--accent-hover, #4f46e5);
 }
 
 [data-theme="dark"] .roundtable-btn {
   background: #5b62b8;
   color: #fff;
-  border-color: #5b62b8;
 }
 
 [data-theme="dark"] .roundtable-btn:hover,
 [data-theme="dark"] .roundtable-btn.active {
   background: #6b72c8;
-  border-color: #6b72c8;
 }
 
 /* 历史按钮内的计数徽章 */
@@ -3334,16 +3339,12 @@ header {
     font-size: 15px;
   }
 
-  /* 手机端一行放不下「统计 + 四个入口」时：
-   * stats-data（浏览/字数）独占第一行，stats-actions（圆桌/邮局/历史/设置）
+  /* 手机端一行放不下「统计 + 入口组」时：
+   * stats-data（笔记/浏览/字数）独占第一行，stats-actions（圆桌/邮局/历史）
    * 整组换到第二行右对齐 —— 各组内部都不拆散、不竖排断行。 */
   .stats-bar {
     flex-wrap: wrap;
     row-gap: 8px;
-  }
-
-  .stat-notes {
-    display: none;
   }
 
   /* 换行布局下统计独占一行，尾部竖线分隔符悬空，隐藏 */
@@ -3360,7 +3361,7 @@ header {
   }
 
   .stat-icon-btn {
-    padding: 3px 7px;
+    padding: 4px 10px;
     font-size: 11px;
     gap: 3px;
   }

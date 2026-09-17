@@ -201,7 +201,10 @@ export const useRoundtableStore = defineStore('roundtable', () => {
   }
 
   const setTopic = (t) => { topic.value = t }
-  const setRounds = (n) => { totalRounds.value = Math.max(1, Math.min(10, Number(n) || 3)) }
+  // 轮数范围 1–5，默认 3；UI 用 +/- 步进器调整，不提供手动输入
+  const MIN_ROUNDS = 1
+  const MAX_ROUNDS = 5
+  const setRounds = (n) => { totalRounds.value = Math.max(MIN_ROUNDS, Math.min(MAX_ROUNDS, Number(n) || 3)) }
 
   // ===== 导出 Markdown =====
   const exportMarkdown = () => {
@@ -256,6 +259,7 @@ export const useRoundtableStore = defineStore('roundtable', () => {
     // computed
     totalSteps, currentStep, progress, currentRoleName,
     // actions
-    start, stop, clear, interrupt, setTopic, setRounds, exportMarkdown
+    start, stop, clear, interrupt, setTopic, setRounds, exportMarkdown,
+    MIN_ROUNDS, MAX_ROUNDS
   }
 })

@@ -30,17 +30,27 @@
             rows="2"
           ></textarea>
           <div class="rt-controls">
-            <label class="rt-rounds-label">
-              轮数
-              <input
-                type="number"
-                min="1"
-                max="10"
-                :value="store.totalRounds"
-                @input="store.setRounds($event.target.value)"
-                class="rt-rounds-input"
-              />
-            </label>
+            <div class="rt-rounds">
+              <span class="rt-rounds-label">轮数</span>
+              <!-- 步进器：不提供手动输入，只在 1–5 之间加减 -->
+              <div class="rt-rounds-stepper">
+                <button
+                  class="rt-step-btn"
+                  :disabled="store.totalRounds <= store.MIN_ROUNDS"
+                  @click="changeRounds(-1)"
+                  title="减少一轮"
+                  aria-label="减少一轮"
+                >−</button>
+                <span class="rt-rounds-value" :title="`共 ${store.totalRounds} 轮`">{{ store.totalRounds }}</span>
+                <button
+                  class="rt-step-btn"
+                  :disabled="store.totalRounds >= store.MAX_ROUNDS"
+                  @click="changeRounds(1)"
+                  title="增加一轮"
+                  aria-label="增加一轮"
+                >＋</button>
+              </div>
+            </div>
             <button
               class="rt-btn rt-btn-primary"
               :disabled="!topicModel.trim()"
@@ -179,6 +189,9 @@ const topicModel = computed({
   get: () => store.topic,
   set: (v) => store.setTopic(v)
 })
+
+// 轮数步进：只走 +/-，范围由 store 的 MIN_ROUNDS / MAX_ROUNDS（1–5）钳制
+const changeRounds = (delta) => store.setRounds(store.totalRounds + delta)
 
 const messages = computed(() => store.messages)
 
@@ -407,21 +420,56 @@ const copyMarkdown = async () => {
   gap: 8px;
   margin-top: 8px;
 }
+/* 轮数步进器：− 数值 ＋ 三段一体，无手动输入 */
+.rt-rounds {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
 .rt-rounds-label {
   font-size: 12px;
   color: var(--text-muted, #888);
-  display: flex;
-  align-items: center;
-  gap: 4px;
 }
-.rt-rounds-input {
-  width: 48px;
+.rt-rounds-stepper {
+  display: inline-flex;
+  align-items: stretch;
+  height: 28px;
   border: 1px solid var(--border-color, #e8ecf1);
-  border-radius: 6px;
-  padding: 4px 6px;
-  font-size: 12px;
+  border-radius: 8px;
+  overflow: hidden;
   background: var(--bg-input, #fff);
+}
+.rt-step-btn {
+  width: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #555);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.rt-step-btn:hover:not(:disabled) {
+  background: var(--bg-hover, #f0f2ff);
+  color: var(--accent-color, #667eea);
+}
+.rt-step-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.rt-rounds-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  padding: 0 4px;
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-primary, #1a1a2e);
+  border-left: 1px solid var(--border-color, #e8ecf1);
+  border-right: 1px solid var(--border-color, #e8ecf1);
+  user-select: none;
 }
 
 .rt-btn {
