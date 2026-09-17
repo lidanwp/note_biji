@@ -40,13 +40,15 @@
       </div>
     </header>
 
-    <!-- ===== 统计徽章 ===== -->
+    <!-- ===== 统计徽章 =====
+         右侧四个入口一律用文字：图标（emoji）在手机端既占宽又不易辨认
+         「笔记」计数带 stat-notes 类，手机端隐藏以腾出一行宽度（见文件末尾媒体查询） -->
     <div class="stats-bar">
-      <span class="stat-mini">
+      <span class="stat-mini stat-notes">
         <span class="stat-val">{{ notesStore.notes.length }}</span>
         <span class="stat-label">笔记</span>
       </span>
-      <span class="stat-dot"></span>
+      <span class="stat-dot stat-notes-dot"></span>
       <span class="stat-mini">
         <span class="stat-val">{{ totalViews }}</span>
         <span class="stat-label">浏览</span>
@@ -63,7 +65,7 @@
         :class="{ active: showRoundtable }"
         title="AI 圆桌讨论"
       >
-        <span>🎤</span>
+        <span>圆桌</span>
       </button>
        <a
         href="/tools/timeletter"
@@ -72,22 +74,24 @@
         class="stat-icon-btn timeletter-btn"
         title="时光邮局 · 致未来的自己"
       >
-        <span>✉️</span>
+        <span>邮局</span>
       </a>
        <button 
         @click="showHistoryPanel = !showHistoryPanel" 
         class="stat-icon-btn"
         :class="{ active: showHistoryPanel }"
+        title="阅读历史"
       >
-        <span>📜</span>
+        <span>历史</span>
         <span>{{ historyStore.history.length }}</span>
       </button>
        <button 
         @click="showSettings = !showSettings" 
         class="stat-icon-btn"
         :class="{ active: showSettings }"
+        title="设置"
       >
-        <span>⚙️</span>
+        <span>设置</span>
       </button>
     </div>
     <!-- 设置面板 -->
@@ -1728,6 +1732,7 @@ header {
   flex: 1;
 }
 
+/* 右侧入口按钮：文字标签，不允许换行或压缩（挤不下时靠隐藏「笔记」腾宽度） */
 .stat-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -1740,6 +1745,9 @@ header {
   color: #666;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1.4;
 }
 
 .stat-icon-btn:hover {
@@ -1826,7 +1834,10 @@ header {
   border-color: #5b62b8;
 }
 
-.stat-mini:nth-child(-n+3) .stat-val {
+/* 三个统计数字统一做呼吸动效
+ * （原来写的是 :nth-child(-n+3)，把两个 .stat-dot 分隔点也算进了计数，
+ * 导致「字数」从来没动过；改成按 .stat-mini 匹配，手机端隐藏「笔记」后也保持一致） */
+.stat-mini .stat-val {
   animation: val-pulse 3.2s ease-in-out infinite;
 }
 
@@ -3329,18 +3340,48 @@ header {
     font-size: 15px;
   }
 
+  /* 手机端一行放不下「三项统计 + 四个文字入口」：
+   * 隐藏「笔记」计数及其分隔点（浏览 / 字数保留），并收紧按钮内距，保证不折行。
+   * overflow-x 只是极窄屏（<360px）的兜底：宁可轻微横滑，也不要撑破布局。 */
   .stats-bar {
-    gap: 6px;
+    gap: 5px;
     margin-bottom: 12px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .stats-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .stat-notes,
+  .stat-notes-dot {
+    display: none;
   }
 
   .stat-mini .stat-val {
     font-size: 13px;
   }
 
-  .stat-icon-btn {
-    padding: 3px 8px;
+  .stat-mini .stat-label {
     font-size: 11px;
+  }
+
+  .stat-icon-btn {
+    padding: 3px 7px;
+    font-size: 11px;
+    gap: 3px;
+  }
+
+  /* 时光邮局入口的基础样式带 !important，这里必须同样用 !important 覆盖，否则会比相邻按钮大一圈 */
+  .timeletter-btn {
+    padding: 3px 7px !important;
+  }
+
+  .timeletter-btn,
+  .timeletter-btn > span {
+    font-size: 11px !important;
   }
 
   .header-ticker {
