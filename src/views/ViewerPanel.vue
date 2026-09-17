@@ -44,19 +44,24 @@
          右侧四个入口一律用文字：图标（emoji）在手机端既占宽又不易辨认
          「笔记」计数带 stat-notes 类，手机端隐藏以腾出一行宽度（见文件末尾媒体查询） -->
     <div class="stats-bar">
-      <span class="stat-mini stat-notes">
-        <span class="stat-val">{{ notesStore.notes.length }}</span>
-        <span class="stat-label">笔记</span>
-      </span>
-      <span class="stat-mini">
-        <span class="stat-val">{{ totalViews }}</span>
-        <span class="stat-label">浏览</span>
-      </span>
-      <span class="stat-mini">
-        <span class="stat-val">{{ formatNum(totalCharacters) }}</span>
-        <span class="stat-label">字数</span>
-      </span>
-      <span class="stat-spacer"></span>
+      <!-- 左组：统计数字（浏览 / 字数；「笔记」计数手机端隐藏） -->
+      <div class="stats-data">
+        <span class="stat-mini stat-notes">
+          <span class="stat-val">{{ notesStore.notes.length }}</span>
+          <span class="stat-label">笔记</span>
+        </span>
+        <span class="stat-mini">
+          <span class="stat-val">{{ totalViews }}</span>
+          <span class="stat-label">浏览</span>
+        </span>
+        <span class="stat-mini">
+          <span class="stat-val">{{ formatNum(totalCharacters) }}</span>
+          <span class="stat-label">字数</span>
+        </span>
+        <span class="stat-spacer"></span>
+      </div>
+      <!-- 右组：功能入口（手机端放不下时整组换行，不挤压统计文字） -->
+      <div class="stats-actions">
        <button
         @click="showRoundtable = !showRoundtable"
         class="stat-icon-btn roundtable-btn"
@@ -83,14 +88,15 @@
         <span>历史</span>
         <span class="stat-count">{{ historyStore.history.length }}</span>
       </button>
-       <button 
-        @click="showSettings = !showSettings" 
+       <button
+        @click="showSettings = !showSettings"
         class="stat-icon-btn"
         :class="{ active: showSettings }"
         title="设置"
       >
         <span>设置</span>
       </button>
+      </div>
     </div>
     <!-- 设置面板 -->
     <SettingsPanel 
@@ -1702,6 +1708,23 @@ header {
   margin-bottom: 12px;
 }
 
+/* 左组：统计数字。flex:1 把右侧入口推到行尾（内部 spacer 画竖线分隔） */
+.stats-data {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* 右组：功能入口按钮。整组不拆散，放不下时随 .stats-bar 换行 */
+.stats-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .stat-mini {
   display: inline-flex;
   align-items: baseline;
@@ -1709,6 +1732,10 @@ header {
   font-size: 12px;
   color: #999;
   cursor: default;
+  /* 关键：数字与单位（如 2722 浏览 / 8.3W 字数）不许内部断行，
+     否则手机端被挤压时会变成「浏/览」竖排 */
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .stat-mini .stat-val {
@@ -3305,22 +3332,20 @@ header {
     font-size: 15px;
   }
 
-  /* 手机端一行放不下「三项统计 + 四个文字入口」：
-   * 隐藏「笔记」计数及其分隔点（浏览 / 字数保留），并收紧按钮内距，保证不折行。
-   * overflow-x 只是极窄屏（<360px）的兜底：宁可轻微横滑，也不要撑破布局。 */
+  /* 手机端一行放不下「统计 + 四个入口」时：
+   * stats-data（浏览/字数）独占第一行，stats-actions（圆桌/邮局/历史/设置）
+   * 整组换到第二行右对齐 —— 各组内部都不拆散、不竖排断行。 */
   .stats-bar {
-    gap: 5px;
-    margin-bottom: 12px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-
-  .stats-bar::-webkit-scrollbar {
-    display: none;
+    flex-wrap: wrap;
+    row-gap: 8px;
   }
 
   .stat-notes {
+    display: none;
+  }
+
+  /* 换行布局下统计独占一行，尾部竖线分隔符悬空，隐藏 */
+  .stat-spacer {
     display: none;
   }
 
