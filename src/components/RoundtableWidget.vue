@@ -1,18 +1,8 @@
 <template>
-  <div class="roundtable-widget">
-    <!-- ===== 触发按钮（右下角圆形 FAB） ===== -->
-    <button
-      v-if="!isOpen"
-      class="rt-fab"
-      @click="isOpen = true"
-      title="AI 圆桌讨论"
-    >
-      <span>🎤</span>
-    </button>
-
-    <!-- ===== 浮窗面板 ===== -->
+  <!-- 面板 teleport 到 body，显隐由父级按钮控制：<RoundtableWidget v-model:open="showRoundtable" /> -->
+  <teleport to="body">
     <transition name="rt-slide">
-      <div v-if="isOpen" class="rt-panel">
+      <div v-if="open" class="rt-panel">
         <!-- Header -->
         <div class="rt-header">
           <div class="rt-title">
@@ -27,9 +17,7 @@
             >
               📋
             </button>
-            <button class="rt-icon-btn" @click="isOpen = false" title="收起">
-              ▭
-            </button>
+            <button class="rt-icon-btn" @click="close" title="收起">✕</button>
           </div>
         </div>
 
@@ -154,7 +142,7 @@
         </div>
       </div>
     </transition>
-  </div>
+  </teleport>
 </template>
 
 <script setup>
@@ -168,7 +156,20 @@ const store = useRoundtableStore()
 const ROLE_ICONS = Object.fromEntries(ROLES.map(r => [r.id, r.icon]))
 const iconOf = (msg) => msg.icon || ROLE_ICONS[msg.role] || ''
 
-const isOpen = ref(false)
+// 面板显隐由父级（viewer 顶栏 🎤 按钮）控制
+// 用法：<RoundtableWidget v-model:open="showRoundtable" />
+const props = defineProps({
+  open: { type: Boolean, default: false }
+})
+const emit = defineEmits(['update:open'])
+
+// 内部仍用 isOpen 读写：写回即 emit('update:open')，保持单向下传 + 向上通知
+const isOpen = computed({
+  get: () => props.open,
+  set: (v) => emit('update:open', v)
+})
+const close = () => { isOpen.value = false }
+
 const messagesRef = ref(null)
 const interruptText = ref('')
 const interruptKind = ref('comment') // 'comment' | 'meta'
@@ -253,6 +254,9 @@ const playMessage = async (msg) => {
 // 组件卸载（浮窗被销毁）时停止播放，避免残留音频
 onUnmounted(() => stopPlay())
 
+// 面板收起时停止播放：否则关掉面板语音还在后台出声
+watch(() => props.open, (v) => { if (!v) stopPlay() })
+
 // 消息列表自动滚动到底
 // 同时接管语音：列表被清空（清空记录 / 重新开始）时，停掉正在播放的音频
 watch(() => messages.value.length, async (len) => {
@@ -296,41 +300,22 @@ const copyMarkdown = async () => {
 </script>
 
 <style scoped>
-.roundtable-widget {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 1500;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-}
-
-/* ===== FAB 触发按钮 ===== */
-.rt-fab {
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: none;
-  background: var(--accent-color, #667eea);
-  color: #fff;
-  font-size: 24px;
-  cursor: pointer;
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-  transition: transform 0.2s, box-shadow 0.2s;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.rt-fab:hover {
-  transform: scale(1.08);
-  box-shadow: 0 8px 28px rgba(102, 126, 234, 0.5);
-}
-
-/* ===== 浮窗面板 ===== */
+/* ===== 浮窗面板 =====
+ * 由 viewer 顶栏的 🎤 按钮触发，固定挂在视口右上角（即按钮正下方）
+ * z-index 880：高于页面内容与 header(500)，但低于阅读历史遮罩(900)和详情弹窗(1100)，
+ * 保证打开历史/详情时圆桌不会浮在最上层
+ */
 .rt-panel {
+  position: fixed;
+  top: 118px;
+  right: 24px;
+  z-index: 880;
   width: 380px;
   max-width: calc(100vw - 32px);
   height: 520px;
-  max-height: calc(100vh - 48px);
+  max-height: calc(100vh - 140px);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  transform-origin: top right;
   background: var(--bg-card, #fff);
   border: 1px solid var(--border-color, #e8ecf1);
   border-radius: 16px;
@@ -676,7 +661,7 @@ const copyMarkdown = async () => {
   flex-shrink: 0;
 }
 
-/* ===== 进出动画 ===== */
+/* ===== 进出动画（从按钮下方展开/收起） ===== */
 .rt-slide-enter-active,
 .rt-slide-leave-active {
   transition: opacity 0.25s ease, transform 0.25s ease;
@@ -684,23 +669,20 @@ const copyMarkdown = async () => {
 .rt-slide-enter-from,
 .rt-slide-leave-to {
   opacity: 0;
-  transform: translateY(20px) scale(0.96);
+  transform: translateY(-12px) scale(0.97);
 }
 
 /* ===== 移动端适配 ===== */
-@media (max-width: 480px) {
-  .roundtable-widget {
-    bottom: 12px;
-    right: 12px;
-    left: 12px;
-  }
-  .rt-fab {
-    margin-left: auto;
-    display: flex;
-  }
+@media (max-width: 767px) {
   .rt-panel {
-    width: 100%;
-    height: calc(100vh - 80px);
+    top: 108px;
+    right: 14px;
+    left: 14px;
+    width: auto;
+    max-width: none;
+    /* 固定高度而非 auto：面板是 flex 列 + 内部 .rt-messages 自适应高度，auto 会让消息区无限撑开 */
+    height: calc(100vh - 124px);
+    max-height: none;
   }
 }
 </style>

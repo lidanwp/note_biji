@@ -57,6 +57,14 @@
         <span class="stat-label">字数</span>
       </span>
       <span class="stat-spacer"></span>
+       <button
+        @click="showRoundtable = !showRoundtable"
+        class="stat-icon-btn roundtable-btn"
+        :class="{ active: showRoundtable }"
+        title="AI 圆桌讨论"
+      >
+        <span>🎤</span>
+      </button>
        <a
         href="/tools/timeletter"
         target="_blank"
@@ -96,6 +104,8 @@
         />
       </div>
     </teleport>
+    <!-- ===== AI 圆桌讨论（stats-bar 的 🎤 按钮控制显隐；面板自身 teleport 到 body） ===== -->
+    <RoundtableWidget v-model:open="showRoundtable" />
     <!-- ===== 搜索 + 筛选行 ===== -->
     <div class="filter-wrap">
       <div class="search-field">
@@ -474,9 +484,11 @@ import CommentSection from '../components/CommentSection.vue'
 import AudioPlayer from '../components/AudioPlayer.vue'
 import { toastSuccess, toastError, toastInfo, toastWarning } from '../utils/toast'
 import ChangePasswordModal from '../components/ChangePasswordModal.vue'
+import RoundtableWidget from '../components/RoundtableWidget.vue'
 
 const showSettings = ref(false)
 const showHistoryPanel = ref(false)
+const showRoundtable = ref(false)
 const router = useRouter()
 const route = useRoute()
 const authStore = useAuthStore()
@@ -1779,6 +1791,39 @@ header {
   background: #2a2a2a !important;
   border-color: #666 !important;
   color: #ddd !important;
+}
+
+/* ===== AI 圆桌讨论入口（stats-bar 按钮，用强调色与相邻按钮区分） ===== */
+.roundtable-btn {
+  color: #6366f1;
+  border-color: #d9dcf8;
+}
+
+.roundtable-btn:hover {
+  background: #f0f2ff;
+  border-color: #6366f1;
+}
+
+.roundtable-btn.active {
+  background: #6366f1;
+  color: #fff;
+  border-color: #6366f1;
+}
+
+[data-theme="dark"] .roundtable-btn {
+  color: #a5b0f5;
+  border-color: #3a3f6b;
+}
+
+[data-theme="dark"] .roundtable-btn:hover {
+  background: #262a4a;
+  border-color: #5b62b8;
+}
+
+[data-theme="dark"] .roundtable-btn.active {
+  background: #5b62b8;
+  color: #fff;
+  border-color: #5b62b8;
 }
 
 .stat-mini:nth-child(-n+3) .stat-val {
