@@ -1835,28 +1835,22 @@ header {
   text-decoration: none;
 }
 
-/* ===== AI 圆桌讨论入口：分段控件里的强调色实色段（相当于选中段） ===== */
-.roundtable-btn {
+/* ===== AI 圆桌讨论入口：平时与普通段完全一致，仅面板打开时（.active）用强调色实色标识 ===== */
+.roundtable-btn.active {
   background: var(--accent-color, #6366f1);
   color: #fff;
 }
 
-.roundtable-btn:hover {
+.roundtable-btn.active:hover {
   background: var(--accent-hover, #4f46e5);
 }
 
-.roundtable-btn.active {
-  background: var(--accent-hover, #4f46e5);
-  color: #fff;
-}
-
-[data-theme="dark"] .roundtable-btn {
+[data-theme="dark"] .roundtable-btn.active {
   background: #5b62b8;
   color: #fff;
 }
 
-[data-theme="dark"] .roundtable-btn:hover,
-[data-theme="dark"] .roundtable-btn.active {
+[data-theme="dark"] .roundtable-btn.active:hover {
   background: #6b72c8;
 }
 
