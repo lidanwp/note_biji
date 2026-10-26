@@ -13,7 +13,9 @@
 // ============================================================================
 
 const BASE_URL = 'https://qianfan.baidubce.com/v2'
-const DEFAULT_MODEL = 'deepseek-v3.2'
+// 2026-10-26：deepseek-v3.2 在千帆侧已不可用（401 invalid_model，实测），
+// 默认模型切换为实测可用的 glm-5.2（同一套 key，批判者角色此前已在用）
+const DEFAULT_MODEL = 'glm-5.2'
 
 /**
  * 调用 LLM 生成回复
@@ -22,7 +24,7 @@ const DEFAULT_MODEL = 'deepseek-v3.2'
  * @param {number} [opts.temperature=0.85] - 温度
  * @param {number} [opts.maxTokens=1500] - 最大生成 token
  * @param {number} [opts.timeout=15000] - 超时毫秒
- * @param {string} [opts.model] - 模型名，默认 deepseek-v3.2
+ * @param {string} [opts.model] - 模型名，默认 glm-5.2
  * @param {boolean} [opts.disableThinking=false] - 是否下发 thinking:{type:'disabled'} 关闭深度思考
  *        （GLM 系列支持；为 true 才拼进请求体，避免给不支持该字段的模型带未知参数）
  * @returns {Promise<string>} - 纯文本回复
@@ -62,7 +64,11 @@ export async function callLLM({ messages, temperature = 0.85, maxTokens = 1500, 
       // 区分常见状态码，便于前端给出可操作的提示
       const status = res.status
       let msg = `LLM 请求失败 ${status}`
-      if (status === 401) msg = '千帆 API Key 无效或已过期（401）'
+      // 注意：千帆的 401/403 可能是「模型名无效或无权限」（invalid_model），不一定是 Key 问题。
+      // 千帆模型名是易变资源，报错先怀疑模型，再看 Key（2026-10-26 deepseek-v3.2 即此坑）
+      if (errText.includes('invalid_model')) {
+        msg = '千帆模型不可用（模型名无效或当前 Key 无权限访问该模型）'
+      } else if (status === 401) msg = '千帆 API Key 无效或已过期（401）'
       else if (status === 403) msg = '千帆 API Key 无权限访问该模型（403）'
       else if (status === 429) msg = '千帆请求频率超限，请稍后重试（429）'
       else if (status >= 500) msg = `千帆服务端错误（${status}）`

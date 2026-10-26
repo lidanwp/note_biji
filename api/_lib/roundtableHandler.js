@@ -24,21 +24,23 @@ import { callLLM } from './llmClient.js'
 //   - 中文文件名在浏览器请求时会自动 URL 编码，与项目内 /书本.svg 的用法一致
 //
 // model 字段（可选）：指定该角色使用的千帆模型接入点 ID
-//   - 不写 -> 走 llmClient 的默认模型（DEFAULT_MODEL，deepseek-v3.2）
+//   - 不写 -> 走 llmClient 的默认模型（DEFAULT_MODEL，glm-5.2）
 //   - 写了 -> 透传给 callLLM，用指定模型
-// 本轮仅 critic 指定为 glm-5.2（千帆同一套调用逻辑，无需新增 key / 鉴权 / 厂商路由）
+// 2026-10-26：deepseek-v3.2 在千帆侧 401 invalid_model（实测），全部角色统一切到 glm-5.2，
+// 不再区分角色模型；后续如需给单个角色换模型，恢复 model 字段即可
 //
 // timeout 字段（可选，毫秒）：覆盖 handleRoundtable 的默认超时（8000ms）
 //   - 不写 -> 8 秒
-//   - 写了 -> 用该值。glm-5.2 虽已禁用思考，首次响应仍留缓冲，故 critic 保持 30 秒
+//   - 写了 -> 用该值。GLM 首次响应留缓冲，各角色统一 30 秒
 //
 // disableThinking 字段（可选）：为 true 时透传给 callLLM，请求体加 thinking:{type:'disabled'}
-//   - GLM-5.3 强制思考无法关闭，会把推理草稿吐进正文，故换成可关闭思考的 GLM-5.2
+//   - 全部角色均为 true：GLM 系列支持关闭思考；GLM-5.3 强制思考无法关闭，勿回退到 5.3
+//   - 不关思考会把推理草稿吐进正文/拖慢响应，导致 8 秒超时
 export const ROLES = [
-  { id: 'advocate',   name: '倡导者',   icon: '/倡导者.svg',   tagline: '支持观点，找论据' },
-  { id: 'critic',     name: '批判者',   icon: '/反对者.svg',   tagline: '挑漏洞，指出风险', model: 'glm-5.2', timeout: 30000, disableThinking: true },
-  { id: 'researcher', name: '研究专家', icon: '/资深专家.svg', tagline: '标注证据强度，报告未知与空白' },
-  { id: 'moderator',  name: '主持人',   icon: '/主持人.svg',   tagline: '追问前提，标注未解决分歧' }
+  { id: 'advocate',   name: '倡导者',   icon: '/倡导者.svg',   tagline: '支持观点，找论据', timeout: 30000, disableThinking: true },
+  { id: 'critic',     name: '批判者',   icon: '/反对者.svg',   tagline: '挑漏洞，指出风险', timeout: 30000, disableThinking: true },
+  { id: 'researcher', name: '研究专家', icon: '/资深专家.svg', tagline: '标注证据强度，报告未知与空白', timeout: 30000, disableThinking: true },
+  { id: 'moderator',  name: '主持人',   icon: '/主持人.svg',   tagline: '追问前提，标注未解决分歧', timeout: 30000, disableThinking: true }
 ]
 
 // 角色 system prompt 构造
@@ -209,14 +211,13 @@ export async function handleRoundtable(req, res, body) {
   try {
     const rawContent = await callLLM({
       messages,
-      // 按角色选模型：roleDef.model 存在则用指定模型（当前仅 critic -> glm-5.2），
-      // 不传或为空时回落到 llmClient 的 DEFAULT_MODEL（deepseek-v3.2），行为与旧版一致
+      // 全角色统一走 DEFAULT_MODEL（glm-5.2），不再按角色选模型
       model: roleDef.model || undefined,
       temperature: temperatureByRole[roleDef.id] ?? 0.9,
       maxTokens: 1500,  // 推理模型需预留推理 token（约 1500 = 推理 1000 + 回答 500）
-      // 按角色取超时：roleDef.timeout 存在则用该值（当前仅 critic -> 30000），否则回落 8000
+      // 按角色取超时：roleDef.timeout 存在则用该值，否则回落 8000（当前全部角色均配 30000）
       timeout: roleDef.timeout || 8000,
-      // 按角色禁用思考：仅 critic（GLM-5.2）为 true，其余角色 false，请求体不带 thinking 字段
+      // 全角色禁用思考（GLM-5.2 支持），避免推理草稿进正文 + 响应变慢
       disableThinking: roleDef.disableThinking || false
     })
 
