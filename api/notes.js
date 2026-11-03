@@ -109,9 +109,39 @@ export default async function handler(req, res) {
           note.title === undefined && note.content === undefined
 
         if (isPartialUpdate) {
+          // examScore（全局掌握度）属管理数据，必须管理员；viewCount/usefulCount 允许匿名，但走服务端自增
+          if (note.examScore !== undefined) {
+            const auth = await requireAuth(req)
+            if (auth.error) {
+              return res.status(auth.status).json({ error: auth.error })
+            }
+            if (auth.user.role !== 'admin') {
+              return res.status(403).json({ error: '无权限，仅管理员可修改掌握度' })
+            }
+          }
+
           const patchData = {}
-          if (note.viewCount !== undefined) patchData.view_count = note.viewCount
-          if (note.usefulCount !== undefined) patchData.useful_count = note.usefulCount
+          // 忽略客户端传值：先读当前值再 +1，防止匿名把计数改成任意值
+          if (note.viewCount !== undefined || note.usefulCount !== undefined) {
+            const fields = ['id']
+            if (note.viewCount !== undefined) fields.push('view_count')
+            if (note.usefulCount !== undefined) fields.push('useful_count')
+            const curRes = await fetch(`${supabaseUrl}/rest/v1/notes?id=eq.${note.id}&select=${fields.join(',')}`, {
+              headers: {
+                apikey: supabaseKey,
+                Authorization: `Bearer ${supabaseKey}`
+              }
+            })
+            if (!curRes.ok) {
+              throw new Error(`读取笔记 ${note.id} 计数失败: ${curRes.status}`)
+            }
+            const rows = await curRes.json()
+            if (!rows.length) {
+              throw new Error(`笔记 ${note.id} 不存在`)
+            }
+            if (note.viewCount !== undefined) patchData.view_count = (rows[0].view_count || 0) + 1
+            if (note.usefulCount !== undefined) patchData.useful_count = (rows[0].useful_count || 0) + 1
+          }
           if (note.examScore !== undefined) patchData.exam_score = note.examScore
 
           const response = await fetch(`${supabaseUrl}/rest/v1/notes?id=eq.${note.id}&select=*`, {
