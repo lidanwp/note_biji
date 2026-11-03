@@ -106,15 +106,46 @@ const syncAiBubble = () => {
   }
 }
 
-const openAi = () => {
+// 千帆聊天窗是否真的可见：SDK 关闭时常常只是隐藏节点而不移除，
+// 必须连祖先链一起查 display/visibility/opacity + 实际尺寸 + 是否在视口内，
+// 否则会被误判为“已打开”而不去触发点击
+const isConvVisible = () => {
   const conv = document.querySelector('.appbuilder-bubbleContent')
-  if (conv && conv.getClientRects().length > 0) {
-    close()
+  if (!conv) return false
+  let visible = false
+  if (typeof conv.checkVisibility === 'function') {
+    visible = conv.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+  } else {
+    const style = window.getComputedStyle(conv)
+    visible = style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity) !== 0
+  }
+  if (!visible) return false
+  const rect = conv.getBoundingClientRect()
+  if (rect.width === 0 || rect.height === 0) return false
+  // 关闭状态下可能被 transform 移出视口
+  if (rect.right <= 0 || rect.bottom <= 0 || rect.left >= window.innerWidth || rect.top >= window.innerHeight) return false
+  return true
+}
+
+const openAi = () => {
+  close()
+  const img = document.getElementById('embed-lite-bubble-image')
+  if (!img) return
+
+  if (isConvVisible()) {
+    // 聊天窗开着 → 交给 SDK 自己切换为关闭
+    img.click()
     return
   }
-  const img = document.getElementById('embed-lite-bubble-image')
-  if (img) img.click()
-  close()
+
+  img.click()
+  // 兜底：350ms 后仍未出现可见聊天窗（SDK 内部状态不同步/节点重建后未绑定），
+  // 再点一次 —— toggle 语义下“无效的第一次点击”正好把状态拨回可打开位
+  setTimeout(() => {
+    if (isConvVisible()) return
+    const retryImg = document.getElementById('embed-lite-bubble-image')
+    if (retryImg) retryImg.click()
+  }, 350)
 }
 
 const jumpToTags = () => {
