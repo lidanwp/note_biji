@@ -3,6 +3,7 @@
     <ErrorBoundary @retry="handleRetry">
       <router-view />
     </ErrorBoundary>
+    <SideRail />
     <Toast ref="toastRef" />
     <div v-if="loadingState" class="global-loading">
       <div class="loading-spinner"></div>
@@ -16,6 +17,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useAuthStore } from './stores/auth'
 import Toast from './components/Toast.vue'
 import ErrorBoundary from './components/ErrorBoundary.vue'
+import SideRail from './components/SideRail.vue'
 import { setToastInstance } from './utils/toast'
 import { loadingState, loadingMessage, useLoading } from './utils/loading'
 

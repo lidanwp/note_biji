@@ -10,6 +10,10 @@
     <title>项目集成笔记</title>
     <!-- 千帆 EmbedLiteSDK 聊天气泡：手机端覆盖为全屏，电脑端保持默认气泡样式 -->
     <style>
+      /* 隐藏 SDK 自带常驻气泡，改由右侧抽屉（SideRail）代理入口 */
+      #embed-lite {
+        display: none !important;
+      }
       @media (max-width: 768px) {
         .appbuilder-bubbleContent.appbuilder-bubbleContent {
           width: 100vw !important;
