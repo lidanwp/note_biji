@@ -32,8 +32,47 @@ export default async function handler(req, res) {
 
   if (req.method === 'GET') {
     const noteId = req.query?.noteId || req.query?.note_id
+
+    // 无 noteId：后台管理页拉取全部评论，仅管理员
     if (!noteId) {
-      return res.status(400).json({ error: '缺少 noteId 参数' })
+      const auth = await requireAuth(req)
+      if (auth.error) {
+        return res.status(auth.status).json({ error: auth.error })
+      }
+      if (auth.user.role !== 'admin') {
+        return res.status(403).json({ error: '无权限，仅管理员可查看全部评论' })
+      }
+
+      try {
+        const [commentsRes, notesRes] = await Promise.all([
+          fetch(`${supabaseUrl}/rest/v1/comments?select=*&order=created_at.desc`, {
+            headers: {
+              apikey: supabaseKey,
+              Authorization: `Bearer ${supabaseKey}`
+            }
+          }),
+          fetch(`${supabaseUrl}/rest/v1/notes?select=id,title`, {
+            headers: {
+              apikey: supabaseKey,
+              Authorization: `Bearer ${supabaseKey}`
+            }
+          })
+        ])
+
+        if (!commentsRes.ok || !notesRes.ok) {
+          throw new Error(`Supabase 请求失败: comments=${commentsRes.status}, notes=${notesRes.status}`)
+        }
+
+        const [comments, notes] = await Promise.all([commentsRes.json(), notesRes.json()])
+        const titleMap = Object.fromEntries((notes || []).map(n => [n.id, n.title]))
+        const result = (comments || []).map(c => ({ ...c, note_title: titleMap[c.note_id] || `笔记#${c.note_id}` }))
+
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+        return res.status(200).json(result)
+      } catch (error) {
+        console.error('comments GET (admin) error:', error)
+        return res.status(500).json({ error: error.message })
+      }
     }
 
     try {

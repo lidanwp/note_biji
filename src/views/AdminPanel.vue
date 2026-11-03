@@ -68,23 +68,20 @@
       <CustomSelect v-model="notesStore.knowledgeAreaFilter" :options="knowledgeAreaOptions" placeholder="全部知识领域" class="filter-cs" />
       <div class="mode-switch">
         <button 
-          @click="examMode = false" 
-          :class="{ active: !examMode }"
+          @click="commentMode = false" 
+          :class="{ active: !commentMode }"
           class="mode-btn"
         >
           📖 学习
         </button>
         <button 
-          @click="examMode = true" 
-          :class="{ active: examMode }"
+          @click="enterCommentMode" 
+          :class="{ active: commentMode }"
           class="mode-btn"
         >
-          🎯 考试
+          💬 评论
         </button>
       </div>
-      <span v-if="examMode" class="mastery-indicator">
-        📊 掌握度：{{ avgMastery }}%
-      </span>
     </div>
 
     <div class="main-content">
@@ -92,7 +89,7 @@
         <div class="loading-spinner"></div>
         <span>加载中...</span>
       </div>
-      <div class="note-grid" v-show="!isLoading">
+      <div class="note-grid" v-show="!isLoading && !commentMode">
         <div v-for="note in paginatedNotes" :key="note.id" class="note-card" @click="editNote(note)">
           <div class="card-body">
             <h3 class="card-title">{{ note.title }}</h3>
@@ -118,53 +115,6 @@
             <button @click.stop="editNote(note)" class="btn-edit" title="编辑">✏️</button>
             <button @click.stop="deleteNote(note.id)" class="btn-delete" title="删除">🗑️</button>
           </div>
-
-          <div v-if="examMode && note.examMapping" class="card-exam-details">
-            <div v-if="note.examMapping.relatedProcesses?.length" class="exam-process">
-              <span class="process-label">📋 关联：</span>
-              <span class="process-tag" v-for="p in note.examMapping.relatedProcesses" :key="p">
-                {{ p }}
-              </span>
-            </div>
-            
-            <div v-if="note.examMapping.typicalQuestions?.length" class="exam-section">
-              <span class="section-label">📝 典型考法：</span>
-              <ul>
-                <li v-for="q in note.examMapping.typicalQuestions" :key="q">{{ q }}</li>
-              </ul>
-            </div>
-            
-            <div v-if="note.examMapping.commonPitfalls?.length" class="exam-section pitfall">
-              <span class="section-label">⚠️ 常见陷阱：</span>
-              <ul>
-                <li v-for="p in note.examMapping.commonPitfalls" :key="p">{{ p }}</li>
-              </ul>
-            </div>
-            
-            <div v-if="note.comparisonTable?.enabled" class="comparison-box">
-              <h4>📊 {{ note.comparisonTable.title || '易混对比' }}</h4>
-              <table>
-                <thead>
-                  <tr>
-                    <th>对比项</th>
-                    <th v-for="col in note.comparisonTable.cols" :key="col">{{ col }}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="row in note.comparisonTable.rows" :key="row.label">
-                    <td><strong>{{ row.label }}</strong></td>
-                    <td v-for="col in note.comparisonTable.cols" :key="col">{{ row.values[col] || '-' }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            
-            <div v-if="note.memoryAids?.length" class="memory-box">
-              <div v-for="(item, index) in note.memoryAids" :key="index" class="memory-item">
-                {{ item }}
-              </div>
-            </div>
-          </div>
         </div>
 
         <div v-if="paginatedNotes.length === 0 && !isLoading" class="empty">
@@ -172,50 +122,36 @@
         </div>
       </div>
       
-      <!-- 侧边面板 - 考试模式统计 -->
-      <aside v-if="examMode" class="side-panel">
-        <div class="panel-card">
-          <h4>🔥 高频考点 TOP5</h4>
-          <ul>
-            <li v-for="topic in hotTopics" :key="topic.name">
-              <span class="topic-name">{{ topic.name }}</span>
-              <span class="topic-count">{{ topic.count }}次</span>
-            </li>
-          </ul>
+      <!-- 评论模式：管理全部评论 -->
+      <div v-if="commentMode" class="comments-admin">
+        <div v-if="commentsLoading" class="loading-overlay">
+          <div class="loading-spinner"></div>
+          <span>加载评论...</span>
         </div>
-
-        <div class="panel-card">
-          <h4>📊 过程组分布</h4>
-          <div v-for="(count, group) in processGroupStats" :key="group" class="process-bar">
-            <span>{{ group }}</span>
-            <div class="bar-track"><div class="bar-fill" :style="{ width: count + '%' }"></div></div>
-            <span class="bar-label">{{ count }}%</span>
+        <template v-else>
+          <div v-if="filteredComments.length === 0" class="empty">
+            <p>暂无评论</p>
           </div>
-        </div>
-
-        <div class="panel-card">
-          <h4>📈 掌握度分布</h4>
-          <div class="mastery-item">
-            <span>✅ 已掌握 (≥80%)</span>
-            <span class="mastery-count">{{ masteryDistribution.high }}条</span>
+          <div v-for="c in filteredComments" :key="c.id" class="comment-admin-item">
+            <div class="comment-admin-head">
+              <span class="comment-admin-note">📄 {{ c.note_title }}</span>
+              <span class="comment-admin-time">{{ formatCommentTime(c.created_at) }}</span>
+            </div>
+            <div class="comment-admin-body">{{ c.content }}</div>
+            <div class="comment-admin-foot">
+              <span class="comment-admin-user">👤 {{ c.username || '匿名用户' }}</span>
+              <button @click="deleteComment(c)" class="btn-delete-comment">🗑️ 删除</button>
+            </div>
           </div>
-          <div class="mastery-item">
-            <span>📖 学习中 (40-79%)</span>
-            <span class="mastery-count">{{ masteryDistribution.mid }}条</span>
-          </div>
-          <div class="mastery-item">
-            <span>🔴 待加强 (&lt;40%)</span>
-            <span class="mastery-count">{{ masteryDistribution.low }}条</span>
-          </div>
-        </div>
-      </aside>
+        </template>
+      </div>
     </div>
 
     <Pagination
       v-model:currentPage="notesStore.currentPage"
       v-model:pageSize="notesStore.pageSize"
       :total="totalNotes"
-      v-show="!isLoading"
+      v-show="!isLoading && !commentMode"
     />
 
     <!-- ===== 新建/编辑模态框 ===== -->
@@ -475,7 +411,9 @@ const uploadingAudio = ref(false)
 // ===== 数据 =====
 const showModal = ref(false)
 const isEditMode = ref(false)
-const examMode = ref(false)
+const commentMode = ref(false)
+const commentsLoading = ref(false)
+const comments = ref([])
 const activeTab = ref('basic')
 const showUserMenu = ref(false)
 const userMenuRef = ref(null)
@@ -605,56 +543,73 @@ const handleClickOutside = (e) => {
   showUserMenu.value = false
 }
 
-// ===== 考试模式计算属性 =====
-const avgMastery = computed(() => {
-  const scored = notesStore.notes.filter(n => n.examScore != null)
-  if (!scored.length) return 0
-  return Math.round(scored.reduce((s, n) => s + n.examScore, 0) / scored.length)
-})
+// ===== 评论模式 =====
+function getAuthHeader() {
+  const headers = { 'Content-Type': 'application/json' }
+  try {
+    const stored = localStorage.getItem('auth')
+    if (stored) {
+      const { token } = JSON.parse(stored)
+      if (token) headers['Authorization'] = `Bearer ${token}`
+    }
+  } catch (_) {}
+  return headers
+}
 
-const examNotesCount = computed(() => {
-  return notesStore.notes.filter(n => 
-    n.examMapping?.typicalQuestions?.length || 
-    n.examMapping?.commonPitfalls?.length ||
-    n.comparisonTable?.enabled ||
-    n.memoryAids?.length
-  ).length
-})
-
-const hotTopics = computed(() => {
-  const map = {}
-  notesStore.notes.forEach(n => {
-    ;(n.tags || []).forEach(t => {
-      map[t] = (map[t] || 0) + 1
-    })
-  })
-  return Object.entries(map)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([name, count]) => ({ name, count }))
-})
-
-const processGroupStats = computed(() => {
-  const map = {}
-  const groups = ['启动', '规划', '执行', '监控', '收尾']
-  notesStore.notes.forEach(n => {
-    const found = groups.find(g => n.category?.includes(g))
-    if (found) map[found] = (map[found] || 0) + 1
-  })
-  const total = notesStore.notes.length || 1
-  return Object.fromEntries(
-    Object.entries(map).map(([k, v]) => [k, Math.round(v / total * 100)])
+const filteredComments = computed(() => {
+  const kw = (notesStore.search || '').trim().toLowerCase()
+  if (!kw) return comments.value
+  return comments.value.filter(c =>
+    (c.content || '').toLowerCase().includes(kw) ||
+    (c.username || '').toLowerCase().includes(kw) ||
+    (c.note_title || '').toLowerCase().includes(kw)
   )
 })
 
-const masteryDistribution = computed(() => {
-  const scores = notesStore.notes.filter(n => n.examScore != null).map(n => n.examScore)
-  return {
-    high: scores.filter(s => s >= 80).length,
-    mid: scores.filter(s => s >= 40 && s < 80).length,
-    low: scores.filter(s => s < 40).length
+const enterCommentMode = async () => {
+  commentMode.value = true
+  await loadAdminComments()
+}
+
+const loadAdminComments = async () => {
+  commentsLoading.value = true
+  try {
+    const res = await fetch('/api/comments', { headers: getAuthHeader() })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || `加载评论失败: ${res.status}`)
+    }
+    comments.value = await res.json()
+  } catch (e) {
+    toastError(e.message || '评论加载失败')
+  } finally {
+    commentsLoading.value = false
   }
-})
+}
+
+const formatCommentTime = (t) => {
+  if (!t) return ''
+  return new Date(t).toLocaleString('zh-CN', { hour12: false })
+}
+
+const deleteComment = async (c) => {
+  if (!confirm(`确定删除「${c.username || '匿名用户'}」的这条评论吗？`)) return
+  try {
+    const res = await fetch('/api/comments', {
+      method: 'POST',
+      headers: getAuthHeader(),
+      body: JSON.stringify({ action: 'delete', id: c.id })
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || '删除失败')
+    }
+    comments.value = comments.value.filter(item => item.id !== c.id)
+    toastSuccess('评论已删除')
+  } catch (e) {
+    toastError(e.message || '删除评论失败')
+  }
+}
 
 // ===== Markdown 渲染（用于预览） =====
 const renderMarkdown = (content) => {
@@ -1513,72 +1468,79 @@ header {
   min-width: 0;
 }
 
-.side-panel {
-  display: none;
+/* ===== 评论模式 ===== */
+.comments-admin {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+  position: relative;
 }
 
-.panel-card {
+.comment-admin-item {
   background: white;
-  padding: 16px;
   border-radius: 12px;
+  padding: 14px 16px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 
-.panel-card h4 {
-  margin: 0 0 12px 0;
-  font-size: 14px;
-  color: #333;
-}
-
-.panel-card ul {
-  padding: 0;
-  list-style: none;
-  margin: 0;
-}
-
-.panel-card li {
+.comment-admin-head {
   display: flex;
   justify-content: space-between;
-  padding: 5px 0;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.comment-admin-note {
   font-size: 13px;
-  border-bottom: 1px solid #f5f7fa;
-}
-
-.panel-card li:last-child { border-bottom: none; }
-
-.process-bar .bar-track {
-  flex: 1;
-  height: 6px;
-  background: #eee;
-  border-radius: 3px;
-  overflow: hidden;
-}
-
-.process-bar .bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #667eea, #764ba2);
-  border-radius: 3px;
-}
-
-.process-bar .bar-label {
-  font-size: 12px;
-  color: #999;
-  min-width: 32px;
-}
-
-.mastery-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 6px 0;
-  font-size: 13px;
-  border-bottom: 1px solid #f5f7fa;
-}
-
-.mastery-item:last-child { border-bottom: none; }
-
-.mastery-count {
   font-weight: 600;
   color: #667eea;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.comment-admin-time {
+  font-size: 12px;
+  color: #999;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.comment-admin-body {
+  font-size: 14px;
+  color: #333;
+  line-height: 1.6;
+  word-break: break-word;
+  white-space: pre-wrap;
+  margin-bottom: 10px;
+}
+
+.comment-admin-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.comment-admin-user {
+  font-size: 12px;
+  color: #888;
+}
+
+.btn-delete-comment {
+  border: none;
+  background: #fdf0f0;
+  color: #e05a5a;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-delete-comment:hover {
+  background: #f9e3e3;
 }
 
 .note-card {
@@ -1730,12 +1692,6 @@ header {
 .btn-edit:hover { background: #e3f2fd; }
 .btn-delete:hover { background: #fce4ec; }
 
-.card-exam-details {
-  padding: 12px 16px;
-  background: #f8f9fc;
-  border-top: 1px solid #e8ecf1;
-}
-
 .empty {
   grid-column: 1/-1;
   text-align: center;
@@ -1766,92 +1722,6 @@ header {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
-
-.process-label, .section-label {
-  font-weight: 600;
-  font-size: 13px;
-  color: #555;
-}
-
-.process-tag {
-  display: inline-block;
-  padding: 2px 10px;
-  background: #667eea20;
-  color: #667eea;
-  border-radius: 12px;
-  font-size: 12px;
-  margin-right: 6px;
-}
-
-.exam-section {
-  margin-top: 6px;
-}
-.exam-section ul {
-  margin: 2px 0 0 0;
-  padding-left: 20px;
-  font-size: 13px;
-  color: #555;
-}
-.exam-section.pitfall ul { color: #c0392b; }
-
-.comparison-box {
-  margin-top: 8px;
-  background: white;
-  border-radius: 6px;
-  border-left: 3px solid #667eea;
-  padding: 10px 12px;
-  overflow-x: auto;
-}
-.comparison-box h4 { margin: 0 0 6px 0; font-size: 14px; }
-.comparison-box table {
-  width: 100%;
-  font-size: 13px;
-  border-collapse: collapse;
-}
-.comparison-box th, .comparison-box td {
-  padding: 4px 10px;
-  border: 1px solid #e8ecf1;
-  text-align: left;
-}
-.comparison-box th { background: #f0f2ff; font-weight: 600; }
-.comparison-box td:first-child { font-weight: 500; }
-
-.memory-box {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  background: #fffbeb;
-  border-radius: 6px;
-  padding: 10px 14px;
-  border: 1px solid #fde68a;
-}
-.memory-box .memory-item {
-  font-size: 13px;
-  color: #92400e;
-  padding: 2px 0;
-}
-
-.mastery-bar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  font-size: 13px;
-}
-.mastery-bar .bar {
-  flex: 1;
-  height: 6px;
-  background: #eee;
-  border-radius: 3px;
-  overflow: hidden;
-}
-.mastery-bar .bar div {
-  height: 100%;
-  border-radius: 3px;
-  background: linear-gradient(90deg, #f97316, #22c55e);
-}
-.mastery-bar .score { font-weight: 600; color: #667eea; }
 
 .modal-overlay {
   position: fixed;
@@ -2346,17 +2216,6 @@ header {
     flex-direction: column;
     gap: 20px;
   }
-  .side-panel {
-    display: flex;
-    width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  .panel-card {
-    flex: 1;
-    min-width: 200px;
-  }
   .header-right {
     gap: 16px;
   }
@@ -2371,13 +2230,6 @@ header {
   .main-content {
     display: flex;
     gap: 24px;
-  }
-  .side-panel {
-    display: flex;
-    width: 280px;
-    flex-shrink: 0;
-    flex-direction: column;
-    gap: 16px;
   }
   .header-right {
     gap: 20px;
