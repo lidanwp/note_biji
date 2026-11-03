@@ -90,7 +90,16 @@
         <span>加载中...</span>
       </div>
       <div class="note-grid" v-show="!isLoading && !commentMode">
-        <div v-for="note in paginatedNotes" :key="note.id" class="note-card" @click="editNote(note)">
+        <div
+          v-for="note in paginatedNotes"
+          :key="note.id"
+          class="note-card"
+          role="button"
+          tabindex="0"
+          @click="editNote(note)"
+          @keydown.enter="editNote(note)"
+          @keydown.space.prevent="editNote(note)"
+        >
           <div class="card-body">
             <h3 class="card-title">{{ note.title }}</h3>
             <p class="card-summary">
@@ -106,8 +115,8 @@
           <div class="card-footer">
             <span class="category-tag">{{ note.category || '未分类' }}</span>
             <div class="card-footer-right">
-              <span class="card-date">📅 {{ note.date }}</span>
-              <span class="view-link">查看全文 →</span>
+              <span class="card-date">{{ note.date }}</span>
+              <span class="view-link">编辑 →</span>
             </div>
           </div>
         </div>
@@ -1963,11 +1972,16 @@ header {
 
 @media (prefers-reduced-motion: reduce) {
   .comment-admin-item,
-  .btn-delete-comment {
+  .btn-delete-comment,
+  .note-card,
+  .note-card::before,
+  .view-link {
     transition: none;
   }
   .comment-admin-item:hover,
-  .btn-delete-comment:active {
+  .btn-delete-comment:active,
+  .note-card:hover,
+  .note-card:active {
     transform: none;
   }
 }
@@ -1975,18 +1989,48 @@ header {
 .note-card {
   display: flex;
   flex-direction: column;
-  background: white;
-  border-radius: 14px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-  transition: all 0.25s ease;
+  background: #fff;
+  border: 1px solid #eef0f4;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
   overflow: hidden;
   cursor: pointer;
   position: relative;
   min-height: 220px;
 }
 
+/* 左侧强调条：hover 时才出现，作为可点击的视觉锚点 */
+.note-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #667eea, #764ba2);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.note-card:hover {
+  transform: translateY(-2px);
+  border-color: #d9ddff;
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.14);
+}
+
+.note-card:hover::before {
+  opacity: 1;
+}
+
 .note-card:active {
-  transform: scale(0.98);
+  transform: scale(0.99);
+}
+
+.note-card:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
 }
 
 .card-header {
@@ -2036,13 +2080,17 @@ header {
 
 .card-title {
   margin: 0 0 10px 0;
-  color: #333;
+  color: #1f2937;
   font-size: 17px;
   font-weight: 600;
-  line-height: 1.4;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  /* 固定两行高度：长短标题都不会造成卡片高低差 */
+  min-height: 49.3px;
 }
 
 .card-summary {
@@ -2064,7 +2112,6 @@ header {
   flex-wrap: nowrap;
   gap: 8px;
   overflow: hidden;
-  margin-top: auto;
 }
 
 .tag {
@@ -2085,9 +2132,9 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 20px;
-  border-top: 1px solid #f5f7fa;
-  background: #fafbfc;
+  margin-top: auto;
+  padding: 13px 20px 15px;
+  border-top: 1px solid #f1f3f7;
 }
 
 .category-tag {
@@ -2107,12 +2154,18 @@ header {
 .card-date {
   font-size: 13px;
   color: #6b7280;
+  font-variant-numeric: tabular-nums;
 }
 
 .view-link {
   font-size: 13px;
   color: #667eea;
   font-weight: 500;
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.note-card:hover .view-link {
+  color: #4f46e5;
 }
 
 .empty {
