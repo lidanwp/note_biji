@@ -110,11 +110,6 @@
               <span class="view-link">查看全文 →</span>
             </div>
           </div>
-
-          <div class="card-actions">
-            <button @click.stop="editNote(note)" class="btn-edit" title="编辑">✏️</button>
-            <button @click.stop="deleteNote(note.id)" class="btn-delete" title="删除">🗑️</button>
-          </div>
         </div>
 
         <div v-if="paginatedNotes.length === 0 && !isLoading" class="empty">
@@ -130,24 +125,25 @@
         </div>
         <template v-else>
           <div class="comments-admin-bar">
-            <span>共 <strong>{{ filteredComments.length }}</strong> 条评论</span>
+            <span>共 <strong>{{ comments.length }}</strong> 条评论（含回复）</span>
             <span class="comments-admin-hint">按时间倒序 · 搜索框可过滤</span>
           </div>
-          <div v-if="filteredComments.length === 0" class="comments-empty">
+          <div v-if="commentTree.length === 0" class="comments-empty">
             <div class="comments-empty-icon" aria-hidden="true">💬</div>
             <p class="comments-empty-title">暂无评论</p>
             <p class="comments-empty-desc">读者在前台笔记页留言后会出现在这里</p>
           </div>
-          <article v-for="c in filteredComments" :key="c.id" class="comment-admin-item">
-            <div class="comment-admin-avatar" aria-hidden="true">{{ avatarText(c.username) }}</div>
+          <article v-for="c in commentTree" :key="c.id" class="comment-admin-item">
+            <img :src="commentAvatarUrl(c.user_id)" class="comment-admin-avatar" alt="" aria-hidden="true" />
             <div class="comment-admin-main">
               <div class="comment-admin-head">
                 <span class="comment-admin-user">{{ c.username || '匿名用户' }}</span>
                 <time class="comment-admin-time" :datetime="c.created_at">{{ formatCommentTime(c.created_at) }}</time>
               </div>
-              <div class="comment-admin-note" :title="c.note_title">📄 {{ c.note_title }}</div>
+              <div class="comment-admin-note" :title="c.note_title">{{ c.note_title }}</div>
               <p class="comment-admin-body">{{ c.content }}</p>
               <div class="comment-admin-foot">
+                <button @click="startReply(c)" class="btn-reply-comment">↩ 回复</button>
                 <button
                   @click="deleteComment(c)"
                   class="btn-delete-comment"
@@ -156,6 +152,51 @@
                   <span class="btn-delete-icon" aria-hidden="true">🗑</span>
                   <span>删除</span>
                 </button>
+              </div>
+
+              <!-- 楼中楼：回复列表 -->
+              <div v-if="c.children?.length" class="comment-admin-replies">
+                <div v-for="r in c.children" :key="r.id" class="comment-admin-reply">
+                  <img :src="commentAvatarUrl(r.user_id)" class="comment-admin-avatar is-reply" alt="" aria-hidden="true" />
+                  <div class="comment-admin-reply-main">
+                    <div class="comment-admin-head">
+                      <span class="comment-admin-user">{{ r.username || '匿名用户' }}</span>
+                      <time class="comment-admin-time" :datetime="r.created_at">{{ formatCommentTime(r.created_at) }}</time>
+                    </div>
+                    <p class="comment-admin-body">{{ r.content }}</p>
+                    <div class="comment-admin-foot">
+                      <button
+                        @click="deleteComment(r)"
+                        class="btn-delete-comment"
+                        :aria-label="`删除 ${r.username || '匿名用户'} 的这条回复`"
+                      >
+                        <span class="btn-delete-icon" aria-hidden="true">🗑</span>
+                        <span>删除</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 内联回复输入框 -->
+              <div v-if="replyTargetId === c.id" class="comment-admin-reply-box">
+                <textarea
+                  v-model="replyContent"
+                  rows="2"
+                  placeholder="以管理员身份回复这条评论… (Ctrl+Enter 发送)"
+                  @keydown.ctrl.enter="submitReply"
+                  @keydown.meta.enter="submitReply"
+                ></textarea>
+                <div class="comment-admin-reply-actions">
+                  <button @click="cancelReply" class="btn-cancel-reply">取消</button>
+                  <button
+                    @click="submitReply"
+                    :disabled="!replyContent.trim() || replySubmitting"
+                    class="btn-submit-reply"
+                  >
+                    {{ replySubmitting ? '发送中…' : '发送回复' }}
+                  </button>
+                </div>
               </div>
             </div>
           </article>
@@ -174,7 +215,16 @@
     <div v-if="showModal" class="modal-overlay" @click="closeModal">
       <div class="modal modal-large" @click.stop>
         <div class="modal-header">
-          <h2>{{ isEditMode ? '✏️ 编辑笔记' : '📝 新建笔记' }}</h2>
+          <div class="modal-title-row">
+            <h2>{{ isEditMode ? '✏️ 编辑笔记' : '📝 新建笔记' }}</h2>
+            <button
+              v-if="isEditMode"
+              @click="deleteFromModal"
+              class="btn-modal-delete"
+              title="删除此笔记"
+              aria-label="删除此笔记"
+            >🗑️</button>
+          </div>
           <div class="modal-header-right">
             <span v-if="isSaving" class="draft-status saving">⏳ 保存中...</span>
             <span v-else-if="hasDraft" class="draft-status saved">💾 已自动保存</span>
@@ -572,14 +622,36 @@ function getAuthHeader() {
   return headers
 }
 
-const filteredComments = computed(() => {
+// 树形评论：根评论按时间倒序，回复按时间正序；搜索时保留命中评论及其所属根
+const commentTree = computed(() => {
   const kw = (notesStore.search || '').trim().toLowerCase()
-  if (!kw) return comments.value
-  return comments.value.filter(c =>
+  const nodeMap = new Map()
+  const roots = []
+
+  comments.value.forEach(c => nodeMap.set(c.id, { ...c, children: [] }))
+  comments.value.forEach(c => {
+    const node = nodeMap.get(c.id)
+    const parent = c.parent_id ? nodeMap.get(c.parent_id) : null
+    if (parent) {
+      parent.children.push(node)
+    } else {
+      roots.push(node)
+    }
+  })
+
+  roots.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+  roots.forEach(root => {
+    if (root.children?.length) {
+      root.children.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    }
+  })
+
+  if (!kw) return roots
+  const hit = (c) =>
     (c.content || '').toLowerCase().includes(kw) ||
     (c.username || '').toLowerCase().includes(kw) ||
     (c.note_title || '').toLowerCase().includes(kw)
-  )
+  return roots.filter(root => hit(root) || (root.children || []).some(hit))
 })
 
 const enterCommentMode = async () => {
@@ -608,10 +680,83 @@ const formatCommentTime = (t) => {
   return new Date(t).toLocaleString('zh-CN', { hour12: false })
 }
 
-const avatarText = (name) => {
-  const n = (name || '').trim()
-  if (!n) return '匿'
-  return n.slice(0, 1).toUpperCase()
+// ===== 头像：与前台 CommentItem 同款逻辑（user_id 哈希取 public 下的 SVG） =====
+const avatarFiles = [
+  '动物.svg',
+  '动物 (1).svg',
+  '动物乐园.svg',
+  '动物图标-上色-狐狸.svg',
+  '动物毁林.svg',
+  '卡通头像.svg',
+  '太阳.svg',
+  '小鸡 动物 鸟.svg',
+  '恐龙.svg',
+  '恐龙 节日-05.svg',
+  '牛.svg',
+  '狮子.svg',
+  '野生动物.svg',
+  '马赛克.svg',
+  '高兴.svg',
+  '高兴 (1).svg',
+  '困难.svg',
+  'icon_小恐龙.svg',
+  '野生动物图像识别.svg',
+  'Property 1=动物检测.svg'
+]
+
+const commentAvatarUrl = (userId) => {
+  if (!userId) return '/' + avatarFiles[0]
+  let hash = 0
+  const key = String(userId)
+  for (let i = 0; i < key.length; i++) {
+    hash = key.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return '/' + avatarFiles[Math.abs(hash) % avatarFiles.length]
+}
+
+// ===== 回复 =====
+const replyTargetId = ref(null)
+const replyContent = ref('')
+const replySubmitting = ref(false)
+
+const startReply = (c) => {
+  replyTargetId.value = c.id
+  replyContent.value = ''
+}
+
+const cancelReply = () => {
+  replyTargetId.value = null
+  replyContent.value = ''
+}
+
+const submitReply = async () => {
+  const target = comments.value.find(c => c.id === replyTargetId.value)
+  const content = replyContent.value.trim()
+  if (!target || !content || replySubmitting.value) return
+
+  replySubmitting.value = true
+  try {
+    const res = await fetch('/api/comments', {
+      method: 'POST',
+      headers: getAuthHeader(),
+      body: JSON.stringify({
+        note_id: Number(target.note_id),
+        content,
+        parent_id: target.id
+      })
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error(err.error || `回复失败: ${res.status}`)
+    }
+    cancelReply()
+    toastSuccess('回复已发布')
+    await loadAdminComments()
+  } catch (e) {
+    toastError(e.message || '回复失败')
+  } finally {
+    replySubmitting.value = false
+  }
 }
 
 const deleteComment = async (c) => {
@@ -1121,9 +1266,22 @@ const deleteNote = async (id) => {
     try {
       await notesStore.deleteNote(id)
       toastSuccess('删除成功')
+      return true
     } catch (e) {
       toastError('删除失败，请重试')
+      return false
     }
+  }
+  return false
+}
+
+// 从编辑弹窗删除当前笔记：成功后关闭弹窗
+const deleteFromModal = async () => {
+  const id = form.id
+  if (!id) return
+  const ok = await deleteNote(id)
+  if (ok && !notesStore.getNoteById(id)) {
+    closeModal()
   }
 }
 
@@ -1485,7 +1643,7 @@ header {
 .note-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 16px;
+  gap: 20px;
   flex: 1;
   min-width: 0;
 }
@@ -1543,14 +1701,13 @@ header {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  user-select: none;
+  object-fit: cover;
+  background: #eef0f4;
+}
+
+.comment-admin-avatar.is-reply {
+  width: 28px;
+  height: 28px;
 }
 
 .comment-admin-main {
@@ -1608,7 +1765,136 @@ header {
 
 .comment-admin-foot {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn-reply-comment {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #4f46e5;
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+
+.btn-reply-comment:hover {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+.btn-reply-comment:active {
+  transform: scale(0.96);
+}
+
+.btn-reply-comment:focus-visible,
+.btn-cancel-reply:focus-visible,
+.btn-submit-reply:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* 楼中楼回复 */
+.comment-admin-replies {
+  margin-top: 10px;
+  padding-left: 14px;
+  border-left: 2px solid #eef0f4;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.comment-admin-reply {
+  display: flex;
+  gap: 10px;
+}
+
+.comment-admin-reply-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.comment-admin-reply-main .comment-admin-body {
+  margin-bottom: 6px;
+  font-size: 13.5px;
+}
+
+/* 内联回复输入框 */
+.comment-admin-reply-box {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comment-admin-reply-box textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-family: inherit;
+  line-height: 1.6;
+  resize: vertical;
+  color: #1f2937;
+}
+
+.comment-admin-reply-box textarea:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
+}
+
+.comment-admin-reply-actions {
+  display: flex;
   justify-content: flex-end;
+  gap: 8px;
+}
+
+.btn-cancel-reply {
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #374151;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-cancel-reply:hover {
+  background: #f5f7fa;
+}
+
+.btn-submit-reply {
+  border: none;
+  background: #667eea;
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.btn-submit-reply:hover:not(:disabled) {
+  background: #5a6fd6;
+}
+
+.btn-submit-reply:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.btn-submit-reply:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .btn-delete-comment {
@@ -1696,6 +1982,7 @@ header {
   overflow: hidden;
   cursor: pointer;
   position: relative;
+  min-height: 220px;
 }
 
 .note-card:active {
@@ -1706,7 +1993,7 @@ header {
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  padding: 14px 16px;
+  padding: 16px 20px 8px;
 }
 
 .card-top-left {
@@ -1744,11 +2031,11 @@ header {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: 0 16px 14px;
+  padding: 2px 20px 18px;
 }
 
 .card-title {
-  margin: 0 0 8px 0;
+  margin: 0 0 10px 0;
   color: #333;
   font-size: 17px;
   font-weight: 600;
@@ -1767,7 +2054,7 @@ header {
   line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  margin: 0 0 10px 0;
+  margin: 0 0 14px 0;
   /* 固定两行高度：短内容也占位，保证卡片节奏一致 */
   min-height: 44.8px;
 }
@@ -1775,7 +2062,7 @@ header {
 .card-tags {
   display: flex;
   flex-wrap: nowrap;
-  gap: 6px;
+  gap: 8px;
   overflow: hidden;
   margin-top: auto;
 }
@@ -1785,7 +2072,7 @@ header {
   font-size: 12px;
   color: #667eea;
   background: #eef0ff;
-  padding: 2px 10px;
+  padding: 3px 12px;
   border-radius: 12px;
 }
 
@@ -1798,7 +2085,7 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 16px;
+  padding: 14px 20px;
   border-top: 1px solid #f5f7fa;
   background: #fafbfc;
 }
@@ -1827,27 +2114,6 @@ header {
   color: #667eea;
   font-weight: 500;
 }
-
-.card-actions {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: flex;
-  gap: 4px;
-}
-
-.card-actions button {
-  background: rgba(255,255,255,0.9);
-  border: none;
-  cursor: pointer;
-  font-size: 14px;
-  padding: 6px;
-  border-radius: 8px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
-}
-
-.btn-edit:hover { background: #e3f2fd; }
-.btn-delete:hover { background: #fce4ec; }
 
 .empty {
   grid-column: 1/-1;
@@ -1912,6 +2178,38 @@ header {
 }
 
 .modal-header h2 { margin: 0; }
+
+.modal-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.btn-modal-delete {
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+}
+
+.btn-modal-delete:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+}
+
+.btn-modal-delete:active {
+  transform: scale(0.94);
+}
+
+.btn-modal-delete:focus-visible {
+  outline: 2px solid #b91c1c;
+  outline-offset: 2px;
+}
 
 .modal-header-right {
   display: flex;
@@ -2408,7 +2706,10 @@ header {
   .comment-admin-avatar {
     width: 32px;
     height: 32px;
-    font-size: 13px;
+  }
+  .comment-admin-avatar.is-reply {
+    width: 26px;
+    height: 26px;
   }
   .comment-admin-head {
     flex-wrap: wrap;
