@@ -94,7 +94,7 @@
           <div class="card-body">
             <h3 class="card-title">{{ note.title }}</h3>
             <p class="card-summary">
-              {{ note.scenario ? note.scenario.slice(0, 100) + (note.scenario.length > 100 ? '...' : '') : '暂无内容' }}
+              {{ note.scenario || '暂无内容' }}
             </p>
             
             <div v-if="note.tags?.length" class="card-tags">
@@ -129,20 +129,36 @@
           <span>加载评论...</span>
         </div>
         <template v-else>
-          <div v-if="filteredComments.length === 0" class="empty">
-            <p>暂无评论</p>
+          <div class="comments-admin-bar">
+            <span>共 <strong>{{ filteredComments.length }}</strong> 条评论</span>
+            <span class="comments-admin-hint">按时间倒序 · 搜索框可过滤</span>
           </div>
-          <div v-for="c in filteredComments" :key="c.id" class="comment-admin-item">
-            <div class="comment-admin-head">
-              <span class="comment-admin-note">📄 {{ c.note_title }}</span>
-              <span class="comment-admin-time">{{ formatCommentTime(c.created_at) }}</span>
-            </div>
-            <div class="comment-admin-body">{{ c.content }}</div>
-            <div class="comment-admin-foot">
-              <span class="comment-admin-user">👤 {{ c.username || '匿名用户' }}</span>
-              <button @click="deleteComment(c)" class="btn-delete-comment">🗑️ 删除</button>
-            </div>
+          <div v-if="filteredComments.length === 0" class="comments-empty">
+            <div class="comments-empty-icon" aria-hidden="true">💬</div>
+            <p class="comments-empty-title">暂无评论</p>
+            <p class="comments-empty-desc">读者在前台笔记页留言后会出现在这里</p>
           </div>
+          <article v-for="c in filteredComments" :key="c.id" class="comment-admin-item">
+            <div class="comment-admin-avatar" aria-hidden="true">{{ avatarText(c.username) }}</div>
+            <div class="comment-admin-main">
+              <div class="comment-admin-head">
+                <span class="comment-admin-user">{{ c.username || '匿名用户' }}</span>
+                <time class="comment-admin-time" :datetime="c.created_at">{{ formatCommentTime(c.created_at) }}</time>
+              </div>
+              <div class="comment-admin-note" :title="c.note_title">📄 {{ c.note_title }}</div>
+              <p class="comment-admin-body">{{ c.content }}</p>
+              <div class="comment-admin-foot">
+                <button
+                  @click="deleteComment(c)"
+                  class="btn-delete-comment"
+                  :aria-label="`删除 ${c.username || '匿名用户'} 的这条评论`"
+                >
+                  <span class="btn-delete-icon" aria-hidden="true">🗑</span>
+                  <span>删除</span>
+                </button>
+              </div>
+            </div>
+          </article>
         </template>
       </div>
     </div>
@@ -590,6 +606,12 @@ const loadAdminComments = async () => {
 const formatCommentTime = (t) => {
   if (!t) return ''
   return new Date(t).toLocaleString('zh-CN', { hour12: false })
+}
+
+const avatarText = (name) => {
+  const n = (name || '').trim()
+  if (!n) return '匿'
+  return n.slice(0, 1).toUpperCase()
 }
 
 const deleteComment = async (c) => {
@@ -1478,72 +1500,195 @@ header {
   position: relative;
 }
 
+.comments-admin-bar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 2px;
+  font-size: 13px;
+  color: #6b7280; /* 4.83:1 on white */
+}
+
+.comments-admin-bar strong {
+  color: #4f46e5;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.comments-admin-hint {
+  font-size: 12px;
+  color: #6b7280;
+}
+
 .comment-admin-item {
-  background: white;
-  border-radius: 12px;
-  padding: 14px 16px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  display: flex;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid #eef0f4;
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(17, 24, 39, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.comment-admin-item:hover {
+  transform: translateY(-1px);
+  border-color: #d9ddff;
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.12);
+}
+
+.comment-admin-avatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  user-select: none;
+}
+
+.comment-admin-main {
+  flex: 1;
+  min-width: 0;
 }
 
 .comment-admin-head {
   display: flex;
+  align-items: baseline;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 8px;
+  gap: 12px;
+  margin-bottom: 6px;
 }
 
-.comment-admin-note {
-  font-size: 13px;
+.comment-admin-user {
+  font-size: 14px;
   font-weight: 600;
-  color: #667eea;
+  color: #1f2937;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .comment-admin-time {
-  font-size: 12px;
-  color: #999;
   flex-shrink: 0;
-  margin-left: 12px;
+  font-size: 12px;
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+
+.comment-admin-note {
+  display: inline-block;
+  max-width: 100%;
+  margin-bottom: 8px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4f46e5;
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .comment-admin-body {
+  margin: 0 0 10px;
   font-size: 14px;
-  color: #333;
-  line-height: 1.6;
+  line-height: 1.7;
+  color: #1f2937;
   word-break: break-word;
   white-space: pre-wrap;
-  margin-bottom: 10px;
 }
 
 .comment-admin-foot {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.comment-admin-user {
-  font-size: 12px;
-  color: #888;
+  justify-content: flex-end;
 }
 
 .btn-delete-comment {
-  border: none;
-  background: #fdf0f0;
-  color: #e05a5a;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid transparent;
+  background: #fef2f2;
+  color: #b91c1c; /* 5.9:1 on #fef2f2 */
   padding: 5px 12px;
   border-radius: 8px;
   font-size: 12px;
+  line-height: 1.4;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
 }
 
 .btn-delete-comment:hover {
-  background: #f9e3e3;
+  background: #fee2e2;
+  border-color: #fecaca;
+}
+
+.btn-delete-comment:active {
+  transform: scale(0.96);
+}
+
+.btn-delete-comment:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+.btn-delete-icon {
+  font-size: 12px;
+}
+
+.comments-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 64px 16px;
+  background: #fff;
+  border: 1px dashed #e5e8ef;
+  border-radius: 14px;
+  text-align: center;
+}
+
+.comments-empty-icon {
+  font-size: 32px;
+  opacity: 0.6;
+  margin-bottom: 4px;
+}
+
+.comments-empty-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.comments-empty-desc {
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .comment-admin-item,
+  .btn-delete-comment {
+    transition: none;
+  }
+  .comment-admin-item:hover,
+  .btn-delete-comment:active {
+    transform: none;
+  }
 }
 
 .note-card {
+  display: flex;
+  flex-direction: column;
   background: white;
   border-radius: 14px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.08);
@@ -1595,6 +1740,10 @@ header {
 }
 
 .card-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   padding: 0 16px 14px;
 }
 
@@ -1604,6 +1753,9 @@ header {
   font-size: 17px;
   font-weight: 600;
   line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .card-summary {
@@ -1616,15 +1768,20 @@ header {
   -webkit-box-orient: vertical;
   overflow: hidden;
   margin: 0 0 10px 0;
+  /* 固定两行高度：短内容也占位，保证卡片节奏一致 */
+  min-height: 44.8px;
 }
 
 .card-tags {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
+  overflow: hidden;
+  margin-top: auto;
 }
 
 .tag {
+  flex-shrink: 0;
   font-size: 12px;
   color: #667eea;
   background: #eef0ff;
@@ -1634,7 +1791,7 @@ header {
 
 .more-tag {
   background: #f5f7fa;
-  color: #999;
+  color: #6b7280;
 }
 
 .card-footer {
@@ -1662,7 +1819,7 @@ header {
 
 .card-date {
   font-size: 13px;
-  color: #999;
+  color: #6b7280;
 }
 
 .view-link {
@@ -2238,6 +2395,26 @@ header {
 
 @media (max-width: 767px) {
   .admin-panel { padding: 12px; }
+  .comments-admin-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+  .comments-admin-hint { display: none; }
+  .comment-admin-item {
+    padding: 12px;
+    gap: 10px;
+  }
+  .comment-admin-avatar {
+    width: 32px;
+    height: 32px;
+    font-size: 13px;
+  }
+  .comment-admin-head {
+    flex-wrap: wrap;
+    gap: 2px 8px;
+  }
+  .comment-admin-body { font-size: 13.5px; }
   .header-right {
     gap: 12px;
   }
