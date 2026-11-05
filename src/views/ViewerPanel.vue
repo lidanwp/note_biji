@@ -1309,7 +1309,12 @@ const handleTouchEnd = () => {
 
 const markUseful = (note) => {
   notesStore.incrementUsefulCount(note.id)
-  selectedNote.value = notesStore.getNoteById(note.id) || note
+  // 原地更新副本计数即可：不能把 selectedNote 换成 store 对象——
+  // 引用变化会触发 watch(selectedNote) 里的 scrollTo(top:0)，导致点赞后跳回顶部，
+  // 且会把已合并的 userExamScores 冲掉
+  if (selectedNote.value && selectedNote.value.id === note.id) {
+    selectedNote.value.usefulCount = (selectedNote.value.usefulCount || 0) + 1
+  }
 }
 
 const openNoteById = (noteId) => {
