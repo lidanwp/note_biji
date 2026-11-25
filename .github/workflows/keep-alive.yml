@@ -13,8 +13,8 @@ name: keep-alive
 #   每天有几次数据库请求」才算活动充分；且 cron 触发时间有 ±59 分钟抖动。
 #   本 workflow 每 3 小时跑一次，公开仓库的 Actions 分钟数不计量，更稳也更可控。
 #
-# 若后端配置了 CRON_SECRET 环境变量，请在仓库 Settings → Secrets → Actions
-# 里加一个同名 secret，否则请求会被 401 拒绝。
+# 说明：探针是 /api/notes?mode=ping，与 notes 的公开 GET 一样不做鉴权，
+# 只返回 ok 与延迟、不含业务数据，因此无需配置任何 secret。
 
 on:
   schedule:
@@ -38,14 +38,11 @@ jobs:
       - name: Ping keep-alive probe
         env:
           URL: https://bdxxg.asia/api/notes?mode=ping
-          # 未配置该 secret 时为空字符串，后端在未设置 CRON_SECRET 时不做校验
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -uo pipefail
           # _t 随机参数用于穿透 CDN 缓存（vercel.json 给 /api/notes 配了 s-maxage=30）
           code=$(curl -sS -o /tmp/probe.json -w '%{http_code}' \
             --max-time 25 --retry 2 --retry-delay 5 --retry-all-errors \
-            -H "Authorization: Bearer ${CRON_SECRET:-}" \
             -H "Cache-Control: no-cache" \
             "${URL}&_t=$(date +%s)")
           echo "HTTP $code"

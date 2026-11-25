@@ -10,7 +10,6 @@
  *
  * 环境变量：
  *   KEEP_ALIVE_URLS    目标地址，逗号分隔（默认 https://bdxxg.asia/api/notes?mode=ping）
- *   KEEP_ALIVE_SECRET  若后端配置了 CRON_SECRET，这里给同样的值（走 Bearer）
  *   KEEP_ALIVE_TIMEOUT 单次请求超时毫秒，默认 15000
  *
  * 退出码：0 = 全部成功，1 = 至少一个失败（常驻模式除外，常驻模式永不退出）
@@ -46,7 +45,6 @@ const urls = String(getArg('url') || process.env.KEEP_ALIVE_URLS || DEFAULT_URL)
   .map((u) => u.trim())
   .filter(Boolean)
 
-const secret = process.env.KEEP_ALIVE_SECRET || ''
 const timeoutArg = getArg('timeout')
 const timeout =
   (typeof timeoutArg === 'string' ? Number(timeoutArg) : 0) ||
@@ -78,8 +76,7 @@ async function ping(url) {
     const resp = await fetch(withCacheBuster(url), {
       method: 'GET',
       headers: {
-        'Cache-Control': 'no-cache',
-        ...(secret ? { Authorization: `Bearer ${secret}` } : {})
+        'Cache-Control': 'no-cache'
       },
       signal: controller.signal
     })
