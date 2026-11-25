@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "node node_modules/vite/dist/node/cli.js",
     "build": "node node_modules/vite/dist/node/cli.js build",
-    "preview": "node node_modules/vite/dist/node/cli.js preview"
+    "preview": "node node_modules/vite/dist/node/cli.js preview",
+    "keep-alive": "node scripts/keep-alive.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.3",
