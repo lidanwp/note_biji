@@ -107,7 +107,7 @@
         />
       </div>
     </teleport>
-    <!-- ===== AI 圆桌讨论（stats-bar 的 🎤 按钮控制显隐；面板自身 teleport 到 body） ===== -->
+    <!-- ===== AI 圆桌讨论（stats-bar 的「圆桌」按钮控制显隐；面板自身 teleport 到 body） ===== -->
     <RoundtableWidget v-model:open="showRoundtable" />
     <!-- ===== 搜索 + 筛选行 ===== -->
     <div class="filter-wrap">

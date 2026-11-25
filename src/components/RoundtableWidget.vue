@@ -6,7 +6,7 @@
         <!-- Header -->
         <div class="rt-header">
           <div class="rt-title">
-            <span>🎤 AI 圆桌讨论</span>
+            <span>AI 圆桌讨论</span>
           </div>
           <div class="rt-header-actions">
             <button
@@ -166,7 +166,7 @@ const store = useRoundtableStore()
 const ROLE_ICONS = Object.fromEntries(ROLES.map(r => [r.id, r.icon]))
 const iconOf = (msg) => msg.icon || ROLE_ICONS[msg.role] || ''
 
-// 面板显隐由父级（viewer 顶栏 🎤 按钮）控制
+// 面板显隐由父级（viewer 顶栏「圆桌」按钮）控制
 // 用法：<RoundtableWidget v-model:open="showRoundtable" />
 const props = defineProps({
   open: { type: Boolean, default: false }
