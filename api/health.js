@@ -8,8 +8,12 @@
  * 数据库活动，从而把「7 天不活动」的计时重置掉。
  *
  * 谁来定时打它：
- *   - 生产环境：vercel.json 里的 crons 配置（每天 1 次）
+ *   - 生产环境：.github/workflows/keep-alive.yml（每 3 小时一次）
  *   - 手动/自建：scripts/keep-alive.mjs
+ *
+ * 为什么不在 vercel.json 里配 crons：
+ *   加 crons 字段会让 Vercel 直接判部署失败（构建前的配置校验就挂），
+ *   而且 Hobby 计划本来也限制每天最多一次。详见 workflow 里的说明。
  *
  * 鉴权：
  *   若配置了环境变量 CRON_SECRET，则只接受 `Authorization: Bearer <secret>`

@@ -2,18 +2,20 @@ name: keep-alive
 
 # 作用：定期访问 /api/health，重置 Supabase 免费版「7 天低活动即暂停」的计时。
 #
-# 为什么不用 Vercel Cron 单独搞定：
-#   Vercel Hobby 计划限制 cron 只能「每天一次」，而 Supabase 官方口径是
-#   「过去一周里每天有几次数据库请求」才算活动充分。所以这里每 6 小时跑一次，
-#   Vercel Cron 作为兜底（vercel.json 的 crons 字段）。
+# 为什么不用 Vercel Cron：
+#   本项目在 vercel.json 里加过 crons 字段（/api/health，0 3 * * *），
+#   Vercel 侧直接判部署失败（GitHub commit status = failure，发生在构建前的
+#   配置校验阶段，12 秒即失败）。既然 Hobby 计划本来也限制为「每天最多一次」，
+#   而 Supabase 要求的是「每天几次数据库请求」，干脆完全交给本 workflow：
+#   公开仓库的 Actions 分钟数不计量，跑得比 Vercel cron 更勤也更可控。
 #
 # 若后端配置了 CRON_SECRET 环境变量，请在仓库 Settings → Secrets → Actions
 # 里加一个同名 secret，否则请求会被 401 拒绝。
 
 on:
   schedule:
-    # 每 6 小时一次（UTC）。避开整点：GitHub 整点排队的任务最多，容易延迟。
-    - cron: '7 */6 * * *'
+    # 每 3 小时一次（UTC），一天 8 次。避开整点：GitHub 整点排队的任务最多，容易延迟。
+    - cron: '17 */3 * * *'
   workflow_dispatch: # 支持在 Actions 页面手动点一次
 
 # 避免上一轮没跑完就叠加下一轮
