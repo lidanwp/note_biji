@@ -1,13 +1,17 @@
 name: keep-alive
 
-# 作用：定期访问 /api/health，重置 Supabase 免费版「7 天低活动即暂停」的计时。
+# 作用：定期访问 /api/notes?mode=ping，重置 Supabase 免费版「7 天低活动即暂停」的计时。
+#
+# 为什么探针挂在 /api/notes 而不是独立端点：
+#   Vercel Hobby 计划限制「每个部署最多 12 个 Serverless Functions」，
+#   本项目在 api/ 下本来正好是 12 个（_lib 不计入）。先前新增 api/health.js
+#   变成第 13 个，部署被直接拒绝（exceeded_serverless_functions_per_deployment），
+#   于是把探针改成 notes.js 里的 ?mode=ping 分支——不占函数名额。
 #
 # 为什么不用 Vercel Cron：
-#   本项目在 vercel.json 里加过 crons 字段（/api/health，0 3 * * *），
-#   Vercel 侧直接判部署失败（GitHub commit status = failure，发生在构建前的
-#   配置校验阶段，12 秒即失败）。既然 Hobby 计划本来也限制为「每天最多一次」，
-#   而 Supabase 要求的是「每天几次数据库请求」，干脆完全交给本 workflow：
-#   公开仓库的 Actions 分钟数不计量，跑得比 Vercel cron 更勤也更可控。
+#   Hobby 计划的 cron 只允许「每天一次」，而 Supabase 官方口径是「过去一周里
+#   每天有几次数据库请求」才算活动充分；且 cron 触发时间有 ±59 分钟抖动。
+#   本 workflow 每 3 小时跑一次，公开仓库的 Actions 分钟数不计量，更稳也更可控。
 #
 # 若后端配置了 CRON_SECRET 环境变量，请在仓库 Settings → Secrets → Actions
 # 里加一个同名 secret，否则请求会被 401 拒绝。
@@ -31,21 +35,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Ping /api/health
+      - name: Ping keep-alive probe
         env:
-          URL: https://bdxxg.asia/api/health
+          URL: https://bdxxg.asia/api/notes?mode=ping
           # 未配置该 secret 时为空字符串，后端在未设置 CRON_SECRET 时不做校验
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -uo pipefail
-          code=$(curl -sS -o /tmp/health.json -w '%{http_code}' \
+          # _t 随机参数用于穿透 CDN 缓存（vercel.json 给 /api/notes 配了 s-maxage=30）
+          code=$(curl -sS -o /tmp/probe.json -w '%{http_code}' \
             --max-time 25 --retry 2 --retry-delay 5 --retry-all-errors \
             -H "Authorization: Bearer ${CRON_SECRET:-}" \
             -H "Cache-Control: no-cache" \
-            "$URL")
+            "${URL}&_t=$(date +%s)")
           echo "HTTP $code"
           echo "--- body ---"
-          cat /tmp/health.json 2>/dev/null || true
+          cat /tmp/probe.json 2>/dev/null || true
           echo
           if [ "$code" != "200" ]; then
             echo "::error::保活请求失败，HTTP $code"

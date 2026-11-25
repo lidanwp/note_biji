@@ -5,18 +5,20 @@
  * 用法：
  *   node scripts/keep-alive.mjs                      # 打一次，成功 exit 0 / 失败 exit 1
  *   node scripts/keep-alive.mjs --interval=12h       # 常驻，每 12 小时打一次
- *   node scripts/keep-alive.mjs --url=https://xxx/api/health
+ *   node scripts/keep-alive.mjs --url=https://xxx/api/notes?mode=ping
  *   node scripts/keep-alive.mjs --once               # 显式单次（默认行为）
  *
  * 环境变量：
- *   KEEP_ALIVE_URLS    目标地址，逗号分隔（默认 https://bdxxg.asia/api/health）
+ *   KEEP_ALIVE_URLS    目标地址，逗号分隔（默认 https://bdxxg.asia/api/notes?mode=ping）
  *   KEEP_ALIVE_SECRET  若后端配置了 CRON_SECRET，这里给同样的值（走 Bearer）
  *   KEEP_ALIVE_TIMEOUT 单次请求超时毫秒，默认 15000
  *
  * 退出码：0 = 全部成功，1 = 至少一个失败（常驻模式除外，常驻模式永不退出）
  */
 
-const DEFAULT_URL = 'https://bdxxg.asia/api/health'
+// 探针挂在 /api/notes?mode=ping 上，而不是独立端点——Hobby 计划的 12 个
+// Serverless Functions 名额本项目已用满，详见 api/notes.js 里的注释。
+const DEFAULT_URL = 'https://bdxxg.asia/api/notes?mode=ping'
 const DEFAULT_TIMEOUT = 15000
 
 // ---- 参数解析 ----
@@ -55,6 +57,17 @@ const forever = Boolean(intervalMs)
 
 const stamp = () => new Date().toLocaleString('zh-CN', { hour12: false })
 
+/** 给 URL 追加随机参数，穿透 CDN 缓存（/api/notes 在 vercel.json 里配了 s-maxage=30） */
+function withCacheBuster(raw) {
+  try {
+    const u = new URL(raw)
+    u.searchParams.set('_t', `${Date.now()}${Math.floor(Math.random() * 1000)}`)
+    return u.toString()
+  } catch {
+    return raw
+  }
+}
+
 /** 打一个 URL，返回是否成功 */
 async function ping(url) {
   const controller = new AbortController()
@@ -62,7 +75,7 @@ async function ping(url) {
   const startedAt = Date.now()
 
   try {
-    const resp = await fetch(url, {
+    const resp = await fetch(withCacheBuster(url), {
       method: 'GET',
       headers: {
         'Cache-Control': 'no-cache',

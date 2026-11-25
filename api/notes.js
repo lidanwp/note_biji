@@ -31,6 +31,55 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
+    // ── 保活探针（?mode=ping）─────────────────────────────────────────
+    // 纯运维用途：只做主键一列一行的最轻读取，用来确认 Supabase 活着。
+    // 之所以挂在 notes 上而不是单独开 /api/health：Vercel Hobby 计划限制
+    // 每个部署最多 12 个 Serverless Functions，本项目原本就正好 12 个，
+    // 新增函数会让整个部署直接失败（exceeded_serverless_functions_per_deployment）。
+    // 不返回任何业务数据，也不能替代正常列表请求。
+    if (req.query?.mode === 'ping') {
+      const startedAt = Date.now()
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 8000)
+      // 覆盖 vercel.json 里给 /api/notes 配的 30s CDN 缓存，确保每次真打到库
+      res.setHeader('Cache-Control', 'no-store, max-age=0')
+      try {
+        const resp = await fetch(`${supabaseUrl}/rest/v1/notes?select=id&limit=1`, {
+          headers: {
+            apikey: supabaseKey,
+            Authorization: `Bearer ${supabaseKey}`,
+            Accept: 'application/json'
+          },
+          signal: controller.signal
+        })
+        if (!resp.ok) {
+          return res.status(502).json({
+            ok: false,
+            supabase: 'error',
+            status: resp.status,
+            ms: Date.now() - startedAt
+          })
+        }
+        return res.status(200).json({
+          ok: true,
+          service: 'note_biji',
+          supabase: 'awake',
+          ms: Date.now() - startedAt,
+          time: new Date().toISOString()
+        })
+      } catch (e) {
+        const isTimeout = e?.name === 'AbortError'
+        return res.status(502).json({
+          ok: false,
+          supabase: isTimeout ? 'timeout' : 'unreachable',
+          error: String(e?.message || e),
+          ms: Date.now() - startedAt
+        })
+      } finally {
+        clearTimeout(timer)
+      }
+    }
+
     // 轻量列表：裁剪 content 到前 200 字符做预览，不传 case_study/attachments 等大字段
     const isListMode = req.query?.mode === 'list'
 
